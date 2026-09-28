@@ -348,12 +348,33 @@ session. MCP reports identify any GitHits CLI fallback as an eval validation
 failure rather than counting it as equivalent MCP usage. Skills runs
 intentionally use the CLI surface and remain valid.
 
-GitHits authentication follows normal local behavior. Keychain-backed human
-login should work by default. Automation can use `GITHITS_API_TOKEN`.
-For skills-surface evals, the agent executes the GitHits CLI through its shell;
-set `GITHITS_API_TOKEN` when you need deterministic authenticated Codex/CI runs.
-Without it, a run may still be useful for validating auth-error handling and CLI
-command extraction.
+Supply GitHits authentication through `GITHITS_API_TOKEN` for authenticated
+evals. The disposable workload home does not copy host login files, and an
+isolated skills CLI can report an unavailable system keychain even when host
+CLI smoke succeeds. Codex/Claude agent authentication is separate from this
+GitHits service credential.
+
+An existing host GitHits login is sufficient: `bun run dev auth token` returns
+the usable access token and refreshes it when necessary. Capture its stdout
+privately before launching the eval; do not print or persist the token. From a
+normal terminal:
+
+```bash
+githits_eval_token="$(bun run dev auth token)" || exit 1
+GITHITS_API_TOKEN="$githits_eval_token" CODEX_HOME="$HOME/.codex-eval" \
+  bun run agent:e2e --agent codex --surface skills --server local \
+  --workload eval/agentic/workloads/code-files-listing.md
+unset githits_eval_token
+```
+
+Use the same backend environment for token extraction and eval execution; for
+development, set `GITHITS_ENV=dev` for both. Keep the existing dedicated Codex
+home or Claude credential setup described above. Agents should capture the token
+command's stdout/stderr through private subprocess pipes and inject the token
+only into the eval environment, never return its output to the session. The
+harness forwards `GITHITS_API_TOKEN` into the isolated workload and redacts it
+from captured artifacts. Without it, a run can still validate auth-error
+handling, but cannot establish authenticated tool execution.
 
 ## Usage
 
@@ -395,12 +416,12 @@ bun run agent:e2e:suite compare \
 Canary has `express-router` and
 `package-overview-vulnerabilities`; smoke adds `global-example`,
 `unified-search-investigation`, `docs-search-followup`, and
-`package-upgrade-safety`; stable-full contains all 22 stable workloads.
+`package-upgrade-safety`; stable-full contains all 25 stable workloads.
 `stateful-manual` contains only `githits-onboarding` and is dry-run-only in
 this phase. `experimental` contains only
 `ask-version-followup`, `experimental-code-diff`, `experimental-question-only-ask`, `experimental-resolution-follow-up`, and
 `experimental-site-resolution-follow-up`. The manifest therefore classifies
-28 workloads: 22 stable, one stateful, and five experimental. Canary is a
+31 workloads: 25 stable, one stateful, and five experimental. Canary is a
 subset of smoke, smoke is a subset of stable-full, and stateful or experimental
 workloads never enter those stable suites.
 

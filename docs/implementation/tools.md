@@ -316,6 +316,15 @@ skips CAS for path-only or unfocused hits. It requests the numbered
 fields, and crawled previews need no repository CAS. This establishes a per-hit
 read contract, not a measured latency improvement. Rendering never fetches or
 stitches source.
+
+The v31 evidence client merged in PR
+[#423](https://github.com/githits-com/githits-cli/pull/423) on 2026-09-28.
+CLI/MCP live smoke and a targeted Codex descriptor eval passed, with no reported
+isolation violations. Development queries verified path-only hits, matched source,
+and crawled previews without retired fields. Producer source and tests established
+the per-hit CAS selection contract; no live CAS telemetry or latency improvement
+was measured. Review corrected stale output types before merge.
+
 New clients require
 the producer's September 7 v31 additive schema; no older-schema retry is
 introduced. After client
@@ -399,6 +408,13 @@ contributors are not copied onto generic progress targets, and
 **Filter-aware summary.** `min_severity`, `advisory_scope`, and `include_withdrawn` are passed straight through to the service. `summary.total` always means advisories affecting the inspected version, preserving the risk signal even when `advisory_scope:"non_affecting"` returns only historical rows. `advisory_scope` defaults to `affected`; `non_affecting` lists historical package advisories that do not affect the inspected version; `all` lists affected + historical rows. Explicit filters and non-default scope are echoed as top-level `filter` in JSON (`{minSeverity?, advisoryScope?, includeWithdrawn?: true}`) and as `Filter` / `Scope` lines in text. Defaults and explicit `include_withdrawn:false` do not echo.
 
 **Compact text vs verbose/JSON.** CLI default text renders every selected direct and transitive advisory row with no advisory-row cap. MCP compact text caps the selected advisory list at 5 rendered rows and appends its surface-native hint (`use verbose=true or format=json`). Hidden-advisory counts are derived from the rendered advisory array, not backend summary counts. `--verbose` / `verbose:true` adds aliases, dates where relevant, and complete range/fix evidence without changing CLI row completeness; MCP verbose text shows all rows and full detail rows. JSON is never capped and ignores `verbose`.
+
+Direct advisory headlines label the service's `affectsInspectedVersion: true`
+as `[affects this version]` and `false` as `[historical]`, in compact and verbose
+CLI/MCP text. This keeps mixed `all`-scope rows distinct even when a historical
+critical advisory sorts before active lower-severity advisories. An omitted
+status stays unlabeled; the formatter does not infer applicability from severity
+or truncated affected ranges. JSON preserves the existing status field.
 
 **Partitioning buckets.** Advisories with `isMalicious: true` count **only** under `summary.bySeverity.malware`; severity bands (`critical`/`high`/`medium`/`low`) count non-malicious advisories with a positive CVSS score; non-malicious advisories with no score count under `summary.bySeverity.unrated`. Every returned advisory lands in exactly one bucket. For default affected scope, the bucket sum equals `summary.total`. For `non_affecting` / `all`, the bucket sum describes the selected advisory rows while `summary.total` still describes affected-version risk. The malware bucket sorts to the top of the advisory list regardless of score. The `unrated` bucket keeps Rust / PyPI packages with missing CVSS values explicit.
 
