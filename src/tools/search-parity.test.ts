@@ -310,6 +310,57 @@ function structuralEvidenceOutcome(): UnifiedSearchOutcome {
 }
 
 describe("search parity", () => {
+  it("PARITY-PACKAGE-DOCS: headers and JSON follow-ups use package-relative addressing", async () => {
+    const outcome = outcomeWithPartial(false);
+    const original = outcome.result.results[0]!;
+    const commitSha = "0123456789abcdef0123456789abcdef01234567";
+    const locator = {
+      registry: "npm",
+      packageName: "express",
+      version: "4.18.2",
+      filePath: "docs/routing.md",
+      repositoryFilePath: "packages/express/docs/routing.md",
+      repoUrl: "https://github.com/owner/monorepo",
+      gitRef: commitSha,
+      commitSha,
+      pageId: `github:owner/monorepo@${commitSha}/packages/express/docs/routing.md`,
+      docsReadTarget: `github:owner/monorepo@${commitSha}/packages/express/docs/routing.md`,
+      startLine: 42,
+      endLine: 52,
+    };
+    outcome.result.results = [
+      {
+        ...original,
+        resultType: "REPOSITORY_DOC",
+        targetLabel: "npm:express@4.18.2",
+        title: "Routing",
+        locator,
+        repositoryEvidence: { semanticContext: null, matchedSource: null },
+      },
+    ];
+    const cli = await cliJsonForOutcome(outcome);
+    const mcp = await mcpJsonForOutcome(outcome);
+    expect(cli).toEqual(mcp);
+    expect(cli).toMatchObject({
+      results: [
+        {
+          locator,
+          followUp:
+            'read target="npm:express@4.18.2" path="docs/routing.md" start_line=42 end_line=52',
+        },
+      ],
+    });
+    for (const text of [
+      await cliTextForOutcome(outcome),
+      await mcpTextForOutcome(outcome),
+    ]) {
+      expect(text).toContain(
+        "npm:express@4.18.2 docs/routing.md:42-52 [repo doc, candidate]",
+      );
+      expect(text).not.toContain(locator.docsReadTarget);
+    }
+  });
+
   it("PARITY-V31: compact path hits and grapheme previews omit legacy JSON", async () => {
     const outcome = structuralEvidenceOutcome();
     if (outcome.state !== "completed")

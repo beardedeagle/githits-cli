@@ -1207,24 +1207,25 @@ function formatHitHeader(
   }
   const evidence = formatRepositoryEvidence(hit);
   const preferredRead = hit.repositoryEvidence?.semanticContext?.preferredRead;
-  // Repo docs have opaque backend-owned page locators too. Expose the same
-  // locator as the JSON follow-up, without joining file ranges into its bytes.
+  // Package-attributed repo docs use target-relative paths like code hits.
+  // Other docs retain their emitted page locator and separate read bounds.
   const docsRead =
     hit.type === "repository_doc" && !preferredRead
       ? documentationReadLocator(hit)
       : undefined;
-  const location = docsRead?.target
-    ? [
-        docsRead.startLine === undefined
-          ? ""
-          : `start_line=${docsRead.startLine}`,
-        docsRead.endLine === undefined ? "" : `end_line=${docsRead.endLine}`,
-      ]
-        .filter(Boolean)
-        .join(" ")
-    : evidence.filePath
-      ? `${evidence.filePath}${formatLineRange(evidence.startLine, evidence.endLine)}`
-      : "location unavailable";
+  const location =
+    docsRead?.target && !docsRead.path
+      ? [
+          docsRead.startLine === undefined
+            ? ""
+            : `start_line=${docsRead.startLine}`,
+          docsRead.endLine === undefined ? "" : `end_line=${docsRead.endLine}`,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : evidence.filePath
+        ? `${evidence.filePath}${formatLineRange(evidence.startLine, evidence.endLine)}`
+        : "location unavailable";
   const sourceStatus = candidateHeaderStatus(
     hit,
     queryFragments,

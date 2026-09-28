@@ -54,8 +54,26 @@ Automatic search follow-ups select those opaque targets earlier in
 `documentation_page` HTTP(S) targets are mutable current-content addresses, so
 their generated actions forward the exact emitted page URL or fragment without
 search display/evidence coordinates. Repository documentation is
-snapshot-addressed and retains its exact target and ranges. This automatic-action
-policy does not alter explicit `read` arguments handled here.
+snapshot-addressed and retains its source ranges. In search, package-attributed
+repository docs with complete registry/name/version and target-relative `filePath`
+use `read(target: "registry:name@version", path: filePath, ...)`, matching the
+package identity in their text headers. `documentationReadLocator()` owns this
+selection for both text and derived follow-ups. Semantic preferred reads retain
+precedence. Repository-attributed or incomplete legacy hits retain the exact
+emitted page locator. MCP package-path follow-ups use the existing 300-line cap;
+CLI follow-ups keep the selected range. Original snapshot locators and repository
+provenance remain available in JSON. This automatic-action policy does not alter
+explicit `read` arguments handled here.
+
+The backend's `docsReadTarget` name predates unified read, but its value is still
+accepted by `Query.read.target`. Discovery does not expose a general `read.target`
+pointer: it exposes documentation locators alongside package/repository identity
+and separate path coordinate systems. `filePath` belongs to the attributed
+package or repository target; `repositoryFilePath` belongs to the repository
+root. Clients must choose an address and its corresponding path together rather
+than parsing or splicing a package target into an opaque documentation page ID.
+Package addressing uses the served version; it does not create a stronger
+snapshot guarantee than the backend's package-to-repository resolution.
 
 The MCP tool accepts `target`, optional `path`, `selector`, `start_line`, `end_line`,
 `wait_timeout_ms`, and `format`. Targets for code are compact package/repository
@@ -424,6 +442,30 @@ read copied from the rendered row returned the expected lines 83-93.
 Repo-doc correction validation: 4,713 tests, typecheck, CI-mode public-package
 validation, and source/built CLI/MCP smoke checks passed. The formatter's exact
 locator and separate bounds were also checked against the live docs read endpoint.
+
+### Package-addressed repository docs (2026-09-28)
+
+The historical opaque-locator presentation workaround above is superseded for
+package-attributed docs with complete metadata. Unified read now accepts the
+package target with a separate target-relative path: live reads of
+`npm:githits@0.22.1` plus `docs/implementation/auth.md` returned the same lines
+and served commit as its emitted repository page ID; the original Flask
+`pypi:flask@3.1.3` plus `docs/design.rst` read also succeeded. Search headers now
+show the served package target with `path:start-end`, and derived docs reads
+use that package target plus the separate path. They never invent a combined
+package/path documentation ID. Repository-only and incomplete legacy results
+retain the emitted locator, and JSON preserves snapshot provenance.
+
+Some ordinary repo-code JSON follow-ups without semantic preferred reads still
+use exact repository addresses despite package-addressed text headers. This
+change addresses docs presentation and generated docs follow-ups; it does not
+change that existing code-follow-up policy.
+
+Validation: 4,951 unit tests, typecheck, build, changed-file checks, and source
+CLI/MCP smoke suites passed. A local descriptor-only Claude Flask eval used a
+package target plus separate docs path successfully, with no isolation violations;
+its final success/high-confidence self-report was not an answer-quality grade.
+Internal and external code review found no accepted findings.
 
 ### Sequential PR comparison (2026-09-11)
 

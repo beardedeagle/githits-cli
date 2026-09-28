@@ -155,7 +155,96 @@ function repositoryDocumentationHit(
   };
 }
 
+function packageDocumentationHit(
+  locator: Partial<UnifiedSearchHitPayload["locator"]> = {},
+): UnifiedSearchHitPayload {
+  const docsReadTarget = `github:owner/repo@${commitSha}/packages/pkg/docs/auth.md`;
+  return {
+    type: "repository_doc",
+    target: "npm:pkg@1.2.3",
+    locator: {
+      registry: "npm",
+      packageName: "pkg",
+      version: "1.2.3",
+      filePath: "docs/auth.md",
+      repositoryFilePath: "packages/pkg/docs/auth.md",
+      repoUrl: "https://github.com/owner/repo",
+      commitSha,
+      pageId: docsReadTarget,
+      docsReadTarget,
+      startLine: 42,
+      endLine: 52,
+      ...locator,
+    },
+  };
+}
+
 describe("buildSearchHitFollowUpCommand documentation targets", () => {
+  it.each(["docs/auth.md", "packages/pkg/docs/auth.md"])(
+    "uses package addressing and the target-relative docs path with repository path %s",
+    (repositoryFilePath) => {
+      const value = packageDocumentationHit({ repositoryFilePath });
+      expect(buildSearchHitFollowUpCommand(value)).toBe(
+        'read target="npm:pkg@1.2.3" path="docs/auth.md" start_line=42 end_line=52',
+      );
+      expect(buildSearchHitFollowUpCommand(value, "cli")).toBe(
+        "githits read 'npm:pkg@1.2.3' 'docs/auth.md' --lines 42-52",
+      );
+    },
+  );
+
+  it("reads package docs without a legacy page ID", () => {
+    expect(
+      buildSearchHitFollowUpCommand(
+        packageDocumentationHit({
+          pageId: undefined,
+          docsReadTarget: undefined,
+        }),
+      ),
+    ).toBe(
+      'read target="npm:pkg@1.2.3" path="docs/auth.md" start_line=42 end_line=52',
+    );
+  });
+
+  it("retains docs locators for repository attribution and incomplete package metadata", () => {
+    const value = packageDocumentationHit();
+    for (const hit of [
+      { ...value, target: "github:owner/repo@main" },
+      packageDocumentationHit({ version: undefined }),
+      packageDocumentationHit({ filePath: undefined }),
+    ]) {
+      expect(buildSearchHitFollowUpCommand(hit)).toBe(
+        `read target="${value.locator.docsReadTarget}" start_line=42 end_line=52`,
+      );
+    }
+  });
+
+  it("bounds package docs MCP follow-ups around evidence while CLI keeps the full range", () => {
+    const value = packageDocumentationHit({
+      startLine: 1,
+      endLine: 600,
+      evidenceRange: {
+        startLine: 400,
+        endLine: 410,
+        matchLine: 405,
+        matchSpansTruncated: false,
+      },
+    });
+    const command = buildSearchHitFollowUpCommand(value);
+    const bounds = /start_line=(\d+) end_line=(\d+)/.exec(command)!;
+    const startLine = Number(bounds[1]);
+    const endLine = Number(bounds[2]);
+    expect(command).toContain(
+      'read target="npm:pkg@1.2.3" path="docs/auth.md"',
+    );
+    expect(endLine - startLine + 1).toBe(300);
+    expect(startLine).toBeLessThanOrEqual(400);
+    expect(endLine).toBeGreaterThanOrEqual(410);
+    expect(buildSearchHitFollowUpCommand(value, "cli")).toBe(
+      "githits read 'npm:pkg@1.2.3' 'docs/auth.md' --lines 1-600",
+    );
+  });
+
   it("emits unified read syntax for both documentation follow-up surfaces", () => {
     const value = documentationHit({ pageId: "legacy-crawled-id" });
 

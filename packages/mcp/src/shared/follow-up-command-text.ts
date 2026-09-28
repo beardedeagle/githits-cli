@@ -51,11 +51,32 @@ export function buildSearchHitFollowUpCommand(
     return parts.join(" ");
   }
   const loc = hit.locator;
-  if (loc.pageId) {
-    const read = documentationReadLocator(hit);
+  const docsRead = documentationReadLocator(hit);
+  if (docsRead.target) {
+    const range =
+      docsRead.path &&
+      syntax === "mcp" &&
+      docsRead.startLine !== undefined &&
+      docsRead.endLine !== undefined &&
+      docsRead.endLine - docsRead.startLine + 1 > MCP_READ_MAX_SPAN
+        ? boundLargeReadRange(
+            { startLine: docsRead.startLine, endLine: docsRead.endLine },
+            loc.evidenceRange,
+          )
+        : docsRead;
     return syntax === "cli"
-      ? buildCliDocsReadCommand(read.target, read.startLine, read.endLine)
-      : buildDocsReadCommand(read.target, read.startLine, read.endLine);
+      ? buildCliDocsReadCommand(
+          docsRead.target,
+          range.startLine,
+          range.endLine,
+          docsRead.path,
+        )
+      : buildDocsReadCommand(
+          docsRead.target,
+          range.startLine,
+          range.endLine,
+          docsRead.path,
+        );
   }
   if (
     (hit.type === "repository_code" || hit.type === "repository_symbol") &&
@@ -81,15 +102,29 @@ export function buildSearchHitFollowUpCommand(
 
 interface DocumentationReadLocator {
   target: string;
+  path?: string;
   startLine?: number;
   endLine?: number;
 }
 
-/** Select the exact backend-owned docs locator without rewriting URL bytes. */
+/** Prefer complete package-attributed repo docs; preserve other emitted docs targets. */
 export function documentationReadLocator(
   hit: UnifiedSearchHitPayload,
 ): DocumentationReadLocator {
   const loc = hit.locator;
+  if (
+    hit.type === "repository_doc" &&
+    isPackageTarget(hit) &&
+    loc.version &&
+    loc.filePath
+  ) {
+    return {
+      target: `${loc.registry}:${loc.packageName}@${loc.version}`,
+      path: loc.filePath,
+      startLine: loc.startLine,
+      endLine: loc.endLine,
+    };
+  }
   const target = loc.docsReadTarget ?? loc.pageId ?? "";
   if (hit.type === "documentation_page" && isHttpUrl(target)) {
     if (hasHttpFragment(target)) return { target };
@@ -254,8 +289,10 @@ export function buildCliDocsReadCommand(
   target: string,
   startLine?: number,
   endLine?: number,
+  path?: string,
 ): string {
   const parts = [`githits read ${shellQuote(target)}`];
+  if (path) parts.push(shellQuote(path));
   appendCliRange(parts, startLine, endLine);
   return parts.join(" ");
 }
@@ -284,8 +321,10 @@ export function buildDocsReadCommand(
   target: string,
   startLine?: number,
   endLine?: number,
+  path?: string,
 ): string {
   const parts = [`read target=${quote(target)}`];
+  if (path) parts.push(`path=${quote(path)}`);
   appendRange(parts, startLine, endLine);
   return parts.join(" ");
 }
