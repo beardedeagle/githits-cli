@@ -49,6 +49,9 @@ Generated files are committed because Git-hosted marketplaces inspect repository
 contents without running npm lifecycle scripts. `prepack` validates committed
 outputs instead of creating or deleting them.
 
+The Claude manifest points to the root SVG icon and the public GitHits privacy
+policy. Keep both fields in the generator so regenerated manifests retain them.
+
 ## Skill Contract
 
 Every plugin and guided CLI setup uses the same four canonical skill
