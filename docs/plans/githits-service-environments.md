@@ -1,6 +1,6 @@
 # GitHits service environments and OSS endpoint branding
 
-Status: implementation in progress; product decisions resolved and plan reviews clean.
+Status: Phase 1 implementation and review complete; merge pending.
 
 ## Outcome
 
@@ -156,11 +156,11 @@ in source and permanent configuration documentation.
 
 One phase — branded production OSS defaults and complete dev runtime selection
 work consistently across CLI, local MCP, auth namespaces, doctor, and evals
-(READY).
+(COMPLETE; merge pending).
 
 ### Phase 1: implement and deliver
 
-Status: implementation in progress.
+Status: implementation complete; verification and reviews passed.
 Outcome: the configuration contract above is observable through service requests
 and diagnostics. Dependencies: existing configuration/auth/eval interfaces only.
 Assumptions: the endpoint table and compatibility choices above.
@@ -378,13 +378,17 @@ stopped at its missing-home preflight. No auth contents were inspected.
 
 - Dev smoke commands explicitly unset the four URL overrides and set
   `GITHITS_ENV=dev`. CLI live smoke exited 0 with a partial pass: the stable
-  cohort skipped for authentication; the experimental live cohort passed.
+  cohort skipped for authentication; the experimental live cohort passed. A
+  repeat with the same command passed both live cohorts: 138 steps, 101.2s.
 - The first dev MCP live smoke timed out on `pkg_info` at 60 seconds. The
   dev agent eval's first `pkg_info` took about 68 seconds and completed; a
   later telemetry-enabled CLI package probe succeeded with container/token
   resolution about 29ms and request about 981ms. The latency cause is not
-  established. A single repeat of the affected MCP smoke is in progress; no
-  timeout, retry, or recovery mechanism was changed.
+  established. One telemetry-enabled repeat of the same MCP smoke passed its
+  full live suite: 63 steps, 152.4s. No timeout, retry, or recovery mechanism
+  was changed. Both MCP and CLI repeats completed their previously limited
+  stable cohorts, including dev REST example calls. Earlier anonymous dev REST
+  timeouts do not establish ongoing unavailability.
 - Corrected eval command: `env -u GITHITS_MCP_URL -u GITHITS_API_URL -u
   GITHITS_CODE_NAV_URL -u GITHITS_ACCOUNTS_URL CODEX_HOME=/Users/jpl/.codex-eval
   GITHITS_ENV=dev bun run agent:e2e --agent codex --surface mcp --server local
@@ -397,5 +401,20 @@ stopped at its missing-home preflight. No auth contents were inspected.
   uncached input, 106,240 cached input, 662 output tokens; rate-based estimated
   cost $0.00422. This is execution/trace evidence, not graded answer quality.
 
-External Claude review, final live-smoke record, commit/push, and draft PR are
-still pending.
+External implementation review round 1: clean, including its one required
+fresh-context final check; no findings or validation reruns. Its observation
+that doctor reports a raw explicit URL while the invalid selector still blocks
+network calls is not a defect: the diagnostic source field describes the
+override, and the selector probe/recommendation identifies the invalid setting.
+No change or further round was required. The same Claude session remains
+retained through PR merge approval.
+
+Implementation commit: `75a450c` (`feat: add GitHits service environment presets`).
+The completion-record commit accompanies delivery. No unresolved implementation
+findings, new refactoring requirement, or deferred CLI development remains.
+The separate hosted MCP resolver/deployment boundary remains outside this
+repository's change. Initial dev latency cause is unproven; passing repeats
+establish current end-to-end behavior, not a latency guarantee.
+
+The implementation is ready for the draft PR and CI; merge, release, and hosted
+deployment remain separate human-approved steps. Keep this plan until merge.
