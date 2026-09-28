@@ -83,4 +83,8 @@ round one identified stale output type declarations; round two confirmed that
 fix and identified one documentation ambiguity and one stale test guard; round
 three reviewed their fixes and reported no findings. The reviewer session is
 retained for PR follow-up at `term_f2c1ea79-f82b-4e41-ba9d-11893cd73ffd`.
-Record the PR and CI evidence here when available.
+Draft PR [#423](https://github.com/githits-com/githits-cli/pull/423) targets
+`main`. On commit `eabe605`, GitHub reported success for MCP package
+validation, build and checks, Ubuntu and Windows tests, and compatibility on
+Node 20, 22, 24, 26, and Bun. Agent eval and package publishing jobs were
+skipped by their workflow conditions; the targeted local agent eval passed.
