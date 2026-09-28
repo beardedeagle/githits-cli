@@ -1,5 +1,4 @@
 import type {
-  ContentSafety,
   DiscoveryIndexingEstimate,
   DocCoverage,
   UnifiedSearchCompleted,
@@ -71,8 +70,6 @@ export interface UnifiedSearchQueryEcho {
 
 export interface UnifiedSearchHighlightsPayload {
   title?: Array<readonly [number, number]>;
-  /** Legacy input only; the search response builder omits this field. */
-  summary?: Array<readonly [number, number]>;
 }
 
 export interface UnifiedSearchHitPayload {
@@ -83,13 +80,12 @@ export interface UnifiedSearchHitPayload {
   servedTarget?: string;
   freshness?: string;
   title?: string;
-  /** Legacy input only; the search response builder omits this field. */
-  summary?: string;
   highlights?: UnifiedSearchHighlightsPayload;
-  repositoryEvidence?: UnifiedSearchRepositoryEvidence | null;
+  repositoryEvidence?: Omit<
+    UnifiedSearchRepositoryEvidence,
+    "focusedSource"
+  > | null;
   documentationPreview?: UnifiedSearchDocumentationPreview | null;
-  /** Legacy input only; the search response builder omits this field. */
-  contentSafety?: ContentSafety;
   followUp?: string;
   locator: {
     registry?: string;

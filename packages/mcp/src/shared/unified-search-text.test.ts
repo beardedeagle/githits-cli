@@ -20,8 +20,6 @@ function codeHit(
     type: "repository_code",
     target: "cline/cline@v3.4.2",
     title: "applyEdit",
-    summary:
-      "Search/replace block parser with fuzzy fallback when exact match fails.",
     locator: {
       registry: "npm",
       packageName: "cline",
@@ -42,7 +40,6 @@ function matchedEvidence(
 ): UnifiedSearchHitPayload["repositoryEvidence"] {
   return {
     semanticContext: null,
-    focusedSource: null,
     bm25MatchFields: ["SOURCE_IDENTIFIER"],
     matchedSource: {
       startLine,
@@ -70,7 +67,10 @@ function docsHit(
     type: "documentation_page",
     target: "aider-AI/aider@v0.55.0",
     title: "Edit Formats",
-    summary: "Compares whole-file, diff-fenced, udiff, and editblock formats.",
+    documentationPreview: {
+      text: "Compares whole-file, diff-fenced, udiff, and editblock formats.",
+      highlights: [],
+    },
     locator: {
       pageId: "aider/edit-formats",
       sourceUrl: "https://aider.chat/docs/more/edit-formats.html",
@@ -220,7 +220,6 @@ describe("renderUnifiedSearchSuccess", () => {
               type: "repository_doc",
               target: "npm:express@5.2.1",
               title: "5.0.0-alpha.4 / 2017-03-01",
-              summary: repoSummary,
               repositoryEvidence: matchedEvidence(169, 179, repoSummary),
               locator: {
                 registry: "npm",
@@ -235,7 +234,6 @@ describe("renderUnifiedSearchSuccess", () => {
               type: "repository_doc",
               target: "npm:express@5.2.1",
               title: `History entry ${index}`,
-              summary: `History entry ${index} details`,
               locator: {
                 filePath: "History.md",
                 startLine: 180 + index,
@@ -247,8 +245,11 @@ describe("renderUnifiedSearchSuccess", () => {
         type: "documentation_page",
         target: "npm:express@5.2.1",
         title: index === 0 ? "router.use()" : `Router docs ${index}`,
-        summary:
-          index === 0 ? "### router.use()" : `Router docs ${index} details`,
+        documentationPreview: {
+          text:
+            index === 0 ? "### router.use()" : `Router docs ${index} details`,
+          highlights: [],
+        },
         locator: {
           pageId: `opaque-page-${index}`,
           sourceUrl: `https://expressjs.com/en/api/router/${index}`,
@@ -320,8 +321,6 @@ describe("renderUnifiedSearchSuccess", () => {
             930,
             "// Merge into single summary\nawait generateSummaryWithUsage();",
           ),
-          summary:
-            "// Merge into single summary\nawait generateSummaryWithUsage();",
           locator: {
             repoUrl: "https://github.com/badlogic/pi-mono",
             gitRef: "853a80d",
@@ -364,14 +363,9 @@ describe("renderUnifiedSearchSuccess", () => {
   });
 
   it("keeps fallback Express windows unverified and distinguishes a proven router hit", () => {
-    const unmatched = [
-      "session metadata",
-      "clear auth session",
-      "remove stored auth",
-    ].map((summary, index) =>
+    const unmatched = [0, 1, 2].map((index) =>
       codeHit({
         target: "npm:express@5.2.1",
-        summary,
         locator: {
           filePath: `lib/auth-${index}.js`,
           startLine: 10,
@@ -387,16 +381,12 @@ describe("renderUnifiedSearchSuccess", () => {
           semanticContext: null,
           bm25MatchFields:
             index === 0 ? ["FILE_PATH", "SOURCE_IDENTIFIER"] : ["FILE_PATH"],
-          focusedSource: {
-            ...matchedEvidence(10, 10, "unverified source")!.matchedSource!,
-          },
           matchedSource: null,
         },
       }),
     );
     const proven = codeHit({
       target: "npm:express@5.2.1",
-      summary: "legacy summary should stay hidden",
       locator: { filePath: "test/app.router.js", startLine: 877, endLine: 880 },
       repositoryEvidence: matchedEvidence(879, 879, "next('router')"),
     });
@@ -418,19 +408,16 @@ describe("renderUnifiedSearchSuccess", () => {
     expect(text).not.toContain("session metadata");
     expect(text).not.toContain("clear auth session");
     expect(text).not.toContain("remove stored auth");
-    expect(text).not.toContain("unverified source");
     expect(text).not.toContain("Context (source match unverified):");
     expect(text).not.toContain("Snippet unavailable");
     expect(text).toContain("test/app.router.js:879 [repo code]");
     expect(text).toContain("> 879 | next('router')");
-    expect(text).not.toContain("legacy summary should stay hidden");
   });
 
   it("names a same-file candidate declaration on the header without claiming a match", () => {
     const hit = codeHit({
       target: "npm:githits@0.21.0",
       title: "AuthSessionStore",
-      summary: "interface AuthSessionStore { clear(): void }",
       locator: {
         filePath: "src/auth.ts",
         startLine: 17,
@@ -451,7 +438,6 @@ describe("renderUnifiedSearchSuccess", () => {
       repositoryEvidence: {
         semanticContext: null,
         bm25MatchFields: ["SYMBOL_NAME", "SOURCE_IDENTIFIER"],
-        focusedSource: null,
         matchedSource: null,
       },
     });
@@ -516,8 +502,6 @@ describe("renderUnifiedSearchSuccess", () => {
     const hit = codeHit({
       target: "hex:phoenix@1.8.13",
       title: "router_plug_inject/2",
-      summary:
-        '@doc """\nInjects the fetch_current_scope_for_<schema> plug into router\'s browser pipeline\n"""',
       highlights: { title: [[0, 6]] },
       locator: {
         filePath,
@@ -740,7 +724,6 @@ describe("renderUnifiedSearchSuccess", () => {
           type: "repository_doc",
           target: "pypi:flask@3.1.3",
           title: "design.rst",
-          summary: "Flask uses the Werkzeug routing system.",
           locator: {
             pageId: target,
             docsReadTarget: target,
@@ -765,7 +748,6 @@ describe("renderUnifiedSearchSuccess", () => {
           type: "repository_doc",
           target: "npm:express@5.2.1",
           title: "5.0.0-alpha.4 / 2017-03-01",
-          summary: "Release notes",
           locator: {
             pageId: "history-release",
             filePath: "History.md",
@@ -999,7 +981,6 @@ describe("renderUnifiedSearchSuccess", () => {
           type: "repository_doc",
           target: "npm:express@5.2.1",
           title: "History.md",
-          summary: "Release history",
           locator: { filePath: "History.md", startLine: 169, endLine: 179 },
         },
       ]),
@@ -1025,13 +1006,11 @@ describe("renderUnifiedSearchSuccess", () => {
       completed([
         codeHit({
           title: "Überprüfung · human review",
-          summary: "Café — маршрутизация",
         }),
         {
           type: "repository_doc",
           target: "npm:express@5.2.1",
           title: "Résumé",
-          summary: "naïve release notes",
           locator: { filePath: "History.md", startLine: 1 },
         },
         docsHit({
@@ -1183,9 +1162,8 @@ describe("renderUnifiedSearchSuccess", () => {
       codeHit({
         type: "repository_symbol",
         title: repoTitle,
-        summary: undefined,
       }),
-      docsHit({ title: docsTitle, summary: undefined }),
+      docsHit({ title: docsTitle, documentationPreview: null }),
     ]);
     const repoPrefix =
       "[1] cline/cline@v3.4.2 src/integrations/diff/strategies/multi-search-replace.ts:142-156 [repo symbol] -";
@@ -1234,7 +1212,6 @@ describe("renderUnifiedSearchSuccess", () => {
       completed([
         codeHit({
           title: "First title line\nSecond title line",
-          summary: undefined,
         }),
       ]),
       { width: 200, useColors: false },

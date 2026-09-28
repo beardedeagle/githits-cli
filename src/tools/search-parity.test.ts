@@ -418,8 +418,6 @@ describe("search parity", () => {
     const cliResult = cli as {
       results: Array<{
         repositoryEvidence?: unknown;
-        contentSafety?: unknown;
-        summary?: string;
         locator: {
           filePath?: string;
           repositoryFilePath?: string;

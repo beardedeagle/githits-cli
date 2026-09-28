@@ -17,7 +17,6 @@ const hit = {
   type: "repository_code",
   target: "npm:express@4.18.2",
   title: "router",
-  summary: "router implementation",
   locator: { packageName: "express", version: "4.18.2" },
 };
 
