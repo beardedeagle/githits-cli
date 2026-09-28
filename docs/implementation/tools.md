@@ -155,6 +155,13 @@ see [Unified read](unified-read.md).
 
 ## Current Tools
 
+The root CLI has a separate `githits list <target> [paths...]` command backed by
+`Query.list`. It lists package/repository source inventories (including
+package-local documentation files) or an explicitly targeted `site:` inventory.
+The MCP catalog in this document remains on `code_files` and `docs_list` until
+the later MCP migration; this CLI command does not change their schemas or
+execution.
+
 | Tool | Parameters | Description |
 |---|---|---|
 | `quick_start` | none | Required first call for a plain GitHits MCP session. Loads shared safety, routing, target, output, and evidence rules. Skip only when the loaded `githits-mcp` skill already supplies the guide; descriptor reminders do not enforce loading. |
@@ -168,7 +175,7 @@ see [Unified read](unified-read.md).
 | `pkg_changelog` | `target`, `limit?`, `omit_bodies?`, `verbose?`, `body_lines?`, `format?` | Find release notes and changelog history for a package. Latest mode caps entries; pin `target` for one selected release; `@from..to` covers a closed interval. Empty selections succeed with no entries. |
 | `pkg_upgrade_review` | `registry?`, `package_name?`, `current_version?`, `target_version?`, `packages?`, `skip_transitive_security?`, `include_dependency_issues?`, `min_severity?`, `verbose?`, `format?` | Review a package upgrade: vulnerabilities, releases, peers, dependency changes. Reports facts, not upgrade risk or acceptance. Supports a single package or at most 30 batch upgrades. |
 | `code_files` | `target` (compact string), `path?`, `path_prefix?`, `globs?`, `extensions?`, `file_types?`, `languages?`, `file_intent?`, `file_intents?`, `exclude_file_intents?`, `exclude_doc_files?`, `exclude_test_files?`, `include_hidden?`, `limit?`, `wait_timeout_ms?`, `format?` | List indexed files and paths in a public repo or package. Returned paths chain into `read.path` or scope `code_grep`; `path_prefix` narrows directory enumeration. `INDEXING` errors expose retry candidates when known. |
-| `read` | `target` (string), `path?`, `selector?`, `start_line?`, `end_line?`, `wait_timeout_ms?`, `format?` | Pass a code file target + path, a compact `target#symbol` or selector, or an emitted docs target to unified backend read; the returned type determines code/docs presentation. HTTP(S) docs fragments select sections unless explicit bounds override them. Text displays 150/300 lines; exact-file code caps before fetching, while docs JSON keeps the backend selection. The backend applies wait where relevant. See [unified read](unified-read.md). |
+| `read` | `target` (string), `path?`, `selector?`, `start_line?`, `end_line?`, `wait_timeout_ms?`, `format?` | Pass a code file target + path, an explicit `site:` target + host-relative page path, a compact `target#symbol` or selector, or another emitted docs target to unified backend read; the returned type determines code/docs presentation. `/` is the site root. HTTP(S) docs fragments select sections unless explicit bounds override them. Text displays 150/300 lines; exact-file code caps before fetching, while docs JSON keeps the backend selection. The backend applies wait where relevant. See [unified read](unified-read.md). |
 | `code_grep` | `target` (compact string), `pattern`, `path?`, `path_prefix?`, `globs?`, `extensions?`, `pattern_type?`, `case_sensitive?`, `exclude_doc_files?`, `exclude_test_files?`, `context_lines?`, `context_lines_before?`, `context_lines_after?`, `max_matches?`, `max_matches_per_file?`, `cursor?`, `symbol_fields?`, `wait_timeout_ms?`, `format?` | Find text, regex, or identifier matches in a public repo or package. Results are deterministic and paginated; `max_matches_per_file` defaults to `max_matches`. |
 
 `quick_start`, `get_example`, `search`, `search_status`, `docs_list`, `pkg_info`, `pkg_vulns`, `pkg_deps`, `pkg_changelog`, `pkg_upgrade_review`, `code_files`, `read`, and `code_grep` are registered by default. The package/source service URL defaults to the GitHits-managed endpoint and can be overridden via `GITHITS_CODE_NAV_URL` for local development.
@@ -555,7 +562,7 @@ surfaces remain separate compatibility paths: `githits code read` calls the
 legacy `fetchCodeContext` root and `githits docs read` calls legacy
 `getDocPage`; they are not fallback implementations for the compact MCP tool.
 
-**`code_files` envelope**: `{registry?|repoUrl?+gitRef?, total, hasMore, indexedVersion?, resolution?, targetResolution?, files: [{path, name?, language?, fileType?, byteSize?}], hint?, filter?}`. `fileType` values preserve the service vocabulary (`CONFIG`, `SOURCE`, `DOC`, `TEST`). `total` is capped at returned count when `hasMore: true` — the terminal formatter renders `N+ files` in that case to avoid misleading users. `filter` echoes only explicit caller filters (`path`, `pathPrefix`, `globs`, `extensions`, `fileTypes`, `languages`, file-intent filters, booleans, and `limit`); default limit (200) never round-trips.
+**`code_files` envelope**: `{registry?|repoUrl?+gitRef?, total, hasMore, indexedVersion?, resolution?, targetResolution?, files: [{path, name?, language?, fileType?, byteSize?}], hint?, filter?}`. `fileType` values preserve the service vocabulary (`CONFIG`, `SOURCE`, `DOC`, `TEST`). JSON preserves the backend `total`; when `hasMore: true`, text renders the returned count with `+` rather than presenting that value as an exact inventory count. `filter` echoes only explicit caller filters (`path`, `pathPrefix`, `globs`, `extensions`, `fileTypes`, `languages`, file-intent filters, booleans, and `limit`); default limit (200) never round-trips.
 
 **`read` code envelope**: `{registry?|repoUrl?+gitRef?, path, language?, totalLines?, startLine?, endLine?, content?, isBinary?, hint?, targetResolution?}`. `path` (not `filePath`) so the key matches `code_files.files[].path` and `code_grep.filter.path` when exact-file grep is used. Binary files set `isBinary: true` and **omit** `content` (not `null`); agents branch on the flag. `hint` is emitted only when the MCP span cap actually truncated the response — see "read span cap" below.
 

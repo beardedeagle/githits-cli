@@ -80,6 +80,7 @@ export const EXPECTED_STABLE_TOP_LEVEL_COMMANDS = [
   "doctor",
   "settings",
   "read",
+  "list",
   "search",
   "search-status",
   "code",
@@ -259,6 +260,25 @@ export const JSON_PARITY_FIXTURES: JsonParityFixture[] = [
     mcpTool: "read",
     mcpArgs: {
       target: "https://expressjs.com/en/5x/starter/basic-routing/#overview",
+      format: "json",
+    },
+  },
+  {
+    name: "read_site_path",
+    cliArgs: [
+      "read",
+      "site:expressjs.com",
+      "en/resources",
+      "--lines",
+      "1-5",
+      "--json",
+    ],
+    mcpTool: "read",
+    mcpArgs: {
+      target: "site:expressjs.com",
+      path: "en/resources",
+      start_line: 1,
+      end_line: 5,
       format: "json",
     },
   },
@@ -1146,6 +1166,15 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
         "read must require authentication",
       );
     }
+    const listJson = await runCliWithEnv(
+      ["list", SMOKE_PACKAGE_SPEC, "--json"],
+      env,
+    );
+    assert(
+      listJson.exitCode !== 0 && listJson.stdout.trim() === "",
+      "unauthenticated list JSON must keep stdout clean",
+    );
+    assertJsonErrorCode(listJson, "unauthenticated list JSON", "AUTH_REQUIRED");
     for (const group of ["code", "docs"]) {
       const help = await runCliWithEnv([group, "read", "--help"], env);
       assert(
@@ -1936,6 +1965,123 @@ async function runLiveSmoke(env: Record<string, string>): Promise<void> {
       `pkg upgrade-review json leaked judgment field ${forbidden}`,
     );
   }
+
+  const packageListText = assertTerminalOutput(
+    await runCli(["list", SMOKE_PACKAGE_SPEC, "--limit", "2"]),
+    "list package terminal",
+  );
+  assert(
+    packageListText.startsWith(`# source ${SMOKE_PACKAGE_SPEC}`) &&
+      packageListText.split("\n").length >= 2,
+    "list package terminal missing source header or paths",
+  );
+
+  const packageListSilent = assertTerminalOutput(
+    await runCli(["list", SMOKE_PACKAGE_SPEC, "--limit", "2", "--silent"]),
+    "list package silent",
+  );
+  const silentPaths = packageListSilent.split("\n");
+  assert(
+    silentPaths.length === 2 &&
+      silentPaths.every(
+        (path) => path.length > 0 && !path.startsWith("# source "),
+      ),
+    "list package silent must contain only result paths",
+  );
+
+  const packageListJson = assertJsonOutput(
+    await runCli(["list", SMOKE_PACKAGE_SPEC, "--limit", "1", "--json"]),
+    "list package json",
+  );
+  assertRecord(packageListJson, "list package json");
+  assert(
+    Array.isArray(packageListJson.entries) &&
+      packageListJson.entries.length === 1 &&
+      packageListJson.hasMore === true &&
+      typeof packageListJson.nextCursor === "string",
+    "list package json missing bounded page or continuation cursor",
+  );
+  const firstPackageEntry = packageListJson.entries[0] as unknown;
+  assertRecord(firstPackageEntry, "list package first entry");
+
+  const packageListNext = assertJsonOutput(
+    await runCli([
+      "list",
+      SMOKE_PACKAGE_SPEC,
+      "--limit",
+      "1",
+      "--after",
+      packageListJson.nextCursor,
+      "--json",
+    ]),
+    "list package continuation",
+  );
+  assertRecord(packageListNext, "list package continuation");
+  assert(
+    Array.isArray(packageListNext.entries) &&
+      packageListNext.entries.length === 1,
+    "list package continuation missing entry",
+  );
+  const nextPackageEntry = packageListNext.entries[0] as unknown;
+  assertRecord(nextPackageEntry, "list package continuation entry");
+  assert(
+    nextPackageEntry.path !== firstPackageEntry.path,
+    "list package continuation repeated the first entry",
+  );
+
+  const siteListText = assertTerminalOutput(
+    await runCli(["list", "site:expressjs.com", "--limit", "20"]),
+    "list site terminal",
+  );
+  assert(
+    siteListText.startsWith(
+      '# source site:expressjs.com | follow up with "read site:expressjs.com $path"',
+    ) && siteListText.includes("\n/"),
+    "list site terminal missing logical read guidance or root page",
+  );
+
+  const siteListJson = assertJsonOutput(
+    await runCli(["list", "site:expressjs.com", "--limit", "20", "--json"]),
+    "list site json",
+  );
+  assertRecord(siteListJson, "list site json");
+  assert(Array.isArray(siteListJson.entries), "list site json missing entries");
+  const sitePage = siteListJson.entries.find((entry) => {
+    if (typeof entry !== "object" || entry === null) return false;
+    const record = entry as Record<string, unknown>;
+    if (typeof record.read !== "object" || record.read === null) return false;
+    const read = record.read as Record<string, unknown>;
+    return (
+      record.kind === "PAGE" &&
+      typeof read.target === "string" &&
+      read.target.startsWith("site:") &&
+      typeof read.path === "string"
+    );
+  }) as Record<string, unknown> | undefined;
+  assert(sitePage, "list site json missing readable page");
+  assertRecord(sitePage.read, "list site page read action");
+  assert(
+    typeof sitePage.read.target === "string" &&
+      typeof sitePage.read.path === "string",
+    "list site page missing target/path read action",
+  );
+  const listedSiteRead = assertJsonOutput(
+    await runCli([
+      "read",
+      sitePage.read.target,
+      sitePage.read.path,
+      "--lines",
+      "1-5",
+      "--json",
+    ]),
+    "list site read action",
+  );
+  assertRecord(listedSiteRead, "list site read action");
+  assert(
+    typeof listedSiteRead.content === "string" &&
+      listedSiteRead.content.length > 0,
+    "list site read action returned no content",
+  );
 
   const docsJson = assertJsonOutput(
     await runCli([
