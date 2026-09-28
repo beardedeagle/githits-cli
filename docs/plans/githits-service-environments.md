@@ -406,8 +406,40 @@ fresh-context final check; no findings or validation reruns. Its observation
 that doctor reports a raw explicit URL while the invalid selector still blocks
 network calls is not a defect: the diagnostic source field describes the
 override, and the selector probe/recommendation identifies the invalid setting.
-No change or further round was required. The same Claude session remains
+No runtime change was required by that round. The same Claude session remains
 retained through PR merge approval.
+
+### Strict CI declaration closure
+
+The first draft PR head (`3a3a9f0`) passed CI Ubuntu and Windows unit jobs, but
+failed MCP package validation and PR Build & Checks with TS9010. The exported
+`GitHitsEnvironment` type inferred from a private, unannotated Zod enum was
+incompatible with isolated declaration emission. The local build reported a
+warning and returned 0; `CI=true` made the diagnostic fatal. CI used Bun 1.4.2
+and the original local run used Bun 1.3.14. A matched strict reproduction,
+rather than the version difference alone, established the cause.
+
+The coordinator fixed it with an explicit `"prod" | "dev"` public type and
+`z.ZodType<GitHitsEnvironment>` schema annotation. The enum values and runtime
+expression are unchanged. All changed config exports, MCP client exports,
+accounts getter, and doctor diagnostic types were checked for the same gap;
+no additional correction was needed.
+
+- `CI=true bunx bun@1.4.2 run --cwd packages/mcp build`: baseline failed with
+  TS9010; the same command after the annotation passed.
+- `CI=true bunx bun@1.4.2 run validate:packages`: passed, including strict root
+  and MCP builds, packed runtime/declaration checks, and private boundaries.
+- Config and accounts targeted tests: 27 pass, 0 fail, 135 assertions. Earlier
+  full-suite, smoke, and dev eval proof remains applicable to unchanged runtime.
+- Internal closure preflight: clean. External round 2 accepted the type fix
+  and found one trivial Biome formatting issue in the annotated enum. Accepted
+  and applied with the formatter; `bun run format:check` passed. Internal
+  preflight of that final delta was clean.
+- External round 3: clean, including its single permitted fresh-context final
+  check over the full revised delta. Its storage-test observation was adjudicated
+  as a non-finding: the metadata reconciliation behavior predates this change
+  and applies equally to existing custom MCP URL namespaces. No validation was
+  rerun by the reviewer; supplied strict build/package/format/test proof applies.
 
 Implementation commit: `75a450c` (`feat: add GitHits service environment presets`).
 The completion-record commit accompanies delivery. No unresolved implementation
@@ -416,5 +448,7 @@ The separate hosted MCP resolver/deployment boundary remains outside this
 repository's change. Initial dev latency cause is unproven; passing repeats
 establish current end-to-end behavior, not a latency guarantee.
 
-The implementation is ready for the draft PR and CI; merge, release, and hosted
-deployment remain separate human-approved steps. Keep this plan until merge.
+Draft PR: https://github.com/githits-com/githits-cli/pull/426. Final review is
+clean; the strict declaration correction is ready for a fresh CI run. Merge,
+release, and hosted deployment remain separate human-approved steps. Keep this
+plan until merge.

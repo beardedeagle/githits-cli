@@ -13,8 +13,11 @@ export const DEFAULT_MCP_URL = "https://mcp.githits.com";
 export const DEFAULT_API_URL = "https://api.githits.com";
 export const DEFAULT_CODE_NAV_URL = "https://oss.githits.dev";
 
-const ENVIRONMENT_SCHEMA = z.enum(["prod", "dev"]);
-export type GitHitsEnvironment = z.infer<typeof ENVIRONMENT_SCHEMA>;
+export type GitHitsEnvironment = "prod" | "dev";
+const ENVIRONMENT_SCHEMA: z.ZodType<GitHitsEnvironment> = z.enum([
+  "prod",
+  "dev",
+]);
 
 export interface ServiceUrlDefaults {
   readonly mcpUrl: string;
