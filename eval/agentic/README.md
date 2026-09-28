@@ -824,15 +824,17 @@ the isolated workspace and therefore requires local MCP. Both profiles use the
 same MCP server, which publishes no initialize instructions. Skills-surface
 runs do not accept an explicitly supplied MCP guidance profile.
 
-Normal GitHits backend overrides are passed through when set:
+GitHits backend selection and URL overrides are passed through when set:
 
+- `GITHITS_ENV`
 - `GITHITS_API_URL`
 - `GITHITS_MCP_URL`
 - `GITHITS_CODE_NAV_URL`
-- `PKGSEER_URL`
 - `GITHITS_API_TOKEN`
 - `GITHITS_AUTH_STORAGE`
 
+Set `GITHITS_ENV=dev` to use the development defaults for local MCP launches;
+individual URL overrides remain available for services that need a custom URL.
 Secret-like values are redacted in run metadata.
 
 Automated Codex runs default to `gpt-6-luna` with `high` reasoning. Use

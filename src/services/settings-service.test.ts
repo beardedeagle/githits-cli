@@ -149,6 +149,29 @@ describe("SettingsServiceImpl", () => {
 });
 
 describe("getAccountsUrl", () => {
+  it("selects dev accounts while explicit overrides remain independent", () => {
+    expect(getAccountsUrl({ GITHITS_ENV: "dev" })).toBe(
+      "https://zcwquvryvmjuwckxdevg.supabase.co",
+    );
+    for (const selector of [undefined, "", "   ", "prod"]) {
+      expect(getAccountsUrl({ GITHITS_ENV: selector })).toBe(
+        DEFAULT_ACCOUNTS_URL,
+      );
+    }
+    expect(
+      getAccountsUrl({
+        GITHITS_ENV: "dev",
+        GITHITS_ACCOUNTS_URL: "http://localhost:4000",
+      }),
+    ).toBe("http://localhost:4000");
+    expect(() => getAccountsUrl({ GITHITS_ENV: "invalid" })).toThrow(
+      "GITHITS_ENV",
+    );
+    expect(() =>
+      getAccountsUrl({ GITHITS_ENV: "dev", GITHITS_ACCOUNTS_URL: "" }),
+    ).toThrow("GITHITS_ACCOUNTS_URL");
+  });
+
   it("defaults to the production accounts origin", () => {
     expect(getAccountsUrl({})).toBe(DEFAULT_ACCOUNTS_URL);
   });

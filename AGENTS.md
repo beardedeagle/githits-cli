@@ -81,6 +81,27 @@ describe("myTool", () => {
 
 See `docs/guidelines/TESTING.md` for comprehensive patterns.
 
+### Testing against development services
+
+When the user asks to test against dev, run the CLI or local stdio MCP with
+`GITHITS_ENV=dev`. For example:
+
+```bash
+GITHITS_ENV=dev bun run src/cli.ts pkg info npm:express --json
+GITHITS_ENV=dev bun run smoke:cli
+GITHITS_ENV=dev bun run smoke:mcp
+```
+
+Each `GITHITS_MCP_URL`, `GITHITS_API_URL`, `GITHITS_CODE_NAV_URL`, or
+`GITHITS_ACCOUNTS_URL` override wins over its preset. Check for inherited
+overrides and remove unintended ones for the dev run. Dev uses a separate MCP
+credential namespace; if authentication is required, use
+`GITHITS_ENV=dev bun run src/cli.ts login`. Never print credentials.
+Unset `GITHITS_ENV` or use `prod` for production defaults. This selector applies
+to CLI/local MCP processes; an existing hosted MCP connection must be configured
+to use `https://mcp-dev.githits.com` separately. Endpoint details and recovery
+rules are in `docs/implementation/config.md`.
+
 ## Development Workflow (Docs-driven)
 
 - Proposals -> Plans -> Implementation -> Completion

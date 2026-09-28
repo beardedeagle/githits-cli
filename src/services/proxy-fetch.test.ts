@@ -214,6 +214,23 @@ describe("createCliFetch", () => {
     );
   });
 
+  it("keeps generic lazy fetch independent of invalid backend selectors for npm updates", async () => {
+    const baseFetch = mock(() =>
+      Promise.resolve(new Response("registry response")),
+    );
+    const fetchFn = createLazyCliFetch({
+      env: { GITHITS_ENV: "invalid" },
+      baseFetch: asBaseFetch(baseFetch),
+    });
+    const response = await fetchFn("https://registry.npmjs.org/githits/latest");
+    expect(await response.text()).toBe("registry response");
+    expect(baseFetch).toHaveBeenCalledTimes(1);
+    expect(baseFetch).toHaveBeenCalledWith(
+      "https://registry.npmjs.org/githits/latest",
+      undefined,
+    );
+  });
+
   it("redacts credentials, path, query, and fragment from proxy URLs", () => {
     expect(
       redactProxyUrl("http://user:pass@proxy.example:8080/path?q=secret#frag"),

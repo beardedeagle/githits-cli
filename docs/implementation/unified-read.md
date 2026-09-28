@@ -97,7 +97,7 @@ classification, while shared and code-specific codes retain the code mapper's
 richer version/ref recovery metadata. Transport, HTTP, and malformed-response
 messages are source-neutral. There is no schema
 fallback for compact reads. Custom endpoints configured with
-`GITHITS_CODE_NAV_URL` (or its legacy `PKGSEER_URL` alias) must implement
+`GITHITS_CODE_NAV_URL` must implement
 `Query.read`, both union branches, and this selected minimum schema. The legacy
 roots remain available for the compatibility commands, but they are not a
 fallback for compact reads.

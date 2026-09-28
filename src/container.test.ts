@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -8,13 +8,21 @@ import {
   ResolveTargetServiceImpl,
 } from "@githits/core-internal";
 import {
+  clearAutoLoginAuthSessionMetadata,
   createAuthCommandDependencies,
   createAuthStatusDependencies,
   createContainer,
   createLogoutCommandDependencies,
+  loadAutoLoginAuthSessionMetadata,
   recordAuthFingerprint,
 } from "./container.js";
 import { AuthConfigError } from "./services/auth-config.js";
+import {
+  createMockAuthStorage,
+  createValidTokenData,
+  defaultClientRegistration,
+} from "./services/test-helpers.js";
+import { refreshExpiredToken } from "./services/token-manager.js";
 import {
   flushTelemetry,
   resetTelemetryCollectorForTests,
@@ -182,6 +190,67 @@ describe("container auth dependencies", () => {
     });
   });
 
+  it("defers invalid selectors on local auth paths and rejects discovery and refresh before fetch", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchFn = mock(() =>
+      Promise.resolve(new Response("unexpected network")),
+    );
+    globalThis.fetch = fetchFn as unknown as typeof fetch;
+    try {
+      await withAuthStorageEnv("file", async () => {
+        await withEnvVars(
+          { GITHITS_ENV: "invalid", GITHITS_MCP_URL: undefined },
+          async () => {
+            for (const factory of [
+              createAuthCommandDependencies,
+              createAuthStatusDependencies,
+            ]) {
+              const deps = await factory();
+              expect(deps.mcpUrl).toBe("https://mcp.githits.com");
+              await expect(
+                deps.authService.discoverEndpoints(deps.mcpUrl),
+              ).rejects.toThrow("GITHITS_ENV");
+              await expect(
+                deps.authService.refreshAccessToken({
+                  clientId: "test-client",
+                  clientSecret: "test-secret",
+                  refreshToken: "test-refresh",
+                  tokenEndpoint: "https://accounts.example.test/oauth/token",
+                }),
+              ).rejects.toThrow("GITHITS_ENV");
+              const expiredTokens = createValidTokenData({
+                expiresAt: new Date(Date.now() - 60_000).toISOString(),
+              });
+              const storage = createMockAuthStorage({
+                loadTokens: mock(() => Promise.resolve(expiredTokens)),
+                loadClient: mock(() =>
+                  Promise.resolve(defaultClientRegistration),
+                ),
+              });
+              expect(
+                await refreshExpiredToken(
+                  deps.authService,
+                  storage,
+                  deps.mcpUrl,
+                ),
+              ).toBeUndefined();
+              expect(storage.loadClient).toHaveBeenCalled();
+              expect(
+                storage.clearActiveTokensIfUnchanged,
+              ).not.toHaveBeenCalled();
+            }
+            expect((await createLogoutCommandDependencies()).mcpUrl).toBe(
+              "https://mcp.githits.com",
+            );
+            expect(fetchFn).not.toHaveBeenCalled();
+          },
+        );
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("auth status env-token path defers proxy validation for local status", async () => {
     await withApiToken("ghi-test", async () => {
       await withAuthStorageEnv("invalid", async () => {
@@ -205,6 +274,124 @@ describe("container auth dependencies", () => {
 });
 
 describe("createContainer", () => {
+  it("keeps production credentials and auto-login metadata isolated when switching to dev", async () => {
+    const storageRoot = await mkdtemp(join(tmpdir(), "githits-preset-auth-"));
+    const authDir = join(storageRoot, "githits", "auth");
+    await mkdir(authDir, { recursive: true });
+    const createdAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const tokens = {
+      "https://mcp.githits.com": {
+        accessToken: "prod-test-token",
+        refreshToken: "prod-test-refresh",
+        createdAt,
+        expiresAt,
+      },
+      "https://mcp-dev.githits.com": {
+        accessToken: "dev-test-token",
+        refreshToken: "dev-test-refresh",
+        createdAt,
+        expiresAt,
+      },
+    };
+    const metadata = {
+      "https://mcp.githits.com": { createdAt, expiresAt, updatedAt: createdAt },
+      "https://mcp-dev.githits.com": {
+        createdAt,
+        expiresAt: null,
+        updatedAt: createdAt,
+      },
+    };
+    await writeFile(
+      join(authDir, "auth.json"),
+      JSON.stringify({ version: 1, tokens }),
+    );
+    await writeFile(
+      join(authDir, "metadata.json"),
+      JSON.stringify({ version: 1, sessions: metadata }),
+    );
+    try {
+      await withoutProxyEnv(async () =>
+        withEnvVars(
+          {
+            XDG_CONFIG_HOME: storageRoot,
+            APPDATA: storageRoot,
+            HOME: storageRoot,
+            USERPROFILE: storageRoot,
+            GITHITS_AUTH_STORAGE: "file",
+            GITHITS_API_TOKEN: undefined,
+            GITHITS_MCP_URL: undefined,
+            GITHITS_API_URL: undefined,
+            GITHITS_CODE_NAV_URL: undefined,
+          },
+          async () => {
+            for (const [selector, expected] of [
+              ["prod", "prod-test-token"],
+              ["dev", "dev-test-token"],
+              ["prod", "prod-test-token"],
+            ]) {
+              await withEnvVars({ GITHITS_ENV: selector }, async () => {
+                const deps = await createContainer();
+                expect(deps.apiToken).toBe(expected);
+                expect(await deps.authStorage.loadTokens(deps.mcpUrl)).toEqual(
+                  tokens[deps.mcpUrl as keyof typeof tokens],
+                );
+              });
+            }
+            // Restore the distinct metadata fixture after token loads reconcile it.
+            await writeFile(
+              join(authDir, "metadata.json"),
+              JSON.stringify({ version: 1, sessions: metadata }),
+            );
+            await withEnvVars({ GITHITS_ENV: "dev" }, async () => {
+              expect(
+                (await loadAutoLoginAuthSessionMetadata())?.expiresAt,
+              ).toBeNull();
+              await clearAutoLoginAuthSessionMetadata();
+              expect(await loadAutoLoginAuthSessionMetadata()).toBeNull();
+            });
+            await withEnvVars({ GITHITS_ENV: "prod" }, async () => {
+              expect(
+                (await loadAutoLoginAuthSessionMetadata())?.expiresAt,
+              ).toBe(expiresAt);
+            });
+            expect(
+              JSON.parse(await readFile(join(authDir, "auth.json"), "utf8"))
+                .tokens,
+            ).toEqual(tokens);
+          },
+        ),
+      );
+    } finally {
+      await rm(storageRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("selects dev endpoints while a single explicit override stays independent", async () => {
+    await withoutProxyEnv(async () =>
+      withEnvVars(
+        {
+          GITHITS_ENV: "dev",
+          GITHITS_MCP_URL: undefined,
+          GITHITS_API_URL: undefined,
+          GITHITS_CODE_NAV_URL: "http://localhost:4000",
+          GITHITS_API_TOKEN: "ghi-test",
+        },
+        async () => {
+          const deps = await createContainer({ resolveStoredToken: false });
+          expect(deps.mcpUrl).toBe("https://mcp-dev.githits.com");
+          expect(deps.apiUrl).toBe("https://api-dev.githits.com");
+          expect(deps.codeNavigationUrl).toBe("http://localhost:4000");
+          expect((await createAuthCommandDependencies()).mcpUrl).toBe(
+            deps.mcpUrl,
+          );
+          expect((await createAuthStatusDependencies()).mcpUrl).toBe(
+            deps.mcpUrl,
+          );
+        },
+      ),
+    );
+  });
   it("constructs private experimental services for environment-token auth", async () => {
     await withoutProxyEnv(async () =>
       withApiToken("ghi-test", async () => {

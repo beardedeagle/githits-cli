@@ -22,6 +22,7 @@ async function runCli(
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     GITHITS_DISABLE_UPDATE_CHECK: "1",
+    GITHITS_ENV: "invalid",
     GITHITS_API_URL: "not-a-url",
     GITHITS_MCP_URL: "not-a-url",
     GITHITS_ACCOUNTS_URL: "not-a-url",
