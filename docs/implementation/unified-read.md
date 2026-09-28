@@ -461,6 +461,12 @@ use exact repository addresses despite package-addressed text headers. This
 change addresses docs presentation and generated docs follow-ups; it does not
 change that existing code-follow-up policy.
 
+Validation: 4,951 unit tests, typecheck, build, changed-file checks, and source
+CLI/MCP smoke suites passed. A local descriptor-only Claude Flask eval used a
+package target plus separate docs path successfully, with no isolation violations;
+its final success/high-confidence self-report was not an answer-quality grade.
+Internal and external code review found no accepted findings.
+
 ### Sequential PR comparison (2026-09-11)
 
 Three runs were inspected one at a time, with the repo-doc text correction made

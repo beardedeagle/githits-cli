@@ -2,7 +2,7 @@
 
 ## Status and outcome
 
-Overall and phase 1: **IMPLEMENTED; CODE REVIEW PENDING**. Package-attributed repository documentation in
+Phase 1: **COMPLETE**. Overall: **IMPLEMENTED AND REVIEWED; MERGE PENDING**. Package-attributed repository documentation in
 CLI/MCP search uses the same served package target and `path:lines` layout as
 repository code. Generated unified-read follow-ups use that package target and
 target-relative path. There is one increment; no product decisions remain.
@@ -151,4 +151,11 @@ later phase requiring reorientation and no required backend handoff.
   successful hosted fragment read. Final self-report: success/high confidence.
   No isolation-violation file was emitted. Token/cost and logical-call metrics
   are unavailable in the Claude adapter; answer quality was not graded.
-- Source MCP smoke passed (63 steps, exit 0). External code review is pending.
+- Source MCP smoke passed (63 steps, exit 0). External Claude implementation
+  review round 1 was clean. Its final context-independent review note about
+  evidence bounds outside the locator was rejected: the counterexample required
+  unsupported divergent coordinates; a normal focused range is contained in the
+  selected locator read, preserving correct content. No source fix was required.
+  Rejection recorded 2026-09-28; do not reopen without new producer evidence.
+- Implementation commit: `9e37f6d`. A draft PR and CI follow this reviewed
+  increment. Keep the plan until merge; no required backend work is deferred.
