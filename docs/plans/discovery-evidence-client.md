@@ -62,5 +62,22 @@ shapes, but its queries and public response builder do not emit them.
 
 ## Completion record
 
-Update this section with the exact verification, review, and PR evidence before
-opening the PR.
+Implementation and request evidence:
+
+- `bun test`: 4,943 pass, 0 fail; `bun run typecheck`, `bun run build`,
+  `bun run format:check`, `bun run lint`, and `bun run validate:packages` pass.
+- `bun run smoke:cli`: 138 steps pass; `bun run smoke:mcp`: 63 steps pass.
+- Targeted Codex descriptor `bun run agent:e2e`: successful, 13 MCP calls across
+  four tools; traces and final inspected, with no isolation violation reported.
+- Development backend code search returned a path-only hit with no matched
+  source and two proven source ranges, without legacy JSON fields. Search-status
+  returned `NOT_FOUND` for a nonexistent ref after schema validation. A crawled
+  docs search returned `documentationPreview` with highlights.
+- Read-only PkgSeer resolver and presentation source/tests at `45ca5320b9d5`
+  show that the retired selections drive legacy/compatibility CAS hydration,
+  while the matched-source branch reads the authoritative range and path-only
+  hits request no CAS range. No direct live CAS telemetry was captured.
+
+Internal code review is clean after resolving the output-type contract finding
+from external round one. Record the final external review, PR, and CI evidence
+here when available.

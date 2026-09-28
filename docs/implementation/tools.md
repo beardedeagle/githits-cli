@@ -302,12 +302,13 @@ available; original structured
 bounds remain intact. Text does not print redundant per-hit read commands.
 
 The service selects only v31 repository evidence on both search paths, for CLI
-and MCP text and JSON. The producer's GraphQL selection maps the omitted legacy
-branches to false. Its presentation pass skips CAS for path-only or unfocused
-hits and requests the numbered `matchedSource` range only when the producer
-marks that source authoritative. Semantic metadata, BM25 fields, and crawled
-previews need no repository CAS. This establishes a per-hit read contract, not
-a measured latency improvement. Rendering never fetches or stitches source.
+and MCP text and JSON. Omitting the legacy fields from the selection makes the
+producer skip legacy presentation and its CAS hydration. Its presentation pass
+skips CAS for path-only or unfocused hits. It requests the numbered
+`matchedSource` range only for authoritative source. Semantic metadata, BM25
+fields, and crawled previews need no repository CAS. This establishes a per-hit
+read contract, not a measured latency improvement. Rendering never fetches or
+stitches source.
 New clients require
 the producer's September 7 v31 additive schema; no older-schema retry is
 introduced. After client

@@ -1728,11 +1728,8 @@ describe("CodeNavigationServiceImpl", () => {
     if (!firstHit?.repositoryEvidence) {
       throw new Error("expected populated structural evidence fixture");
     }
-    if (
-      !firstHit.repositoryEvidence.semanticContext ||
-      !firstHit.repositoryEvidence.focusedSource
-    ) {
-      throw new Error("expected populated structural evidence branches");
+    if (!firstHit.repositoryEvidence.semanticContext) {
+      throw new Error("expected populated semantic context fixture");
     }
     const baseEvidence = firstHit.repositoryEvidence;
     const cases = [
