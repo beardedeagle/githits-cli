@@ -407,7 +407,7 @@ describe("renderUnifiedSearchSuccess", () => {
     );
 
     expect(text).toContain(
-      "lib/auth-0.js:10-20 [repo code, candidate; visible terms: auth, session, metadata]",
+      "lib/auth-0.js:10-20 [repo code, candidate; visible terms: auth]",
     );
     expect(text).toContain(
       "lib/auth-1.js:10-20 [repo code, candidate; visible terms: auth]",
@@ -1036,7 +1036,10 @@ describe("renderUnifiedSearchSuccess", () => {
         },
         docsHit({
           title: "Документация | API - section",
-          summary: "Café — маршрутизация",
+          documentationPreview: {
+            text: "Café — маршрутизация",
+            highlights: [],
+          },
         }),
       ]),
     );
@@ -2730,12 +2733,14 @@ describe("renderUnifiedSearchSuccess", () => {
     expect(text.match(/120 pages/g)).toHaveLength(1);
   });
 
-  it("wraps long summaries", () => {
+  it("wraps long documentation previews", () => {
     const text = renderUnifiedSearchSuccess(
       completed([
         docsHit({
-          summary:
-            "This summary is intentionally long enough to force wrapping across multiple lines without using a non-ASCII separator.",
+          documentationPreview: {
+            text: "This preview is intentionally long enough to force wrapping across multiple lines without using a non-ASCII separator.",
+            highlights: [],
+          },
         }),
       ]),
     );
@@ -2748,8 +2753,10 @@ describe("renderUnifiedSearchSuccess", () => {
     const text = renderUnifiedSearchSuccess(
       completed([
         docsHit({
-          summary:
-            '/// The library calls this method when a log handler must emit a log message.\n/// <code lang="cs" source="Documentation/SerializationTests.cs" region="SerializeObject" />',
+          documentationPreview: {
+            text: '/// The library calls this method when a log handler must emit a log message.\n/// <code lang="cs" source="Documentation/SerializationTests.cs" region="SerializeObject" />',
+            highlights: [],
+          },
         }),
       ]),
       { width: 48 },
@@ -2766,10 +2773,17 @@ describe("renderUnifiedSearchSuccess", () => {
     );
   });
 
-  it("does not split unbreakable summary tokens", () => {
+  it("does not split unbreakable preview tokens", () => {
     const token = `https://example.com/${"segment".repeat(20)}`;
     const text = renderUnifiedSearchSuccess(
-      completed([docsHit({ summary: `Reference ${token} after` })]),
+      completed([
+        docsHit({
+          documentationPreview: {
+            text: `Reference ${token} after`,
+            highlights: [],
+          },
+        }),
+      ]),
       { width: 40 },
     );
 

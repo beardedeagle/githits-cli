@@ -71,6 +71,7 @@ export interface UnifiedSearchQueryEcho {
 
 export interface UnifiedSearchHighlightsPayload {
   title?: Array<readonly [number, number]>;
+  /** Legacy input only; the search response builder omits this field. */
   summary?: Array<readonly [number, number]>;
 }
 
@@ -82,10 +83,12 @@ export interface UnifiedSearchHitPayload {
   servedTarget?: string;
   freshness?: string;
   title?: string;
+  /** Legacy input only; the search response builder omits this field. */
   summary?: string;
   highlights?: UnifiedSearchHighlightsPayload;
   repositoryEvidence?: UnifiedSearchRepositoryEvidence | null;
   documentationPreview?: UnifiedSearchDocumentationPreview | null;
+  /** Legacy input only; the search response builder omits this field. */
   contentSafety?: ContentSafety;
   followUp?: string;
   locator: {
@@ -552,17 +555,19 @@ function buildHitPayload(hit: UnifiedSearchHit): UnifiedSearchHitPayload {
     hit.locator.repoUrl,
   );
   if (hit.title) payload.title = hit.title;
-  if (hit.summary) payload.summary = hit.summary;
   const highlights = buildHighlights(hit.highlights);
   if (highlights) payload.highlights = highlights;
   if (hit.repositoryEvidence !== undefined) {
-    payload.repositoryEvidence = hit.repositoryEvidence;
+    if (hit.repositoryEvidence === null) {
+      payload.repositoryEvidence = null;
+    } else {
+      const { focusedSource: _legacySource, ...evidence } =
+        hit.repositoryEvidence;
+      payload.repositoryEvidence = evidence;
+    }
   }
   if (hit.documentationPreview !== undefined) {
     payload.documentationPreview = hit.documentationPreview;
-  }
-  if (hit.contentSafety !== undefined) {
-    payload.contentSafety = hit.contentSafety;
   }
   const followUp = buildSearchHitFollowUpCommand(payload);
   if (followUp) payload.followUp = followUp;
@@ -641,9 +646,6 @@ function buildHighlights(
   const compact: UnifiedSearchHighlightsPayload = {};
   if (highlights.title && highlights.title.length > 0) {
     compact.title = highlights.title;
-  }
-  if (highlights.summary && highlights.summary.length > 0) {
-    compact.summary = highlights.summary;
   }
   return Object.keys(compact).length > 0 ? compact : undefined;
 }

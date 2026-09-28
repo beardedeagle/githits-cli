@@ -250,7 +250,7 @@ describe("searchTool", () => {
         allowPartialResults: true,
         filters: { publicOnly: true },
       }),
-      { omitFocusedSource: true },
+      {},
     );
   });
 
@@ -271,7 +271,7 @@ describe("searchTool", () => {
 
     expect(search).toHaveBeenCalledWith(
       expect.objectContaining({ sources: ["DOCS"] }),
-      { omitFocusedSource: true },
+      {},
     );
   });
 
@@ -296,7 +296,7 @@ describe("searchTool", () => {
         filters: undefined,
         query: "routing kind:function category:callable intent:production",
       }),
-      { omitFocusedSource: true },
+      {},
     );
   });
 
@@ -324,7 +324,7 @@ describe("searchTool", () => {
           expect.objectContaining({
             query: "routing path:guide/",
           }),
-          { omitFocusedSource: format !== "json" },
+          {},
         );
       }
     }
@@ -459,7 +459,7 @@ describe("searchTool", () => {
           }),
         ],
       }),
-      { omitFocusedSource: true },
+      {},
     );
   });
 
@@ -486,7 +486,7 @@ describe("searchTool", () => {
           }),
         ],
       }),
-      { omitFocusedSource: true },
+      {},
     );
   });
 
@@ -508,7 +508,7 @@ describe("searchTool", () => {
       expect.objectContaining({
         targets: [{ site: "site:expressjs.com" }],
       }),
-      { omitFocusedSource: true },
+      {},
     );
   });
 
@@ -774,7 +774,7 @@ describe("v31 format selection", () => {
       );
       expect(call).toHaveBeenCalledWith(
         expect.objectContaining({ query: "router" }),
-        { omitFocusedSource: format !== "json" },
+        {},
       );
     });
   }

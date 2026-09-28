@@ -976,28 +976,16 @@ function appendHit(
     );
   }
 
-  if (hit.contentSafety?.filtered) {
-    lines.push(
-      ...wrapHangingText(
-        `Content filtered: ${hit.contentSafety.modifications.join(", ")}`,
-        "  ",
-        options.width,
-      ),
-    );
-  }
   if (hit.type === "repository_code" || hit.type === "repository_doc") {
     appendStructuralEvidence(lines, hit, options);
     return;
   }
   const preview =
     hit.type === "documentation_page" ? hit.documentationPreview : undefined;
-  const summary = prepareSummary(
-    preview?.text ?? (preview === null ? undefined : hit.summary),
-    hit.title,
-  );
+  const summary = prepareSummary(preview?.text, hit.title);
   const summaryHighlights = preview
     ? graphemeHighlightRanges(preview.text, preview.highlights)
-    : hit.highlights?.summary;
+    : undefined;
   if (summary) {
     lines.push(
       ...wrapHighlightedText(
@@ -1332,12 +1320,6 @@ function candidateHeaderStatus(
     visibleValues.push(hit.title.toLowerCase());
   if (fields?.includes("FILE_PATH") && displayedPath)
     visibleValues.push(displayedPath.toLowerCase());
-  if (
-    (fields?.includes("SOURCE_IDENTIFIER") ||
-      fields?.includes("DOCUMENTATION")) &&
-    hit.summary
-  )
-    visibleValues.push(hit.summary.toLowerCase());
   const visible = queryFragments.filter((fragment) =>
     visibleValues.some((value) => value.includes(fragment)),
   );

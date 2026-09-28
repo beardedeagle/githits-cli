@@ -242,27 +242,29 @@ describe("semantic search text", () => {
     ).toBe(plain);
   });
 
-  it("shows content-safety changes only when the backend filtered content", () => {
+  it("ignores retired content-safety annotations", () => {
     const hit = semanticHit();
     expect(render(hit)).not.toContain("Content filtered");
     hit.contentSafety = {
       filtered: true,
       modifications: ["INVISIBLE_CONTROLS_STRIPPED"],
     };
-    expect(render(hit)).toMatch(
-      /Content filtered:\s+INVISIBLE_CONTROLS_STRIPPED/,
-    );
+    expect(render(hit)).not.toContain("Content filtered");
   });
 
-  it("preserves crawled-doc and explicit-symbol legacy bodies", () => {
-    for (const type of ["documentation_page", "repository_symbol"]) {
-      const hit = semanticHit();
-      hit.type = type;
-      hit.repositoryEvidence = null;
-      hit.title = "Independent title";
-      expect(render(hit)).toContain("LEGACY SUMMARY CONTEXT");
-      expect(render(hit)).not.toContain("Snippet unavailable");
-    }
+  it("renders crawled preview while symbol navigation omits legacy summary", () => {
+    const hit = semanticHit();
+    hit.type = "documentation_page";
+    hit.repositoryEvidence = null;
+    hit.title = "Independent title";
+    hit.documentationPreview = {
+      text: "Current documentation preview",
+      highlights: [],
+    };
+    expect(render(hit)).toContain("Current documentation preview");
+    hit.type = "repository_symbol";
+    hit.documentationPreview = null;
+    expect(render(hit)).not.toContain("LEGACY SUMMARY CONTEXT");
   });
 });
 

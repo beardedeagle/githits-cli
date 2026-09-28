@@ -6,6 +6,11 @@ The existing agent-eval harness owns task execution and metrics; this document
 owns the interpretation of this presentation experiment. No new product flag or
 benchmark infrastructure was added.
 
+The later Discovery client removed legacy hit summary, summary highlights,
+content safety, and compatibility `focusedSource` from both text and JSON
+requests. Historical measurements and descriptions below refer to the earlier
+additive client; the current contract lives in [tools.md](tools.md).
+
 ## Setup and reproducibility
 
 All runs target the user-provided development services: `mcp-dev.githits.com`,

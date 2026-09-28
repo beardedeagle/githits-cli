@@ -389,26 +389,33 @@ async function assertStructuralSearchRoundTrip(
     throw new Error("expected completed search outcome");
   }
   expect<unknown>(
-    outcome.result.results.map(({ repositoryEvidence, contentSafety }) => ({
-      repositoryEvidence,
-      contentSafety,
-    })),
+    outcome.result.results.map(({ repositoryEvidence }) => repositoryEvidence),
   ).toEqual(
-    fixture.evidence.map((repositoryEvidence, index) => ({
-      repositoryEvidence,
-      contentSafety: fixture.safety[index],
-    })),
+    fixture.evidence.map((repositoryEvidence) =>
+      repositoryEvidence
+        ? Object.fromEntries(
+            Object.entries(repositoryEvidence).filter(
+              ([key]) => key !== "focusedSource",
+            ),
+          )
+        : null,
+    ),
   );
+  for (const hit of outcome.result.results) {
+    expect(hit.summary).toBeUndefined();
+    expect(hit.contentSafety).toBeUndefined();
+    expect(hit.highlights).toEqual({ title: [[0, 6]] });
+  }
   expect(fn).toHaveBeenCalledTimes(1);
 
   const [, init] = fn.mock.calls[0] as unknown as [string, RequestInit];
   const query = JSON.parse(init.body as string).query as string;
   const normalizedQuery = query.replace(/\s+/g, " ").trim();
   expect(normalizedQuery).toContain(
-    "repositoryEvidence { bm25MatchFields semanticContext { scopes { name qualifiedPath kind parentQualifiedPath declarationStartLine declarationEndLine parameterNames returnType symbolRef } scopeChainTruncated preferredRead { targetLabel registry packageName version repoUrl gitRef commitSha requestedRef filePath repositoryFilePath startLine endLine } } focusedSource @include(if: $includeFocusedSource) { startLine endLine matchLine rangeKind matchSpansTruncated linesOmittedBefore linesOmittedAfter lines { lineNumber text highlights prefixTruncated suffixTruncated } } matchedSource { startLine endLine matchLine rangeKind matchSpansTruncated linesOmittedBefore linesOmittedAfter lines { lineNumber text highlights prefixTruncated suffixTruncated } } } contentSafety { filtered modifications }",
+    "repositoryEvidence { bm25MatchFields semanticContext { scopes { name qualifiedPath kind parentQualifiedPath declarationStartLine declarationEndLine parameterNames returnType symbolRef } scopeChainTruncated preferredRead { targetLabel registry packageName version repoUrl gitRef commitSha requestedRef filePath repositoryFilePath startLine endLine } } matchedSource { startLine endLine matchLine rangeKind matchSpansTruncated linesOmittedBefore linesOmittedAfter lines { lineNumber text highlights prefixTruncated suffixTruncated } } }",
   );
-  expect(normalizedQuery).toContain("summary score");
-  expect(normalizedQuery).toContain("highlights { title summary }");
+  expect(normalizedQuery).toContain("title score highlights { title }");
+  expect(normalizedQuery).not.toContain("summary");
 }
 
 interface V31EvidenceSearchResultFixture {
@@ -611,7 +618,14 @@ async function assertV31EvidenceRoundTrip(
   const resultEntries = result.results;
   const expectedResults = resultEntries.map(
     ({ repositoryEvidence, documentationPreview }) => ({
-      repositoryEvidence,
+      repositoryEvidence:
+        repositoryEvidence && typeof repositoryEvidence === "object"
+          ? Object.fromEntries(
+              Object.entries(repositoryEvidence).filter(
+                ([key]) => key !== "focusedSource",
+              ),
+            )
+          : repositoryEvidence,
       documentationPreview,
     }),
   );
@@ -630,127 +644,15 @@ async function assertV31EvidenceRoundTrip(
   const normalizedQuery = query.replace(/\s+/g, " ").trim();
   expect(normalizedQuery).toContain("documentationPreview { text highlights }");
   expect(normalizedQuery).toContain("bm25MatchFields");
+  expect(normalizedQuery).not.toContain("focusedSource");
+  expect(normalizedQuery).not.toContain("contentSafety");
+  expect(normalizedQuery).not.toContain("summary");
   expect(normalizedQuery).toContain(
     "matchedSource { startLine endLine matchLine rangeKind matchSpansTruncated linesOmittedBefore linesOmittedAfter lines { lineNumber text highlights prefixTruncated suffixTruncated } }",
   );
-}
-
-function buildV31SourceSelectionSearchResult(
-  includeFocusedSource: boolean,
-): V31EvidenceSearchResultFixture {
-  const result = buildV31EvidenceSearchResult();
-  result.results = result.results.map((entry) => {
-    const evidence = entry.repositoryEvidence;
-    if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
-      return entry;
-    }
-    const evidenceRecord = evidence as Record<string, unknown>;
-    if (!includeFocusedSource) {
-      return {
-        ...entry,
-        repositoryEvidence: Object.fromEntries(
-          Object.entries(evidenceRecord).filter(
-            ([key]) => key !== "focusedSource",
-          ),
-        ),
-      };
-    }
-    if (entry.id === "v31-named-without-source") {
-      return {
-        ...entry,
-        repositoryEvidence: { ...evidenceRecord, focusedSource: null },
-      };
-    }
-    return entry;
-  });
-  return result;
-}
-
-async function assertV31SourceSelectionRoundTrip(
-  baseUrl: string,
-  operation: "search" | "searchStatus",
-  mode: "default" | "explicit false" | "explicit true",
-): Promise<void> {
-  const includeFocusedSource = mode !== "explicit true";
-  const result = buildV31SourceSelectionSearchResult(includeFocusedSource);
-  const fn = mockFetch(() =>
-    Promise.resolve(
-      new Response(
-        JSON.stringify(buildV31EvidenceSearchResponse(operation, result)),
-        { headers: { "Content-Type": "application/json" } },
-      ),
-    ),
-  );
-  const service = new CodeNavigationServiceImpl(
-    baseUrl,
-    createMockTokenProvider(),
-    globalThis.fetch,
-  );
-  const options =
-    mode === "default"
-      ? undefined
-      : { omitFocusedSource: mode === "explicit true" };
-
-  const outcome =
-    operation === "search"
-      ? await service.search(
-          {
-            targets: [{ repoUrl: "https://github.com/owner/repo" }],
-            query: "render",
-          },
-          options,
-        )
-      : await service.searchStatus("v31-evidence-search-ref", 0, options);
-
-  expect(outcome.state).toBe("completed");
-  if (outcome.state !== "completed") {
-    throw new Error("expected completed search outcome");
-  }
-
-  const [, init] = fn.mock.calls[0] as unknown as [string, RequestInit];
-  const body = JSON.parse(init.body as string) as {
-    query: string;
-    variables: Record<string, unknown>;
-  };
-  const normalizedQuery = body.query.replace(/\s+/g, " ").trim();
-  expect(normalizedQuery).toContain("$includeFocusedSource: Boolean!");
-  expect(normalizedQuery).toContain(
-    "focusedSource @include(if: $includeFocusedSource)",
-  );
-  expect(body.variables.includeFocusedSource).toBe(includeFocusedSource);
-
-  const firstEvidence = outcome.result.results[0]?.repositoryEvidence;
-  if (!firstEvidence || typeof firstEvidence !== "object") {
-    throw new Error("expected repository evidence fixture");
-  }
-  const expectedFirstEvidence = result.results[0]?.repositoryEvidence;
-  if (!expectedFirstEvidence || typeof expectedFirstEvidence !== "object") {
-    throw new Error("expected source selection evidence fixture");
-  }
-  const expectedMatchedSource = (
-    expectedFirstEvidence as Record<string, unknown>
-  ).matchedSource;
-  expect<unknown>(firstEvidence.matchedSource).toEqual(expectedMatchedSource);
-  if (includeFocusedSource) {
-    expect<unknown>(firstEvidence.focusedSource).toEqual(
-      (expectedFirstEvidence as Record<string, unknown>).focusedSource,
-    );
-  } else {
-    expect(firstEvidence.focusedSource).toBeUndefined();
-    expect(Object.hasOwn(firstEvidence, "focusedSource")).toBe(false);
-  }
-
-  const nullSourceEvidence = outcome.result.results.find(
-    (entry) => entry.id === "v31-named-without-source",
-  )?.repositoryEvidence;
-  if (!nullSourceEvidence || typeof nullSourceEvidence !== "object") {
-    throw new Error("expected null focused-source fixture");
-  }
-  if (includeFocusedSource) {
-    expect(nullSourceEvidence.focusedSource).toBeNull();
-  } else {
-    expect(nullSourceEvidence.focusedSource).toBeUndefined();
-    expect(Object.hasOwn(nullSourceEvidence, "focusedSource")).toBe(false);
+  for (const hit of outcome.result.results) {
+    expect(hit.summary).toBeUndefined();
+    expect(hit.contentSafety).toBeUndefined();
   }
 }
 
@@ -1693,7 +1595,6 @@ describe("CodeNavigationServiceImpl", () => {
     }
     expect(result.result.results[0]?.highlights).toEqual({
       title: [[7, 17]],
-      summary: [[9, 15]],
     });
     const [, init] = fn.mock.calls[0] as unknown as [string, RequestInit];
     const body = JSON.parse(init.body as string);
@@ -1813,17 +1714,11 @@ describe("CodeNavigationServiceImpl", () => {
     }
   });
 
-  describe("v31 source selection", () => {
+  describe("v31 evidence selection", () => {
     for (const operation of ["search", "searchStatus"] as const) {
-      for (const mode of [
-        "default",
-        "explicit false",
-        "explicit true",
-      ] as const) {
-        it(`v31 source selection ${operation} ${mode}`, async () => {
-          await assertV31SourceSelectionRoundTrip(BASE_URL, operation, mode);
-        });
-      }
+      it(`omits legacy selections in ${operation}`, async () => {
+        await assertV31EvidenceRoundTrip(BASE_URL, operation);
+      });
     }
   });
 
@@ -1851,32 +1746,6 @@ describe("CodeNavigationServiceImpl", () => {
               ...baseEvidence.semanticContext.preferredRead,
               startLine: 0,
             },
-          },
-        },
-      },
-      {
-        name: "reversed focused-source range",
-        repositoryEvidence: {
-          ...baseEvidence,
-          focusedSource: {
-            ...baseEvidence.focusedSource,
-            startLine: 43,
-            endLine: 42,
-          },
-        },
-      },
-      {
-        name: "reversed highlight tuple",
-        repositoryEvidence: {
-          ...baseEvidence,
-          focusedSource: {
-            ...baseEvidence.focusedSource,
-            lines: [
-              {
-                ...baseEvidence.focusedSource.lines[0]!,
-                highlights: [[10, 6] as const],
-              },
-            ],
           },
         },
       },
@@ -2266,7 +2135,6 @@ describe("CodeNavigationServiceImpl", () => {
       searchRef: "search-ref-wait",
       includeResults: true,
       waitTimeoutMs: 25_000,
-      includeFocusedSource: true,
     });
   });
 
@@ -2479,7 +2347,6 @@ describe("CodeNavigationServiceImpl", () => {
       query: "router middleware secret text",
       allowPartialResults: false,
       waitTimeoutMs: 20_000,
-      includeFocusedSource: true,
     });
   });
 

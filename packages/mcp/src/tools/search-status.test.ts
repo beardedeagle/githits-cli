@@ -168,7 +168,7 @@ describe("searchStatusTool", () => {
     expect(searchStatus.mock.calls[0]).toEqual([
       "search-ref-default",
       30_000,
-      { omitFocusedSource: true },
+      {},
     ]);
 
     searchStatus.mockClear();
@@ -179,7 +179,7 @@ describe("searchStatusTool", () => {
     expect(searchStatus.mock.calls[0]).toEqual([
       "search-ref-explicit",
       45_000,
-      { omitFocusedSource: true },
+      {},
     ]);
   });
 
@@ -839,9 +839,7 @@ describe("v31 format selection", () => {
         createMockCodeNavigationService({ searchStatus: call }),
       );
       await tool.handler({ search_ref: "v31-ref", format }, {});
-      expect(call).toHaveBeenCalledWith("v31-ref", 30_000, {
-        omitFocusedSource: format !== "json",
-      });
+      expect(call).toHaveBeenCalledWith("v31-ref", 30_000, {});
     });
   }
 });

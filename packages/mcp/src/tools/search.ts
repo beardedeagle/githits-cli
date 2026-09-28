@@ -188,7 +188,6 @@ export function createSearchTool(
 
         const outcome = await service.search(built.params, {
           signal: context?.signal,
-          omitFocusedSource: isTextFormat(args.format),
         });
         const payload = buildUnifiedSearchSuccessPayload(
           built.params,

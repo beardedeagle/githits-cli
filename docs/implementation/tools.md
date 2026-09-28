@@ -245,10 +245,12 @@ Treat failures as live backend or contract findings, not deterministic unit-test
 
 **Repository search evidence locators.** Repository code and symbol hits keep the legacy target-relative `locator.filePath` and evidence `startLine` / `endLine` while also exposing the repository-root `repositoryFilePath`, exact served `commitSha`, explicit `evidenceRange`, original `indexedRange`, and optional `symbolContext`. Evidence includes `matchLine`, backend `rangeKind`, and `matchSpansTruncated`; symbol context keeps backend identity/kind plus the fixed lowercase relation `encloses_match` or `associated_with_indexed_chunk`. A proven enclosing relation always has one complete `definitionRange` containing both target-relative and repository-root paths. Associated or identity-only context may omit that range. Malformed partial definition locators invalidate the search response instead of being repaired or dropped.
 
-JSON preserves legacy ranges, summaries, highlights, compatibility `focusedSource`,
-and content safety. Initial, partial, and stored search results additionally carry
+Initial, partial, and stored search results carry
 `repositoryEvidence.bm25MatchFields`, `repositoryEvidence.matchedSource`, and
 `documentationPreview`, including nulls and empty preview highlight lists.
+Search and `search_status` no longer select or emit hit `summary`, summary
+highlights, hit `contentSafety`, or compatibility `focusedSource` in text or JSON.
+Legacy locator ranges and title highlights remain.
 
 `bm25MatchFields` names the indexed fields that contributed positive terms:
 `SYMBOL_NAME`, `FILE_PATH`, `DOCUMENTATION`, and `SOURCE_IDENTIFIER`. A known list
@@ -256,7 +258,7 @@ is complete, ordered and nonempty; null means unknown/unsupported, not no matche
 It is neither a term-to-field map nor proof of a source span. `matchedSource`
 independently carries producer-proven, numbered source: inclusive line bounds,
 nullable match anchor, non-null range kind, grapheme highlights, and crop flags.
-Compatibility source is navigation context and is never promoted into this proof.
+The old compatibility source was navigation context and was never match proof.
 
 Repository code/docs text shows matched source with the existing outer-to-inner
 semantic scope hierarchy, without routine authority captions or field inventories.
@@ -270,14 +272,13 @@ When matched source is absent, repository text shows one candidate header with
 the backend's bounded read window as `file:start-end`; `candidate` makes clear
 that those coordinates do not prove a match. For a bare identifier query, the
 formatter splits camel-case/underscore fragments and reports only literal
-fragments visible in the corresponding returned text: title when `SYMBOL_NAME`
-contributed, path when `FILE_PATH` contributed, and summary when
-`SOURCE_IDENTIFIER` or `DOCUMENTATION` contributed. These `visible terms` are
+fragments visible in the returned title when `SYMBOL_NAME` contributed or path
+when `FILE_PATH` contributed. These `visible terms` are
 observed substrings of the returned text, not the producer's exact BM25 term
 list or a term-to-field map. If no fragment is visible, the header names the
 contributing indexed fields instead. Unknown
-field provenance stays a plain candidate. Candidate summaries, scope blocks,
-and compatibility source are not rendered as matched lines; older results
+field provenance stays a plain candidate. Scope blocks are not rendered as
+matched lines; older injected results
 without repository evidence still show `Snippet unavailable`. A present matched
 snippet always wins regardless of indexed-field provenance.
 When the returned symbol definition shares the displayed file and contains the
@@ -288,29 +289,26 @@ sharing a file.
 
 Crawled pages use `documentationPreview` text and zero-based half-open grapheme
 ranges. Convert offsets against the original preview before duplicate-heading
-removal and wrapping. A null preview leaves the actionable header; older injected
-data without the field can use its legacy summary. Repository docs use repository
-evidence, not the crawled preview. Explicit symbol lookup retains its summary.
-Filtered content keeps its existing notice and JSON safety facts.
+removal and wrapping. A null preview leaves the actionable header. Repository
+docs use repository evidence, and explicit symbol hits retain title and locator
+navigation without a summary body.
 
 Header attribution and the JSON `followUp` use semantic `preferredRead` when
 available. Its target label determines package versus repository attribution:
 package reads use the package-relative path; repository reads use the root-relative
 path and exact commit. Preferred-read bounds are explicit-read coordinates, not
 display source. The 300-line MCP follow-up cap centers on matched source when
-available, with compatibility fallback for legacy results; original structured
+available; original structured
 bounds remain intact. Text does not print redundant per-hit read commands.
 
-The service selects v31 evidence on both search paths. Text callers pass the
-optional service read option `omitFocusedSource: true`; JSON/default service calls
-retain compatibility source. The option changes field selection only, not query
-filters, session state, or public CLI/MCP arguments. Semantic metadata and BM25
-fields need no CAS, and crawled previews need no repository CAS. Matched source
-hydrates proven rows; identical source ranges selected together share a backend
-read. Legacy summary remains selected for symbol/legacy-preview consumers and can
-still cause repository hydration, so this is not a CAS or latency reduction claim.
-Rendering never fetches or stitches source; candidate fragments use the already
-selected summary and leave `omitFocusedSource` unchanged. New clients require
+The service selects only v31 repository evidence on both search paths, for CLI
+and MCP text and JSON. The producer's GraphQL selection maps the omitted legacy
+branches to false. Its presentation pass skips CAS for path-only or unfocused
+hits and requests the numbered `matchedSource` range only when the producer
+marks that source authoritative. Semantic metadata, BM25 fields, and crawled
+previews need no repository CAS. This establishes a per-hit read contract, not
+a measured latency improvement. Rendering never fetches or stitches source.
+New clients require
 the producer's September 7 v31 additive schema; no older-schema retry is
 introduced. After client
 publication the producer must retain that schema during rollback. Hosted clients

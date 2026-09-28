@@ -145,27 +145,27 @@ function expectStructuralSearchJsonPreserved(
   const payloadResults =
     "result" in payload ? payload.result.results : payload.results;
   expect(
-    payloadResults.map(({ repositoryEvidence, contentSafety }) => ({
-      repositoryEvidence,
-      contentSafety,
-    })),
+    payloadResults.map(({ repositoryEvidence }) => repositoryEvidence),
   ).toEqual(
-    hits.map(({ repositoryEvidence, contentSafety }) => ({
-      repositoryEvidence,
-      contentSafety,
-    })),
+    hits.map(({ repositoryEvidence }) =>
+      withoutFocusedSource(repositoryEvidence),
+    ),
   );
-  expect(
-    payloadResults.map(({ summary, locator }) => ({
-      summary,
-      locator,
-    })),
-  ).toEqual(
-    hits.map(({ summary, locator }) => ({
-      summary,
-      locator,
-    })),
+  expect(payloadResults.map(({ locator }) => locator)).toEqual(
+    hits.map(({ locator }) => locator),
   );
+  for (const hit of payloadResults) {
+    expect(hit).not.toHaveProperty("summary");
+    expect(hit).not.toHaveProperty("contentSafety");
+  }
+}
+
+function withoutFocusedSource(
+  evidence: UnifiedSearchHit["repositoryEvidence"],
+): UnifiedSearchHit["repositoryEvidence"] {
+  if (!evidence) return evidence;
+  const { focusedSource: _legacySource, ...current } = evidence;
+  return current;
 }
 
 function v31JsonProjectionHits(): UnifiedSearchHit[] {
@@ -331,9 +331,11 @@ function expectedV31ProjectionFields(
   return hits.map((hit) => ({
     hasDocumentationPreview: hit.documentationPreview !== undefined,
     documentationPreview: hit.documentationPreview,
-    repositoryEvidence: hit.repositoryEvidence,
-    summary: hit.summary,
-    highlights: hit.highlights,
+    repositoryEvidence: withoutFocusedSource(hit.repositoryEvidence),
+    summary: undefined,
+    highlights: hit.highlights?.title
+      ? { title: hit.highlights.title }
+      : undefined,
   }));
 }
 
@@ -343,7 +345,7 @@ describe("v31 JSON projection", () => {
     query: "router middleware",
   };
 
-  it("preserves completed preview, repository evidence, and legacy fields", () => {
+  it("preserves completed preview and repository evidence without legacy fields", () => {
     const hits = v31JsonProjectionHits();
     const payload = buildUnifiedSearchSuccessPayload(
       params,
@@ -466,10 +468,8 @@ describe("buildUnifiedSearchSuccessPayload", () => {
       type: "repository_code",
       target: "npm:express@4.18.2",
       title: "router middleware",
-      summary: "function router(req, res, next) { ... }",
       highlights: {
         title: [[7, 17]],
-        summary: [[9, 15]],
       },
       locator: expect.objectContaining({
         filePath: "lib/router/index.js",
