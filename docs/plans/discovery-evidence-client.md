@@ -78,6 +78,9 @@ Implementation and request evidence:
   while the matched-source branch reads the authoritative range and path-only
   hits request no CAS range. No direct live CAS telemetry was captured.
 
-Internal code review is clean after resolving the output-type contract finding
-from external round one. Record the final external review, PR, and CI evidence
-here when available.
+Internal code review is clean. Claude external review converged in three rounds:
+round one identified stale output type declarations; round two confirmed that
+fix and identified one documentation ambiguity and one stale test guard; round
+three reviewed their fixes and reported no findings. The reviewer session is
+retained for PR follow-up at `term_f2c1ea79-f82b-4e41-ba9d-11893cd73ffd`.
+Record the PR and CI evidence here when available.
