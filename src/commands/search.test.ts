@@ -382,7 +382,6 @@ describe("searchAction", () => {
         allowPartialResults: true,
         filters: expect.objectContaining({ kind: "FUNCTION" }),
       }),
-      { omitFocusedSource: true },
     );
     consoleSpy.mockRestore();
   });
@@ -409,7 +408,6 @@ describe("searchAction", () => {
       expect.objectContaining({
         sources: ["CODE"],
       }),
-      { omitFocusedSource: true },
     );
     consoleSpy.mockRestore();
   });
@@ -437,7 +435,6 @@ describe("searchAction", () => {
         targets: [{ site: "site:expressjs.com" }],
         sources: ["DOCS"],
       }),
-      { omitFocusedSource: true },
     );
     consoleSpy.mockRestore();
   });
@@ -996,8 +993,9 @@ describe("searchAction", () => {
     expect(parsed.results[0].target).toBe("npm:express@4.18.2");
     expect(parsed.results[0].highlights).toEqual({
       title: [[7, 17]],
-      summary: [[9, 15]],
     });
+    expect(parsed.results[0]).not.toHaveProperty("summary");
+    expect(parsed.results[0]).not.toHaveProperty("contentSafety");
     consoleSpy.mockRestore();
   });
 
@@ -1658,7 +1656,7 @@ describe("searchAction", () => {
     consoleSpy.mockRestore();
   });
 
-  it("renders explicit symbol summaries verbatim in terminal output", async () => {
+  it("omits legacy symbol summaries from terminal output", async () => {
     const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
 
     if (defaultUnifiedSearchOutcome.state !== "completed") {
@@ -1698,8 +1696,8 @@ describe("searchAction", () => {
     );
 
     const output = String(consoleSpy.mock.calls[0]?.[0]);
-    expect(output).toContain("  line 6");
-    expect(output).toContain("  line 7");
+    expect(output).not.toContain("  line 6");
+    expect(output).not.toContain("  line 7");
     consoleSpy.mockRestore();
   });
 
@@ -1786,7 +1784,7 @@ describe("searchAction", () => {
     }
   });
 
-  it("preserves CRLF-based summary highlight offsets", async () => {
+  it("preserves CRLF-based documentation preview highlight offsets", async () => {
     const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
     const originalIsTTY = process.stdout.isTTY;
     const noColor = process.env.NO_COLOR;
@@ -1802,10 +1800,14 @@ describe("searchAction", () => {
         results: [
           {
             ...defaultUnifiedSearchOutcome.result.results[0]!,
-            resultType: "REPOSITORY_SYMBOL",
-            summary: "line 1\r\nline 2",
-            highlights: {
-              summary: [[8, 14]],
+            resultType: "DOCUMENTATION_PAGE",
+            documentationPreview: {
+              text: "line 1\r\nline 2",
+              highlights: [[7, 13]],
+            },
+            locator: {
+              pageId: "https://example.com/guide",
+              docsReadTarget: "https://example.com/guide",
             },
           },
         ],
@@ -2188,19 +2190,11 @@ describe("searchStatusAction", () => {
     const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
 
     await searchStatusAction("search-ref-wait", {}, deps);
-    expect(searchStatus.mock.calls[0]).toEqual([
-      "search-ref-wait",
-      30_000,
-      { omitFocusedSource: true },
-    ]);
+    expect(searchStatus.mock.calls[0]).toEqual(["search-ref-wait", 30_000]);
 
     searchStatus.mockClear();
     await searchStatusAction("search-ref-wait", { wait: "45" }, deps);
-    expect(searchStatus.mock.calls[0]).toEqual([
-      "search-ref-wait",
-      45_000,
-      { omitFocusedSource: true },
-    ]);
+    expect(searchStatus.mock.calls[0]).toEqual(["search-ref-wait", 45_000]);
 
     consoleSpy.mockRestore();
   });
@@ -2734,11 +2728,8 @@ describe("v31 format selection", () => {
       await searchStatusAction("v31-ref", { json }, deps);
       expect(search).toHaveBeenCalledWith(
         expect.objectContaining({ query: "router" }),
-        { omitFocusedSource: json !== true },
       );
-      expect(searchStatus).toHaveBeenCalledWith("v31-ref", 30_000, {
-        omitFocusedSource: json !== true,
-      });
+      expect(searchStatus).toHaveBeenCalledWith("v31-ref", 30_000);
     });
   }
 });

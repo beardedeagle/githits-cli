@@ -10,11 +10,9 @@ function semanticHit(): UnifiedSearchHitPayload {
     type: "repository_code",
     target: "github:owner/monorepo@main",
     title: "send",
-    summary: "LEGACY SUMMARY CONTEXT",
     followUp: "DO NOT PRINT THIS COMMAND",
     locator: { filePath: "wrong-relative-path.ts", startLine: 1, endLine: 9 },
     repositoryEvidence: {
-      focusedSource: null,
       semanticContext: {
         scopeChainTruncated: false,
         scopes: [
@@ -89,7 +87,6 @@ function semanticHit(): UnifiedSearchHitPayload {
         ],
       },
     },
-    contentSafety: { filtered: false, modifications: [] },
   };
 }
 
@@ -242,27 +239,19 @@ describe("semantic search text", () => {
     ).toBe(plain);
   });
 
-  it("shows content-safety changes only when the backend filtered content", () => {
+  it("renders crawled preview while symbol navigation has no source body", () => {
     const hit = semanticHit();
-    expect(render(hit)).not.toContain("Content filtered");
-    hit.contentSafety = {
-      filtered: true,
-      modifications: ["INVISIBLE_CONTROLS_STRIPPED"],
+    hit.type = "documentation_page";
+    hit.repositoryEvidence = null;
+    hit.title = "Independent title";
+    hit.documentationPreview = {
+      text: "Current documentation preview",
+      highlights: [],
     };
-    expect(render(hit)).toMatch(
-      /Content filtered:\s+INVISIBLE_CONTROLS_STRIPPED/,
-    );
-  });
-
-  it("preserves crawled-doc and explicit-symbol legacy bodies", () => {
-    for (const type of ["documentation_page", "repository_symbol"]) {
-      const hit = semanticHit();
-      hit.type = type;
-      hit.repositoryEvidence = null;
-      hit.title = "Independent title";
-      expect(render(hit)).toContain("LEGACY SUMMARY CONTEXT");
-      expect(render(hit)).not.toContain("Snippet unavailable");
-    }
+    expect(render(hit)).toContain("Current documentation preview");
+    hit.type = "repository_symbol";
+    hit.documentationPreview = null;
+    expect(render(hit)).not.toContain("Current documentation preview");
   });
 });
 
@@ -270,8 +259,6 @@ describe("v31 search presentation", () => {
   it("keeps path-only candidates to a file and bounded read header", () => {
     const hit = semanticHit();
     hit.repositoryEvidence!.bm25MatchFields = ["FILE_PATH"];
-    hit.repositoryEvidence!.focusedSource =
-      hit.repositoryEvidence!.matchedSource!;
     hit.repositoryEvidence!.matchedSource = null;
     const text = render(hit);
     expect(text).toContain(
@@ -321,8 +308,6 @@ describe("v31 search presentation", () => {
       const hit = semanticHit();
       hit.repositoryEvidence!.bm25MatchFields =
         fields === null ? null : [...fields];
-      hit.repositoryEvidence!.focusedSource =
-        hit.repositoryEvidence!.matchedSource!;
       hit.repositoryEvidence!.matchedSource = null;
       const text = render(hit);
       expect(text).toContain(`src/client.ts:120-165 [repo code, ${label}]`);
@@ -356,11 +341,11 @@ describe("v31 search presentation", () => {
 
   it("does not parse query syntax into claimed visible terms", () => {
     const hit = semanticHit();
-    hit.summary = "clear auth";
+    hit.title = "clear auth";
     hit.repositoryEvidence!.matchedSource = null;
-    hit.repositoryEvidence!.bm25MatchFields = ["SOURCE_IDENTIFIER"];
+    hit.repositoryEvidence!.bm25MatchFields = ["SYMBOL_NAME"];
     const text = render(hit, false, "clear OR auth");
-    expect(text).toContain("[repo code, candidate; indexed: identifiers]");
+    expect(text).toContain("[repo code, candidate; indexed: name]");
     expect(text).not.toContain("visible terms");
   });
 
@@ -375,23 +360,13 @@ describe("v31 search presentation", () => {
     expect(text).not.toContain("visible terms");
   });
 
-  it("keeps the same file header when an unproven summary is empty", () => {
+  it("keeps the candidate file header without proven source", () => {
     const hit = semanticHit();
     hit.repositoryEvidence!.matchedSource = null;
-    hit.summary = "  ";
     expect(render(hit)).toContain(
       "src/client.ts:120-165 [repo code, candidate]",
     );
     expect(render(hit)).not.toContain("Snippet unavailable");
-  });
-
-  it("does not render unverified summary highlights", () => {
-    const hit = semanticHit();
-    hit.repositoryEvidence!.matchedSource = null;
-    hit.highlights = { summary: [[0, 6]] };
-    const text = render(hit, true);
-    expect(text).toContain("[repo code, candidate]");
-    expect(text).not.toContain(colors.yellow);
   });
 
   it("keeps explicit symbol coordinates when repository evidence has no matched source", () => {
@@ -401,23 +376,15 @@ describe("v31 search presentation", () => {
     expect(render(hit)).toContain("src/client.ts:1-9 [repo symbol]");
   });
 
-  it("does not render a repository summary when an older injected service has no evidence", () => {
+  it("marks an older injected service hit without evidence as unavailable", () => {
     const hit = semanticHit();
     delete hit.repositoryEvidence;
     expect(render(hit)).toContain("Snippet unavailable");
-    expect(render(hit)).not.toContain("LEGACY SUMMARY CONTEXT");
   });
 
-  it("uses matched bounds even when compatibility source describes a different range", () => {
+  it("uses matched bounds for proven source", () => {
     const hit = semanticHit();
-    hit.repositoryEvidence!.focusedSource = {
-      ...hit.repositoryEvidence!.matchedSource!,
-      startLine: 900,
-      endLine: 910,
-      lines: [],
-    };
     expect(render(hit)).toContain("src/client.ts:142-145");
-    expect(render(hit)).not.toContain(":900-910");
   });
 
   it.each(["## é👩‍💻", "é👩‍💻\n======"])(

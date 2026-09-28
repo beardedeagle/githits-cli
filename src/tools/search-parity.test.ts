@@ -310,7 +310,7 @@ function structuralEvidenceOutcome(): UnifiedSearchOutcome {
 }
 
 describe("search parity", () => {
-  it("PARITY-V31: compact path hits and grapheme previews preserve complete JSON", async () => {
+  it("PARITY-V31: compact path hits and grapheme previews omit legacy JSON", async () => {
     const outcome = structuralEvidenceOutcome();
     if (outcome.state !== "completed")
       throw new Error("expected completed fixture");
@@ -342,17 +342,19 @@ describe("search parity", () => {
           repositoryEvidence: {
             bm25MatchFields: ["FILE_PATH"],
             matchedSource: null,
-            focusedSource: first.repositoryEvidence!.focusedSource,
           },
           documentationPreview: null,
         },
         {
           repositoryEvidence: null,
           documentationPreview: preview,
-          summary: "legacy preview stays in JSON",
         },
       ],
     });
+    const results = (cli as { results: Array<Record<string, unknown>> })
+      .results;
+    expect(results[0]?.repositoryEvidence).not.toHaveProperty("focusedSource");
+    expect(results[1]).not.toHaveProperty("summary");
     const text = await cliTextForOutcome(outcome);
     expect(text).toBe(await mcpTextForOutcome(outcome));
     expect(text).toContain(
@@ -416,8 +418,6 @@ describe("search parity", () => {
     const cliResult = cli as {
       results: Array<{
         repositoryEvidence?: unknown;
-        contentSafety?: unknown;
-        summary?: string;
         locator: {
           filePath?: string;
           repositoryFilePath?: string;
@@ -428,13 +428,13 @@ describe("search parity", () => {
       }>;
     };
     const hit = cliResult.results[0];
-    expect(hit?.repositoryEvidence).toEqual(
-      outcome.result.results[0]?.repositoryEvidence,
-    );
-    expect(hit?.contentSafety).toEqual(
-      outcome.result.results[0]?.contentSafety,
-    );
-    expect(hit?.summary).toBe("legacy summary must remain in JSON");
+    expect(hit?.repositoryEvidence).toMatchObject({
+      bm25MatchFields: ["SOURCE_IDENTIFIER"],
+      matchedSource: expect.any(Object),
+    });
+    expect(hit?.repositoryEvidence).not.toHaveProperty("focusedSource");
+    expect(hit).not.toHaveProperty("contentSafety");
+    expect(hit).not.toHaveProperty("summary");
     expect(hit?.locator).toMatchObject({
       filePath: "lib/client.ts",
       repositoryFilePath: "packages/express/lib/client.ts",

@@ -180,10 +180,11 @@ structured request because the backend follow-up endpoint does not
 expose the caller's original targets or filters.
 
 Unified `search` evidence is not an exception. Core decoding carries structural
-`repositoryEvidence` and `contentSafety` through the shared response projection
-for CLI `--json` and MCP `format: "json"`, including independent null branches
-and explicit false flags. Legacy locator, summary, and highlight fields remain.
-Initial and stored results share the same path. The v31 additions preserve named
+`repositoryEvidence` through the shared response projection for CLI `--json`
+and MCP `format: "json"`, including independent null branches. Legacy locator
+ranges and title highlights remain. Hit summary, summary highlights, content
+safety, and compatibility `focusedSource` are omitted from both text and JSON.
+Initial and stored results share the same path. The v31 fields preserve named
 BM25 fields, independent matched source, and crawled documentation previews;
 unknown/null evidence is never coerced to an empty list or inferred source proof.
 
@@ -194,14 +195,13 @@ Hits with repository evidence but no matched source show a single `candidate`
 header with the backend's inspection window. For bare identifier queries, the
 header shows literal query fragments visible in contributing indexed fields;
 otherwise it names known fields. Neither the range nor the visible fragments
-assert an exact backend match. Candidate summaries, scope blocks, and
-compatibility snippets stay out of the body. A definition that contains the
+assert an exact backend match. Candidate scope blocks stay out of the body.
+A definition that contains the
 candidate window in the displayed file adds its kind and qualified name to the
 same header. Older hits without repository
 evidence use `Snippet unavailable`.
 A present matched snippet always survives regardless of
-provenance. Both text callers omit the unused compatibility source selection;
-JSON/default service calls retain it.
+provenance. Both text and JSON callers omit the unused compatibility selection.
 Crawled previews use grapheme offsets before heading trimming and wrapping.
 Color is optional and the `>` match gutter
 retains meaning in plain text. Source grapheme highlights, whole-line omissions,

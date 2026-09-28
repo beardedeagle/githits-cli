@@ -151,12 +151,12 @@ describe("provider target consumer parity", () => {
         expect(JSON.parse(result.content[0]!.text!)).toEqual(
           JSON.parse(String(log.mock.calls[0]![0])),
         );
-        expect(search.mock.calls[0]).toEqual(search.mock.calls[1]);
-        expect(search).toHaveBeenCalledWith(
+        const calls = search.mock.calls as unknown as Array<Array<unknown>>;
+        expect(calls[0]?.[0]).toEqual(calls[1]?.[0]);
+        expect(calls[0]?.[0]).toEqual(
           expect.objectContaining({
             targets: [{ repoUrl, gitRef: "exact@commit" }],
           }),
-          expect.any(Object),
         );
       } finally {
         log.mockRestore();

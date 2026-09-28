@@ -23,9 +23,7 @@ export function buildSearchHitFollowUpCommand(
   const preferredRead = hit.repositoryEvidence?.semanticContext?.preferredRead;
   if (preferredRead) {
     const location = semanticReadLocation(preferredRead);
-    const source =
-      hit.repositoryEvidence?.matchedSource ??
-      hit.repositoryEvidence?.focusedSource;
+    const source = hit.repositoryEvidence?.matchedSource;
     const range =
       syntax === "mcp" &&
       preferredRead.endLine - preferredRead.startLine + 1 > MCP_READ_MAX_SPAN

@@ -67,7 +67,6 @@ export function createSearchStatusTool(
           args.wait_timeout_ms ?? DEFAULT_WAIT_TIMEOUT_MS,
           {
             signal: context?.signal,
-            omitFocusedSource: isTextFormat(args.format),
           },
         );
         const payload = buildUnifiedSearchStatusPayload(outcome);

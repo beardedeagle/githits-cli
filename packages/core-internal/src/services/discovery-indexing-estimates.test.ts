@@ -94,11 +94,7 @@ for (const operation of ["search", "searchStatus"] as const) {
       createMockTokenProvider(),
       fetchFn as unknown as typeof fetch,
     );
-    const run = (
-      includeFocusedSource = true,
-      waitTimeoutMs = 0,
-      signal?: AbortSignal,
-    ) =>
+    const run = (waitTimeoutMs = 0, signal?: AbortSignal) =>
       operation === "search"
         ? service.search(
             {
@@ -107,10 +103,9 @@ for (const operation of ["search", "searchStatus"] as const) {
               allowPartialResults: true,
               waitTimeoutMs,
             },
-            { omitFocusedSource: !includeFocusedSource, signal },
+            { signal },
           )
         : service.searchStatus("estimate-ref", waitTimeoutMs, {
-            omitFocusedSource: !includeFocusedSource,
             signal,
           });
     return { fetchFn, run };
@@ -128,7 +123,7 @@ for (const operation of ["search", "searchStatus"] as const) {
         const timeout = spyOn(AbortSignal, "timeout");
         try {
           const { fetchFn, run } = setup(progress);
-          await run(true, waitTimeoutMs);
+          await run(waitTimeoutMs);
           expect(timeout).toHaveBeenCalledWith(expectedTimeoutMs);
           const [, init] = (
             fetchFn.mock.calls as unknown as Array<[unknown, RequestInit]>
@@ -161,7 +156,7 @@ for (const operation of ["search", "searchStatus"] as const) {
           );
         });
       });
-      const pending = run(true, 120_000, controller.signal);
+      const pending = run(120_000, controller.signal);
       await ready;
       controller.abort(new Error("caller stopped waiting"));
       expect(upstreamSignal?.aborted).toBe(true);
@@ -184,7 +179,7 @@ for (const operation of ["search", "searchStatus"] as const) {
       );
       const timeout = spyOn(AbortSignal, "timeout");
       try {
-        await run(true, 120_000, controller.signal);
+        await run(120_000, controller.signal);
         expect(fetchFn).toHaveBeenCalledTimes(2);
         expect(timeout.mock.calls.map((call) => call[0])).toEqual([
           150_000, 150_000,
@@ -203,49 +198,46 @@ for (const operation of ["search", "searchStatus"] as const) {
       }
     });
 
-    it.each([false, true])(
-      "selects and decodes timing evidence with focused source=%s",
-      async (detailed) => {
-        const { fetchFn, run } = setup(progress);
-        const outcome = await run(detailed);
-        const [, init] = (
-          fetchFn.mock.calls as unknown as Array<[unknown, RequestInit]>
-        )[0]!;
-        const wire = JSON.parse(String(init.body));
-        expect(wire.query).toMatch(
-          /indexingEstimates\s*\{\s*kind\s+targets\s+repositoryUrl\s+commitSha\s+estimate\s*\{\s*lowerSeconds\s+upperSeconds\s+elapsedSeconds\s+sampleCount\s+source\s*\}\s+unavailableReason\s*\}/,
-        );
-        expect(wire.variables.includeFocusedSource).toBe(detailed);
-        expect(outcome.progress?.indexingEstimates).toEqual([
-          {
-            kind: "REPOSITORY",
-            targets: estimates[0]!.targets,
-            repositoryUrl: estimates[0]!.repositoryUrl!,
-            estimate: {
-              lowerSeconds: 10,
-              upperSeconds: 44,
-              sampleCount: 30,
-              source: "same_repository_refs",
-            },
+    it("selects and decodes timing evidence without legacy source fields", async () => {
+      const { fetchFn, run } = setup(progress);
+      const outcome = await run();
+      const [, init] = (
+        fetchFn.mock.calls as unknown as Array<[unknown, RequestInit]>
+      )[0]!;
+      const wire = JSON.parse(String(init.body));
+      expect(wire.query).toMatch(
+        /indexingEstimates\s*\{\s*kind\s+targets\s+repositoryUrl\s+commitSha\s+estimate\s*\{\s*lowerSeconds\s+upperSeconds\s+elapsedSeconds\s+sampleCount\s+source\s*\}\s+unavailableReason\s*\}/,
+      );
+      expect(wire.variables).not.toHaveProperty("includeFocusedSource");
+      expect(outcome.progress?.indexingEstimates).toEqual([
+        {
+          kind: "REPOSITORY",
+          targets: estimates[0]!.targets,
+          repositoryUrl: estimates[0]!.repositoryUrl!,
+          estimate: {
+            lowerSeconds: 10,
+            upperSeconds: 44,
+            sampleCount: 30,
+            source: "same_repository_refs",
           },
-          {
-            kind: "DOCUMENTATION",
-            targets: estimates[1]!.targets,
-            unavailableReason: "UNSUPPORTED_WORK",
-          },
-          {
-            kind: "REPOSITORY",
-            targets: estimates[2]!.targets,
-            repositoryUrl: estimates[2]!.repositoryUrl!,
-            commitSha: "abcdef",
-            estimate: { elapsedSeconds: 12, sampleCount: 0 },
-            unavailableReason: "NO_HISTORY",
-          },
-        ]);
-        expect(outcome.result?.partialResults).toBe(true);
-        expect(outcome.result?.evidenceNotice).toBe(result.evidenceNotice);
-      },
-    );
+        },
+        {
+          kind: "DOCUMENTATION",
+          targets: estimates[1]!.targets,
+          unavailableReason: "UNSUPPORTED_WORK",
+        },
+        {
+          kind: "REPOSITORY",
+          targets: estimates[2]!.targets,
+          repositoryUrl: estimates[2]!.repositoryUrl!,
+          commitSha: "abcdef",
+          estimate: { elapsedSeconds: 12, sampleCount: 0 },
+          unavailableReason: "NO_HISTORY",
+        },
+      ]);
+      expect(outcome.result?.partialResults).toBe(true);
+      expect(outcome.result?.evidenceNotice).toBe(result.evidenceNotice);
+    });
 
     it.each(["DEFERRED", "FAILED", "TIMEOUT", "SEARCHING"])(
       "preserves timing without changing %s lifecycle",
