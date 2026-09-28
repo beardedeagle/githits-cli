@@ -27,6 +27,91 @@ function createDeps(
 }
 
 describe("doctor", () => {
+  it("reports development defaults and the matching auth metadata namespace", async () => {
+    const createdAt = "2026-05-27T10:00:00.000Z";
+    const fs = createMockFileSystemService({
+      exists: mock((path: string) =>
+        Promise.resolve(path.endsWith("metadata.json")),
+      ),
+      readFile: mock(() =>
+        Promise.resolve(
+          JSON.stringify({
+            version: 1,
+            sessions: {
+              "https://mcp.githits.com": {
+                createdAt: "2026-01-01T00:00:00.000Z",
+                expiresAt: null,
+                updatedAt: createdAt,
+              },
+              "https://mcp-dev.githits.com": {
+                createdAt,
+                expiresAt: null,
+                updatedAt: createdAt,
+              },
+            },
+          }),
+        ),
+      ),
+    });
+    const deps = createDeps({
+      fs,
+      env: { HOME: "/home/test", GITHITS_ENV: "dev" },
+    });
+    const report = await buildDoctorReport(deps);
+    expect(report.environment.backendEnvironment).toEqual({
+      status: "present",
+      value: "dev",
+      source: "env",
+    });
+    expect(report.services.mcpUrl.value).toBe("https://mcp-dev.githits.com");
+    expect(report.services.apiUrl.value).toBe("https://api-dev.githits.com");
+    expect(report.services.codeNavigationUrl.value).toBe(
+      "https://oss-dev.githits.dev",
+    );
+    expect(report.services.accountsUrl.value).toBe(
+      "https://zcwquvryvmjuwckxdevg.supabase.co",
+    );
+    expect(report.auth.files[0]?.metadata.value?.createdAt).toBe(createdAt);
+    const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await doctorAction({}, deps);
+      const output = String(consoleSpy.mock.calls[0]?.[0]);
+      expect(output).toContain("GITHITS_ENV: dev");
+      expect(output).toContain(
+        "MCP URL: default development: https://mcp-dev.githits.com",
+      );
+      expect(output).not.toContain("default production");
+    } finally {
+      consoleSpy.mockRestore();
+    }
+    const production = await buildDoctorReport(createDeps({ fs }));
+    expect(production.auth.files[0]?.metadata.value?.createdAt).toBe(
+      "2026-01-01T00:00:00.000Z",
+    );
+  });
+
+  it("reports an invalid selector without failing local diagnostics or exposing its value", async () => {
+    const report = await buildDoctorReport(
+      createDeps({
+        env: {
+          HOME: "/home/test",
+          GITHITS_ENV: "private-selector-value",
+          GITHITS_CODE_NAV_URL: "http://localhost:4000",
+        },
+      }),
+    );
+    expect(report.environment.backendEnvironment.status).toBe("invalid");
+    expect(report.services.mcpUrl.error?.message).toContain("GITHITS_ENV");
+    expect(report.services.codeNavigationUrl).toEqual({
+      source: "env",
+      value: "http://localhost:4000",
+    });
+    expect(report.recommendations).toContain(
+      "Fix GITHITS_ENV before using network commands: use prod or dev.",
+    );
+    expect(JSON.stringify(report)).not.toContain("private-selector-value");
+  });
+
   it("hides default service URLs in text output", async () => {
     const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
 
@@ -38,7 +123,7 @@ describe("doctor", () => {
     expect(output).toContain("Code navigation URL: default production");
     expect(output).not.toContain("https://mcp.githits.com");
     expect(output).not.toContain("https://api.githits.com");
-    expect(output).not.toContain("https://pkgseer.dev");
+    expect(output).not.toContain("https://oss.githits.dev");
 
     consoleSpy.mockRestore();
   });

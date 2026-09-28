@@ -881,13 +881,15 @@ code. Deploy that schema before releasing or deploying the client. There is
 deliberately no old-schema fallback: a client pointed at an older target
 returns the normal sanitized protocol-mismatch error instead of silently losing
 fragment/range semantics. Legacy roots remain available to deprecated command
-compatibility paths only. On 2026-09-10, production validation confirmed that
+compatibility paths only. The endpoint probe results below are historical. On
+2026-09-10, production validation confirmed that
 the default `https://pkgseer.dev` target accepted all three additions, and an
 authenticated Flask corpus read resolved `#the-routing-system` to lines 81-93
 of 219. On 2026-09-14, authenticated built CLI and local MCP probes also
-confirmed both `Query.read` union branches against that production target.
-Backend merge state and deployment state are separate; only the served schema
-establishes runtime compatibility.
+confirmed both `Query.read` union branches against that production target. The
+current production OSS default is `https://oss.githits.dev`; `GITHITS_ENV=dev`
+selects `https://oss-dev.githits.dev`. Backend merge state and deployment state
+are separate; only the served schema establishes runtime compatibility.
 
 Content is sanitized across the complete stored page before backend slicing, so
 any backend `contentSafety` assessment covers the complete page even when

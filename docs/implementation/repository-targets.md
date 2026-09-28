@@ -180,6 +180,9 @@ answer quality. Artifacts: `.agent-eval/r3b-providers-codex` and
 
 ### Dev replay
 
+**Historical replay record:** The settings and results below document that
+run's endpoints and outcomes; they are not the current setup recipe.
+
 The built CLI and built stdio MCP replay passed with the user-supplied settings:
 
 ```text
@@ -201,6 +204,10 @@ Codeberg changelog retained one nonempty body on CLI and MCP, and
 Fuzzy resolve calls completed with the same discovery limitation described
 above. Local replay evidence is under `/tmp/r3b-live-dev-codeberg` and
 `/tmp/r3b-live-dev-gitlab`.
+
+Current dev setup uses `GITHITS_ENV=dev` to select the development defaults for
+each service. Set an individual URL override only when that service needs a
+custom endpoint.
 
 ### GitLab Swift package regression
 

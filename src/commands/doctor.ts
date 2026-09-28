@@ -1,8 +1,9 @@
 import { realpath } from "node:fs/promises";
 import {
-  DEFAULT_API_URL,
-  DEFAULT_CODE_NAV_URL,
-  DEFAULT_MCP_URL,
+  type GitHitsEnvironment,
+  getGitHitsEnvironment,
+  getMcpStorageKeyUrl,
+  getServiceUrlDefaults,
 } from "@githits/core-internal";
 import type { Command } from "commander";
 import { parse as parseToml } from "smol-toml";
@@ -29,7 +30,7 @@ import {
   type FileSystemService,
   FileSystemServiceImpl,
 } from "../services/filesystem-service.js";
-import { DEFAULT_ACCOUNTS_URL } from "../services/settings-service.js";
+import { getAccountsUrl } from "../services/settings-service.js";
 
 type ProbeStatus =
   | "present"
@@ -51,6 +52,8 @@ interface Probe<T> {
 interface ServiceProbe {
   source: "default" | "env";
   value?: string;
+  environment?: GitHitsEnvironment;
+  error?: { message: string };
 }
 
 interface AuthFileProbe {
@@ -91,6 +94,7 @@ export interface DoctorReport {
     bunInstall: Probe<string>;
   };
   environment: {
+    backendEnvironment: Probe<GitHitsEnvironment>;
     home: Probe<string>;
     userProfile: Probe<string>;
     xdgConfigHome: Probe<string>;
@@ -247,6 +251,7 @@ function buildEnvironmentReport(
   env: NodeJS.ProcessEnv,
 ): DoctorReport["environment"] {
   return {
+    backendEnvironment: backendEnvironmentProbe(env),
     home: envProbe(env.HOME),
     userProfile: envProbe(env.USERPROFILE),
     xdgConfigHome: envProbe(env.XDG_CONFIG_HOME),
@@ -282,13 +287,21 @@ async function buildRuntimeReport(
 }
 
 function buildServicesReport(env: NodeJS.ProcessEnv): DoctorReport["services"] {
+  const environment = backendEnvironmentProbe(env);
+  const selected = environment.value ?? "prod";
+  const defaults = getServiceUrlDefaults(selected);
   return {
-    mcpUrl: serviceProbe(env.GITHITS_MCP_URL, DEFAULT_MCP_URL),
-    apiUrl: serviceProbe(env.GITHITS_API_URL, DEFAULT_API_URL),
-    accountsUrl: serviceProbe(env.GITHITS_ACCOUNTS_URL, DEFAULT_ACCOUNTS_URL),
+    mcpUrl: serviceProbe(env.GITHITS_MCP_URL, defaults.mcpUrl, environment),
+    apiUrl: serviceProbe(env.GITHITS_API_URL, defaults.apiUrl, environment),
+    accountsUrl: serviceProbe(
+      env.GITHITS_ACCOUNTS_URL,
+      getAccountsUrl({ GITHITS_ENV: selected }),
+      environment,
+    ),
     codeNavigationUrl: serviceProbe(
-      env.GITHITS_CODE_NAV_URL ?? env.PKGSEER_URL,
-      DEFAULT_CODE_NAV_URL,
+      env.GITHITS_CODE_NAV_URL,
+      defaults.codeNavigationUrl,
+      environment,
     ),
   };
 }
@@ -433,9 +446,7 @@ async function probeAuthFileDir(
   const clientPath = fs.joinPath(dir, "client.json");
   const metadataPath = fs.joinPath(dir, "metadata.json");
   const diagnosticsPath = fs.joinPath(dir, "diagnostics.json");
-  const normalizedMcpUrl = normalizeBaseUrl(
-    env.GITHITS_MCP_URL ?? DEFAULT_MCP_URL,
-  );
+  const normalizedMcpUrl = normalizeBaseUrl(getMcpStorageKeyUrl(env));
   const authFile = await readJsonFile<StoredAuthFile>(
     fs,
     authPath,
@@ -570,6 +581,11 @@ function fileProbeFromRead<T>(
 
 function buildRecommendations(report: DoctorReport): string[] {
   const recommendations: string[] = [];
+  if (report.environment.backendEnvironment.status === "invalid") {
+    recommendations.push(
+      "Fix GITHITS_ENV before using network commands: use prod or dev.",
+    );
+  }
   if (report.environment.xdgConfigHome.status === "present") {
     recommendations.push(
       "XDG_CONFIG_HOME is set. Compare `githits doctor --json` between the working and failing environments.",
@@ -644,6 +660,9 @@ function formatDoctorReport(report: DoctorReport): string {
   lines.push(`  PATH githits: ${formatProbe(report.runtime.pathGithits)}`);
   lines.push(`  Working directory: ${report.runtime.cwd}`, "");
   lines.push("Environment:");
+  lines.push(
+    `  GITHITS_ENV: ${formatProbe(report.environment.backendEnvironment)}`,
+  );
   lines.push(`  HOME: ${formatProbe(report.environment.home)}`);
   lines.push(`  USERPROFILE: ${formatProbe(report.environment.userProfile)}`);
   lines.push(
@@ -760,6 +779,10 @@ function hasLegacyAuthEvidence(entry: AuthFileProbe): boolean {
 }
 
 function formatServiceProbe(probe: ServiceProbe): string {
+  if (probe.error) return `invalid environment: ${probe.error.message}`;
+  if (probe.source === "default" && probe.environment === "dev") {
+    return `default development: ${probe.value}`;
+  }
   return probe.source === "default"
     ? "default production"
     : `overridden: ${probe.value}`;
@@ -802,9 +825,28 @@ function secretEnvProbe(value: string | undefined): Probe<"set"> {
 
 function serviceProbe(
   value: string | undefined,
-  _defaultValue: string,
+  defaultValue: string,
+  environment: Probe<GitHitsEnvironment>,
 ): ServiceProbe {
-  return value !== undefined ? { source: "env", value } : { source: "default" };
+  if (value !== undefined) return { source: "env", value };
+  if (environment.error) return { source: "default", error: environment.error };
+  return environment.value === "dev"
+    ? { source: "default", environment: "dev", value: defaultValue }
+    : { source: "default" };
+}
+
+function backendEnvironmentProbe(
+  env: NodeJS.ProcessEnv,
+): Probe<GitHitsEnvironment> {
+  try {
+    return {
+      status: "present",
+      value: getGitHitsEnvironment(env),
+      source: env.GITHITS_ENV?.trim() ? "env" : "default",
+    };
+  } catch (error) {
+    return { ...toErrorProbe(error, "env"), status: "invalid" };
+  }
 }
 
 async function filePresenceProbe(

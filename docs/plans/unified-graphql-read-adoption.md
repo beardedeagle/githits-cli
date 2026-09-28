@@ -293,8 +293,8 @@ deployment and a minor release are the compatibility mechanism.
 Rollback is a normal package/host revert to the previous client version. There
 is no feature flag or runtime negotiation path.
 
-`GITHITS_CODE_NAV_URL` and its legacy `PKGSEER_URL` alias may point at a custom
-package/source endpoint. After this client release, that endpoint must implement
+`GITHITS_CODE_NAV_URL` may point at a custom package/source endpoint. After this
+client release, that endpoint must implement
 the `Query.read` contract for compact `read` calls. Compatibility commands keep
 working against the legacy roots, but they are not a fallback for an outdated
 custom endpoint. State this minimum schema requirement in durable configuration

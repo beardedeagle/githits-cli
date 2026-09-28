@@ -14,7 +14,7 @@ const MANAGED_ENV_KEYS = new Set([
   "GITHITS_MCP_URL",
   "GITHITS_API_URL",
   "GITHITS_CODE_NAV_URL",
-  "PKGSEER_URL",
+  "GITHITS_ENV",
 ]);
 
 export interface IsolatedSmokeEnvironment {

@@ -13,9 +13,10 @@ describe("createIsolatedSmokeEnvironment", () => {
       GITHITS_API_TOKEN: "secret",
       githits_token: "legacy-secret",
       githits_api_url: "https://real-api.example.com",
+      GITHITS_ENV: "dev",
+      githits_env: "invalid",
       githits_auth_storage: "keychain",
       xdg_config_home: "/real/config",
-      PKGSEER_URL: "https://real.example.com",
     };
     const isolated = createIsolatedSmokeEnvironment(
       "githits-smoke-environment-",
@@ -26,9 +27,10 @@ describe("createIsolatedSmokeEnvironment", () => {
       expect(isolated.env.GITHITS_API_TOKEN).toBeUndefined();
       expect(isolated.env.githits_token).toBeUndefined();
       expect(isolated.env.githits_api_url).toBeUndefined();
+      expect(isolated.env.GITHITS_ENV).toBeUndefined();
+      expect(isolated.env.githits_env).toBeUndefined();
       expect(isolated.env.githits_auth_storage).toBeUndefined();
       expect(isolated.env.xdg_config_home).toBeUndefined();
-      expect(isolated.env.PKGSEER_URL).toBeUndefined();
       expect(isolated.env.GITHITS_API_URL).toBe(
         "https://api-smoke-unauth.githits.invalid",
       );
@@ -69,6 +71,55 @@ describe("createScopedSmokeEnvironment", () => {
           ? scoped.env.APPDATA!
           : scoped.env.XDG_CONFIG_HOME!,
       );
+    } finally {
+      scoped.cleanup();
+    }
+  });
+});
+
+describe("smoke environment selector isolation", () => {
+  it("isolates the backend selector while preserving scoped dev configuration", () => {
+    const isolatedBaseEnv = {
+      GITHITS_ENV: "dev",
+      githits_env: "invalid",
+    };
+    const originalIsolatedBaseEnv = { ...isolatedBaseEnv };
+    const isolated = createIsolatedSmokeEnvironment(
+      "githits-smoke-selector-",
+      isolatedBaseEnv,
+    );
+    try {
+      expect(isolated.env.GITHITS_ENV).toBeUndefined();
+      expect(isolated.env.githits_env).toBeUndefined();
+      expect(isolated.env.GITHITS_MCP_URL).toBe(
+        "https://mcp-smoke-unauth.githits.invalid",
+      );
+      expect(isolated.env.GITHITS_API_URL).toBe(
+        "https://api-smoke-unauth.githits.invalid",
+      );
+      expect(isolated.env.GITHITS_CODE_NAV_URL).toBe(
+        "https://code-smoke-unauth.githits.invalid",
+      );
+      expect(isolatedBaseEnv).toEqual(originalIsolatedBaseEnv);
+    } finally {
+      isolated.cleanup();
+    }
+
+    const scopedBaseEnv = {
+      GITHITS_ENV: "dev",
+      GITHITS_CODE_NAV_URL: "https://oss-local.example.com",
+    };
+    const originalScopedBaseEnv = { ...scopedBaseEnv };
+    const scoped = createScopedSmokeEnvironment(
+      "githits-scoped-smoke-selector-",
+      scopedBaseEnv,
+    );
+    try {
+      expect(scoped.env.GITHITS_ENV).toBe("dev");
+      expect(scoped.env.GITHITS_CODE_NAV_URL).toBe(
+        "https://oss-local.example.com",
+      );
+      expect(scopedBaseEnv).toEqual(originalScopedBaseEnv);
     } finally {
       scoped.cleanup();
     }

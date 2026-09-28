@@ -961,10 +961,60 @@ describe("agent eval harness", () => {
     ).toEqual(["-y", "githits@0.4.2", "mcp", "start"]);
   });
 
+  it("propagates backend selector across eval launch surfaces", () => {
+    const baseEnv = {
+      GITHITS_ENV: "dev",
+      GITHITS_CODE_NAV_URL: "http://localhost:7070",
+      GITHITS_API_TOKEN: "fake-githits-token-for-eval-test",
+    };
+    const childEnv = buildEvalEnv(baseEnv);
+    const options = {
+      server: "local" as const,
+      repoRoot: "/repo/githits-cli",
+      publishedPackage: "githits@latest",
+    };
+
+    expect(childEnv.GITHITS_ENV).toBe("dev");
+    expect(childEnv.GITHITS_CODE_NAV_URL).toBe("http://localhost:7070");
+
+    const mcpConfig = buildMcpConfig(options, childEnv);
+    expect(mcpConfig.mcpServers.githits.env).toEqual({
+      GITHITS_ENV: "dev",
+      GITHITS_CODE_NAV_URL: "http://localhost:7070",
+    });
+    expect(JSON.stringify(mcpConfig)).not.toContain(
+      "fake-githits-token-for-eval-test",
+    );
+
+    const codexArgs = buildCodexConfigArgs(options, childEnv);
+    expect(codexArgs).toContain('mcp_servers.githits.env.GITHITS_ENV="dev"');
+    expect(codexArgs).toContain(
+      'mcp_servers.githits.env.GITHITS_CODE_NAV_URL="http://localhost:7070"',
+    );
+    expect(codexArgs.join(" ")).not.toContain(
+      "fake-githits-token-for-eval-test",
+    );
+
+    const codexConfig = buildCodexConfig(options, childEnv);
+    expect(codexConfig).toContain('GITHITS_ENV = "dev"');
+    expect(codexConfig).toContain(
+      'GITHITS_CODE_NAV_URL = "http://localhost:7070"',
+    );
+    expect(codexConfig).not.toContain("fake-githits-token-for-eval-test");
+
+    const summary = sanitizedEnvSummary(childEnv);
+    expect(summary.GITHITS_ENV).toBe("dev");
+    expect(summary.GITHITS_CODE_NAV_URL).toBe("http://localhost:7070");
+    expect(summary.GITHITS_API_TOKEN).toBe("<redacted>");
+    expect(JSON.stringify(summary)).not.toContain(
+      "fake-githits-token-for-eval-test",
+    );
+  });
+
   it("embeds non-secret backend override env in MCP configs", () => {
     const env = {
       GITHITS_API_URL: "https://api-dev.githits.com",
-      PKGSEER_URL: "https://pkgseer-backend-dev.fly.dev",
+      GITHITS_CODE_NAV_URL: "https://oss-dev.githits.dev",
       GITHITS_API_TOKEN: "secret-token",
     };
 
@@ -978,7 +1028,7 @@ describe("agent eval harness", () => {
     );
     expect(mcpConfig.mcpServers.githits.env).toEqual({
       GITHITS_API_URL: "https://api-dev.githits.com",
-      PKGSEER_URL: "https://pkgseer-backend-dev.fly.dev",
+      GITHITS_CODE_NAV_URL: "https://oss-dev.githits.dev",
     });
 
     expect(
@@ -991,7 +1041,7 @@ describe("agent eval harness", () => {
         env,
       ),
     ).toContain(
-      'mcp_servers.githits.env.PKGSEER_URL="https://pkgseer-backend-dev.fly.dev"',
+      'mcp_servers.githits.env.GITHITS_CODE_NAV_URL="https://oss-dev.githits.dev"',
     );
 
     const codexConfig = buildCodexConfig(

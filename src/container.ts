@@ -13,6 +13,7 @@ import {
   getApiUrl,
   getCodeNavigationUrl,
   getEnvApiToken,
+  getGitHitsEnvironment,
   getMcpStorageKeyUrl,
   getMcpUrl,
   type PackageIntelligenceService,
@@ -202,12 +203,24 @@ export interface AuthCommandDependencies {
   envApiToken: string | undefined;
 }
 
+/** Keep local auth paths available while validating presets before auth fetches. */
+function createAuthFetch(): typeof fetch {
+  const fetchFn = createLazyCliFetch();
+  return (async (
+    input: Parameters<typeof fetch>[0],
+    init?: Parameters<typeof fetch>[1],
+  ): Promise<Response> => {
+    getGitHitsEnvironment();
+    return fetchFn(input, init);
+  }) as typeof fetch;
+}
+
 export async function createAuthCommandDependencies(): Promise<AuthCommandDependencies> {
   return withTelemetrySpan("container.create-auth-command", async () => {
     const fileSystemService = new FileSystemServiceImpl();
     return {
       authStorage: await createAuthStorage(fileSystemService),
-      authService: new AuthServiceImpl(createLazyCliFetch()),
+      authService: new AuthServiceImpl(createAuthFetch()),
       browserService: new BrowserServiceImpl(),
       fileSystemService,
       authDiagnostics: new AuthDiagnosticsStorage(fileSystemService),
@@ -250,7 +263,7 @@ export async function createAuthStatusDependencies(): Promise<AuthCommandDepende
       authStorage: envApiToken
         ? createAuthStorageForMode(fileSystemService, "keychain")
         : await createAuthStorage(fileSystemService),
-      authService: new AuthServiceImpl(createLazyCliFetch()),
+      authService: new AuthServiceImpl(createAuthFetch()),
       browserService: new BrowserServiceImpl(),
       fileSystemService,
       authDiagnostics: new AuthDiagnosticsStorage(fileSystemService),

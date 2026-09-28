@@ -1,6 +1,7 @@
 import {
   AuthenticationError,
   fetchWithTimeout,
+  getGitHitsEnvironment,
   isFetchTimeoutError,
   LOCAL_AUTHENTICATION_MISSING_MESSAGE,
   SERVER_AUTHENTICATION_REJECTED_MESSAGE,
@@ -136,8 +137,12 @@ export class SettingsServiceImpl implements SettingsService {
 export function getAccountsUrl(
   env: Record<string, string | undefined> = process.env,
 ): string {
+  const defaultUrl =
+    getGitHitsEnvironment(env) === "dev"
+      ? "https://zcwquvryvmjuwckxdevg.supabase.co"
+      : DEFAULT_ACCOUNTS_URL;
   return validateServiceUrl(
-    env.GITHITS_ACCOUNTS_URL ?? DEFAULT_ACCOUNTS_URL,
+    env.GITHITS_ACCOUNTS_URL ?? defaultUrl,
     "GITHITS_ACCOUNTS_URL",
   );
 }
