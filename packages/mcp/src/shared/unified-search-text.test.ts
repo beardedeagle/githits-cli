@@ -715,7 +715,81 @@ describe("renderUnifiedSearchSuccess", () => {
     expect(text).toContain("router (function)");
   });
 
-  it("exposes the backend repo-doc locator with separate read bounds", () => {
+  it("uses package addressing for the reported repository docs in CLI and MCP", () => {
+    const commitSha = "3ed7535d66dbf08d7d793a6a985e999eb0276243";
+    const hits: UnifiedSearchHitPayload[] = [
+      {
+        path: "docs/implementation/auth.md",
+        title: "Token Lifecycle",
+        start: 42,
+        end: 52,
+      },
+      {
+        path: "docs/implementation/config.md",
+        title: "Local Storage",
+        start: 69,
+        end: 79,
+      },
+    ].map(({ path, title, start, end }) => ({
+      type: "repository_doc",
+      target: "npm:githits@0.22.1",
+      title,
+      locator: {
+        registry: "npm",
+        packageName: "githits",
+        version: "0.22.1",
+        pageId: `github:githits-com/githits-cli@${commitSha}/${path}`,
+        docsReadTarget: `github:githits-com/githits-cli@${commitSha}/${path}`,
+        repoUrl: "https://github.com/githits-com/githits-cli",
+        commitSha,
+        filePath: path,
+        repositoryFilePath: path,
+        startLine: start,
+        endLine: end,
+      },
+      repositoryEvidence: { semanticContext: null, matchedSource: null },
+    }));
+    for (const actionSyntax of ["cli", "mcp"] as const) {
+      const text = renderUnifiedSearchSuccess(completed(hits), {
+        actionSyntax,
+        width: 200,
+      });
+      expect(text).toContain(
+        "[1] npm:githits@0.22.1 docs/implementation/auth.md:42-52 [repo doc, candidate] - Token Lifecycle",
+      );
+      expect(text).toContain(
+        "[2] npm:githits@0.22.1 docs/implementation/config.md:69-79 [repo doc, candidate] - Local Storage",
+      );
+      expect(text).not.toContain("github:githits-com/githits-cli@");
+      expect(text).not.toContain("start_line=");
+    }
+  });
+
+  it("shows the package-relative monorepo docs path", () => {
+    const text = renderUnifiedSearchSuccess(
+      completed([
+        {
+          type: "repository_doc",
+          target: "npm:pkg@1.2.3",
+          locator: {
+            registry: "npm",
+            packageName: "pkg",
+            version: "1.2.3",
+            docsReadTarget:
+              "github:owner/monorepo@commit/packages/pkg/docs/auth.md",
+            filePath: "docs/auth.md",
+            repositoryFilePath: "packages/pkg/docs/auth.md",
+            startLine: 42,
+            endLine: 52,
+          },
+        },
+      ]),
+    );
+    expect(text).toContain("[1] npm:pkg@1.2.3 docs/auth.md:42-52 [repo doc]");
+    expect(text).not.toContain("packages/pkg/docs/auth.md");
+  });
+
+  it("exposes a legacy repo-doc locator with separate read bounds", () => {
     const target =
       "github:pallets/flask@22d924701a6ae2e4cd01e9a15bbaf3946094af65/docs/design.rst";
     const text = renderUnifiedSearchSuccess(

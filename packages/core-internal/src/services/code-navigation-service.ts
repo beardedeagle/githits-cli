@@ -374,7 +374,7 @@ export interface UnifiedSearchLocator {
   packageName?: string;
   version?: string;
   pageId?: string;
-  /** Preferred docs_read target; absent on legacy discovery results. */
+  /** Emitted documentation locator accepted by unified read; absent on legacy results. */
   docsReadTarget?: string;
   sourceKind?: string;
   sourceUrl?: string;

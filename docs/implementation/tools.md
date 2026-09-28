@@ -757,8 +757,16 @@ available. Repository documentation retains its heading. JSON retains titles.
 Hit headers are numbered so ranked results can be referenced as `[1]` through
 `[N]`. Repository and code hits keep the exact target and file location needed
 for `read` before a bracketed type tag (`[repo doc]`, `[repo code]`, or
-`[repo symbol]`); their free-form title is the final header tail. Documentation
-hits prefer the exact read target needed for `read`, a stable package
+`[repo symbol]`); their free-form title is the final header tail. Package-attributed
+repository docs with complete registry/name/version and target-relative file path
+use the served package address and `filePath:lines`, just like code headers;
+JSON-derived follow-ups pass that package target and separate exact path to
+unified `read`. The original `docsReadTarget`, page ID, repository commit and
+repository-root path remain provenance in JSON. Semantic preferred reads retain
+precedence; repository-only and incomplete legacy docs retain the emitted page
+locator with separate bounds. `docsReadTarget` is a legacy-named field accepted
+by unified read, not an exclusive instruction to use the deprecated docs reader.
+Hosted documentation hits prefer the exact read target needed for `read`, a stable package
 target, distinct human-readable source URL, and title in that order. When a
 crawled hit's source URL is exactly its HTTP(S) `docsReadTarget` plus a nonempty
 fragment, the shared formatter promotes that unchanged source URL to the read
