@@ -264,7 +264,11 @@ export function renderPluginAssets(
     },
     {
       path: ".claude-plugin/plugin.json",
-      content: json(sharedManifest),
+      content: json({
+        ...sharedManifest,
+        icon: "githits-icon.svg",
+        privacyPolicyUrl: "https://githits.com/legal/privacy-policy/",
+      }),
     },
     {
       path: ".claude-plugin/marketplace.json",

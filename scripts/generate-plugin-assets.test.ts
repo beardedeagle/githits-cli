@@ -125,6 +125,14 @@ describe("plugin asset generation", () => {
         mcpServers: ".mcp.json",
       }),
     );
+    expect(
+      JSON.parse(assets.get(".claude-plugin/plugin.json") ?? "{}"),
+    ).toEqual(
+      expect.objectContaining({
+        icon: "githits-icon.svg",
+        privacyPolicyUrl: "https://githits.com/legal/privacy-policy/",
+      }),
+    );
   });
 
   it("points the first-party Claude marketplace at the root payload", () => {
