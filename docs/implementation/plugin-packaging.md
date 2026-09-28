@@ -50,7 +50,9 @@ contents without running npm lifecycle scripts. `prepack` validates committed
 outputs instead of creating or deleting them.
 
 The Claude manifest points to the root SVG icon and the public GitHits privacy
-policy. Keep both fields in the generator so regenerated manifests retain them.
+policy. The icon is the Pulse monogram avatar from the GitHits product-context
+brand assets. Keep both manifest fields in the generator so regenerated manifests
+retain them.
 
 ## Skill Contract
 
