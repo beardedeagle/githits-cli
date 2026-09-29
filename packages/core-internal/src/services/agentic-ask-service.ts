@@ -23,29 +23,42 @@ export const AGENTIC_ASK_MAX_RESPONSE_BYTES: number = 4 * 1024 * 1024;
 const UUID_V7_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const sourceLineRangeSchema = z.string().regex(/^\d+-\d+$/);
+const sourceLineRangeSchema = z
+  .string()
+  .regex(/^(?:[1-9]\d*-(?:[1-9]\d*)?|-[1-9]\d*)$/)
+  .refine((range) => {
+    const [first, last] = range.split("-");
+    const start = first ? Number(first) : undefined;
+    const end = last ? Number(last) : undefined;
+    return (
+      (start === undefined || Number.isSafeInteger(start)) &&
+      (end === undefined || Number.isSafeInteger(end)) &&
+      (start === undefined || end === undefined || start <= end)
+    );
+  });
 
-const cliSourceArgumentsSchema = z.union([
-  z.tuple([
-    z.literal("githits@latest"),
-    z.literal("code"),
-    z.literal("read"),
-    z.literal("--lines"),
-    sourceLineRangeSchema,
-    z.literal("--"),
-    z.string().min(1),
-    z.string().min(1),
-  ]),
-  z.tuple([
-    z.literal("githits@latest"),
-    z.literal("docs"),
-    z.literal("read"),
-    z.literal("--lines"),
-    sourceLineRangeSchema,
-    z.literal("--"),
-    z.string().min(1),
-  ]),
-]);
+/** Accept only the backend's unified read argv, without normalizing locators. */
+function isReadSourceArguments(args: readonly string[]): boolean {
+  let index = 2;
+  if (args[index] === "--selector") {
+    if (!args[index + 1]) return false;
+    index += 2;
+  }
+  if (args[index] === "--lines") {
+    if (!sourceLineRangeSchema.safeParse(args[index + 1]).success) return false;
+    index += 2;
+  }
+  return (
+    args[index] === "--" &&
+    (args.length === index + 2 || args.length === index + 3) &&
+    args.slice(index + 1).every((value) => value.length > 0)
+  );
+}
+
+const cliSourceArgumentsSchema = z
+  .tuple([z.literal("githits@latest"), z.literal("read")])
+  .rest(z.string())
+  .refine(isReadSourceArguments);
 
 const cliSourceCallSchema = z.object({
   command: z.literal("npx"),
@@ -93,23 +106,22 @@ interface TargetErrorDetail {
   reason?: string;
 }
 
-const mcpCodeReadSourceCallSchema = z.object({
-  name: z.literal("code_read"),
-  arguments: z.object({
-    target: z.string().min(1),
-    path: z.string().min(1),
-    start_line: z.number().int().min(1),
-    end_line: z.number().int().min(1),
-  }),
-});
-
-const mcpDocumentationReadSourceCallSchema = z.object({
-  name: z.literal("docs_read"),
-  arguments: z.object({
-    page_id: z.string().min(1),
-    start_line: z.number().int().min(1),
-    end_line: z.number().int().min(1),
-  }),
+const mcpReadSourceCallSchema = z.strictObject({
+  name: z.literal("read"),
+  arguments: z
+    .strictObject({
+      target: z.string().min(1),
+      path: z.string().min(1).optional(),
+      selector: z.string().min(1).optional(),
+      start_line: z.number().int().min(1).optional(),
+      end_line: z.number().int().min(1).optional(),
+    })
+    .refine(
+      ({ start_line, end_line }) =>
+        start_line === undefined ||
+        end_line === undefined ||
+        start_line <= end_line,
+    ),
 });
 
 const mcpResponseSchema = z.object({
@@ -117,12 +129,7 @@ const mcpResponseSchema = z.object({
   tool_call_id: z.string().regex(UUID_V7_PATTERN),
   thread_id: z.string().regex(UUID_V7_PATTERN),
   answer_markdown: z.string().min(1),
-  sources: z.array(
-    z.discriminatedUnion("name", [
-      mcpCodeReadSourceCallSchema,
-      mcpDocumentationReadSourceCallSchema,
-    ]),
-  ),
+  sources: z.array(mcpReadSourceCallSchema),
 });
 
 const upstreamUrlSchema = z
@@ -171,18 +178,7 @@ export interface AgenticAskRequestOptions {
 
 export interface AgenticAskCliSourceCall {
   command: "npx";
-  arguments:
-    | [
-        "githits@latest",
-        "code",
-        "read",
-        "--lines",
-        string,
-        "--",
-        string,
-        string,
-      ]
-    | ["githits@latest", "docs", "read", "--lines", string, "--", string];
+  arguments: ["githits@latest", "read", ...string[]];
 }
 
 export interface AgenticAskCliResponse {
@@ -193,28 +189,16 @@ export interface AgenticAskCliResponse {
   sources: AgenticAskCliSourceCall[];
 }
 
-export interface AgenticAskMcpCodeReadSourceCall {
-  name: "code_read";
+export interface AgenticAskMcpSourceCall {
+  name: "read";
   arguments: {
     target: string;
-    path: string;
-    start_line: number;
-    end_line: number;
+    path?: string;
+    selector?: string;
+    start_line?: number;
+    end_line?: number;
   };
 }
-
-export interface AgenticAskMcpDocumentationReadSourceCall {
-  name: "docs_read";
-  arguments: {
-    page_id: string;
-    start_line: number;
-    end_line: number;
-  };
-}
-
-export type AgenticAskMcpSourceCall =
-  | AgenticAskMcpCodeReadSourceCall
-  | AgenticAskMcpDocumentationReadSourceCall;
 
 export interface AgenticAskMcpResponse {
   source_format: "mcp";

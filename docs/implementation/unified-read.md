@@ -167,21 +167,26 @@ as the MCP wait parameter.
 
 ## Ask compatibility
 
-The backend Ask contract still returns typed `code_read` and `docs_read` source
-pointers. `projectAskReadSources()` beside the local MCP `research` adapter projects these
-into callable `read` pointers before text or JSON rendering. Typed code targets are
-also normalized from backend-authored legacy repository labels to canonical
-`provider:path@ref`; docs maps `page_id` to `target` without parsing it, so emitted
-repository-backed documentation fragments and URL fragments remain byte-for-byte
-unchanged. All other response metadata is preserved and the original backend
-response is not mutated. URL and clarification responses pass through unchanged.
+Research responses contain final source actions. The shared service validates
+unified `read` sources;
+CLI `research` (including its `ask` alias) and MCP render those actions without
+translating tool names or normalizing targets and paths. Full served commit hashes,
+selectors, URL query strings, and exact path bytes survive in JSON. CLI text applies
+the existing terminal sanitization and shell quoting. URL and clarification
+responses retain their existing contracts.
 
-Core service consumers still see the backend contract. CLI `research` (including
-its `ask` alias) recognizes only the validated `githits code read` argv tuple
-and normalizes that tuple's target before
-text or JSON rendering. It never parses documentation argv, URLs, answer prose, or
-other opaque command shapes. Catalog names belong to the MCP adapter, not the
-backend service parser.
+CLI source argv starts with `githits@latest read`, followed by optional
+`--selector <value>`, optional `--lines <start>-<end>`, then `-- <target> [path]`.
+Either line bound may be omitted; whole reads omit the option entirely. The
+parser rejects unknown commands/options, malformed or reversed ranges, missing
+operands, and extra operands. It never executes the source command.
+
+MCP sources use `{name: "read", arguments: {target, path?, selector?, start_line?,
+end_line?}}`. Missing optional fields stay absent. The parser rejects unknown
+argument fields rather than silently dropping selection data. There is no legacy
+`code_read`/`docs_read` or CLI command fallback. Coordinate the client release with
+the API's unified source contract. Hosted MCP consumers must update their
+`@githits/mcp` package before accepting these responses.
 
 ## Migration and future extension
 

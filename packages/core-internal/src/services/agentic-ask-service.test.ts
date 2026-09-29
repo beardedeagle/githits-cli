@@ -31,7 +31,6 @@ function responseBody(overrides: Record<string, unknown> = {}) {
         command: "npx",
         arguments: [
           "githits@latest",
-          "code",
           "read",
           "--lines",
           "10-20",
@@ -44,7 +43,6 @@ function responseBody(overrides: Record<string, unknown> = {}) {
         command: "npx",
         arguments: [
           "githits@latest",
-          "docs",
           "read",
           "--lines",
           "3-8",
@@ -65,7 +63,7 @@ function mcpResponseBody(overrides: Record<string, unknown> = {}) {
     answer_markdown: "Use the documented API.",
     sources: [
       {
-        name: "code_read",
+        name: "read",
         arguments: {
           target: "npm:example",
           path: "src/index.ts",
@@ -74,9 +72,9 @@ function mcpResponseBody(overrides: Record<string, unknown> = {}) {
         },
       },
       {
-        name: "docs_read",
+        name: "read",
         arguments: {
-          page_id: "docs:example:guide",
+          target: "docs:example:guide",
           start_line: 3,
           end_line: 8,
         },
@@ -218,15 +216,7 @@ describe("AgenticAskServiceImpl", () => {
       sources: [
         {
           command: "npx",
-          arguments: [
-            "githits@latest",
-            "docs",
-            "read",
-            "--lines",
-            "3-8",
-            "--",
-            target,
-          ],
+          arguments: ["githits@latest", "read", "--lines", "3-8", "--", target],
         },
       ],
     };
@@ -251,8 +241,8 @@ describe("AgenticAskServiceImpl", () => {
       source_format: "mcp",
       sources: [
         {
-          name: "docs_read",
-          arguments: { page_id: target, start_line: 3, end_line: 8 },
+          name: "read",
+          arguments: { target: target, start_line: 3, end_line: 8 },
         },
       ],
     };
@@ -474,7 +464,7 @@ describe("AgenticAskServiceImpl", () => {
       mcpResponseBody({
         sources: [
           {
-            name: "code_read",
+            name: "read",
             arguments: {
               target: "npm:example",
               path: "src/index.ts",
