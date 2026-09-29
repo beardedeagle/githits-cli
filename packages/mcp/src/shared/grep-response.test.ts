@@ -5,7 +5,7 @@ import type {
   GrepTargetStatus,
 } from "@githits/core-internal";
 import { projectGrepResult } from "./grep-response.js";
-import { formatGrepText, formatReadAction } from "./grep-text.js";
+import { formatGrepText } from "./grep-text.js";
 
 const slice = {
   content: "router",
@@ -32,6 +32,8 @@ const target: GrepTargetStatus = {
   filesTooLargeSkipped: 0,
   fileIssues: [],
   fileIssuesOmitted: 0,
+  repoUrl: "https://github.com/o/r",
+  canonicalSite: null,
 };
 const hit: GrepHit = {
   __typename: "GrepRepositoryHit",
@@ -42,6 +44,8 @@ const hit: GrepHit = {
   contextBeforeSlices: [],
   contextAfterSlices: [],
   contentSafety: { filtered: false },
+  matchStartByte: 0,
+  matchEndByte: 6,
   read: {
     target: "github:o/r@abc",
     path: "packages/x/lib/a.ts",
@@ -82,8 +86,8 @@ describe("unified grep result and text", () => {
     });
     expect(projectGrepResult(page)).toEqual(page);
     const output = formatGrepText(page);
-    expect(output).toContain("inputs 0, 1 | UNSPECIFIED / RESUMABLE_LIMIT");
-    expect(output).toContain("Coverage: not visited in this page");
+    expect(output).toContain("inputs 0, 1): not visited in this page");
+    expect(output).not.toContain("UNSPECIFIED / RESUMABLE_LIMIT");
     expect(output).toContain("--cursor 'opaque'");
     expect(output).not.toContain("Unavailable input");
     expect(output).toContain("2: router");
@@ -142,7 +146,9 @@ describe("unified grep result and text", () => {
     );
     expect(output).toContain("first router [...]");
     expect(output).toContain("[...] second router [...]");
-    expect(output.match(/\[7\] lib\/a.ts/g)).toHaveLength(2);
+    expect(
+      output.match(/^\[1\] github:o\/r@abc packages\/x\/lib\/a.ts$/gm),
+    ).toHaveLength(1);
   });
   it("allowlists fields, preserves selected nulls, details and independent arrays", () => {
     const data = result({
@@ -174,7 +180,7 @@ describe("unified grep result and text", () => {
     expect(compact.hits[0]).not.toHaveProperty("lineContent");
     expect(compact).not.toHaveProperty("hasMore");
   });
-  it("preserves producer ordering and uses server reads rather than display paths", () => {
+  it("preserves JSON producer ordering and groups text by exact read identity", () => {
     const site: GrepHit = {
       ...hit,
       __typename: "GrepSiteHit",
@@ -190,6 +196,7 @@ describe("unified grep result and text", () => {
     const output = formatGrepText(
       result({
         hits: [hit, site, hit],
+        totalMatches: 3,
         targets: [
           target,
           {
@@ -202,16 +209,20 @@ describe("unified grep result and text", () => {
         ],
       }),
     );
-    expect(output.match(/\[7\] lib\/a.ts/g)).toHaveLength(2);
-    expect(output.indexOf("[7] lib/a.ts")).toBeLessThan(
-      output.indexOf("[4] https://docs.test/p"),
-    );
+    expect(
+      output.match(/^\[1\] github:o\/r@abc packages\/x\/lib\/a.ts$/gm),
+    ).toHaveLength(1);
+    expect(
+      output.indexOf("[1] github:o/r@abc packages/x/lib/a.ts"),
+    ).toBeLessThan(output.lastIndexOf("[2]"));
     expect(output).toContain(
-      "githits read 'github:o/r@abc' 'packages/x/lib/a.ts' --lines 2-2",
+      "# Read files: read --lines $start-$end -- $target $path",
     );
-    expect(output).toContain("githits read 'https://docs.test/p' --lines 2-2");
-    expect(output).toContain("inputs 1, 0");
-    expect(output).toContain("latest active content");
+    expect(output).toContain("# Read pages: read --lines $start-$end -- $url");
+    expect(output).toContain("[2] https://docs.test/p");
+    expect(output).not.toContain("inputs 1, 0");
+    expect(output).not.toContain("current content");
+    expect(output).not.toContain("Read recipes");
   });
   it("merges overlapping context while keeping match markers and slice omissions", () => {
     const output = formatGrepText(
@@ -235,7 +246,7 @@ describe("unified grep result and text", () => {
     expect(output).toContain("1- before");
     expect(output).toContain("2: [...] router [...]");
     expect(output).toContain("3: router");
-    expect(output).not.toContain("3- after");
+    expect(output).toContain("3- after");
   });
   it("keeps all coverage warnings visible on zero-hit complete or partial pages", () => {
     const scopes = [
@@ -273,7 +284,7 @@ describe("unified grep result and text", () => {
     );
     expect(output).toContain("(aggregate)");
     expect(output).toContain("2 additional file issue");
-    expect(output).toContain("safety normalization");
+    expect(output.replace(/\s+/g, " ")).toContain("safety normalization");
     expect(formatGrepText(result({ hits: [], totalMatches: 0 }))).toContain(
       "No matches.",
     );
@@ -307,14 +318,14 @@ describe("unified grep result and text", () => {
           nextCursor: "opaque",
         }),
       ),
-    ).toContain("Coverage: RESUMABLE_LIMIT");
+    ).toContain("more available");
     expect(
       formatGrepText(
         result({ traversal: "CURSOR_EXPIRED", unavailableTargets: [omission] }),
       ),
     ).toContain("Restart explicitly");
   });
-  it("escapes terminal controls and locator backslashes, preserves Unicode and wraps prose only", () => {
+  it("quotes terminal controls and locator backslashes for exact reads, preserves Unicode and wraps prose only", () => {
     const content = `${"界".repeat(100)}\x1b[31m`;
     const output = formatGrepText(
       result({
@@ -322,6 +333,7 @@ describe("unified grep result and text", () => {
           {
             ...hit,
             filePath: "a\\b\x1b",
+            read: { ...hit.read, path: "a\\b\x1b" },
             lineSlice: {
               content,
               startByte: 0,
@@ -340,18 +352,24 @@ describe("unified grep result and text", () => {
       }),
       { width: 25 },
     );
-    expect(output).toContain("a\\\\b\\u001b");
+    expect(output).toContain("$'a\\\\b\\x1b'");
     expect(output).toContain(`${"界".repeat(100)}\\u001b[31m`);
     expect(output).not.toContain("\x1b");
     expect(output.replace(/\s+/g, " ")).toContain("Long words should");
     expect(
-      formatReadAction({ ...hit.read, target: "github:o/r@abc\n" }, "cli"),
+      formatGrepText(
+        result({
+          hits: [{ ...hit, read: { ...hit.read, target: "github:o/r@abc\n" } }],
+        }),
+      ),
     ).toContain("\\x0a");
-    expect(formatReadAction(hit.read, "mcp")).toContain(
-      'path="packages/x/lib/a.ts"',
+    expect(formatGrepText(result(), { syntax: "mcp" })).toContain(
+      "path=$path start_line=$start end_line=$end",
     );
-    expect(formatReadAction({ ...hit.read, path: "-README.md" }, "cli")).toBe(
-      "githits read --lines 2-2 -- 'github:o/r@abc' '-README.md'",
+    const leadingDash = formatGrepText(
+      result({ hits: [{ ...hit, read: { ...hit.read, path: "-README.md" } }] }),
     );
+    expect(leadingDash).toContain("[1] github:o/r@abc -README.md");
+    expect(leadingDash).toContain("read --lines $start-$end -- $target $path");
   });
 });
