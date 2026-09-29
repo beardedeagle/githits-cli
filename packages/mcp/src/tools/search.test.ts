@@ -33,16 +33,16 @@ describe("searchTool", () => {
       "Discover relevant docs, code, and symbols in a known public target. Start here f",
     );
     expect(descriptor?.description).toContain(
-      "Hosted `[docs page]` HTTP(S) targets address mutable current content",
+      "Hosted HTTP(S) page locators address mutable current content",
     );
     expect(descriptor?.description).toContain(
-      "generated follow-ups omit search line bounds",
+      "replay its complete emitted read action or generated `followUp` unchanged, including supplied selector and bounds",
     );
     expect(descriptor?.description).toContain(
       "Repository docs remain snapshot-addressed and keep returned ranges",
     );
     expect(descriptor?.description).toContain(
-      "Explicit `read` bounds are caller-selected ranges",
+      "A `[docs page]` header is a page locator; its action selects the hit's section",
     );
     const readDescriptor = getMcpToolDescriptors().find(
       (entry) => entry.name === "read",
@@ -657,6 +657,12 @@ describe("searchTool", () => {
           {
             ...baseHit,
             resultType: "REPOSITORY_DOC" as const,
+            readTarget: {
+              target: "backend-doc",
+              selector: "Heading",
+              startLine: 42,
+              endLine: 52,
+            },
             locator: {
               ...baseHit.locator,
               pageId: "github:expressjs/express@abc123/README.md",
@@ -695,7 +701,11 @@ describe("searchTool", () => {
       gitRef: "abc123",
       filePath: "README.md",
     });
-    expect(payload.results[0].followUp).toContain("read target=");
+    expect(payload.results[0].followUp).toBe(
+      'read target="backend-doc" selector="Heading" start_line=42 end_line=52',
+    );
+    for (const key of ["readTarget", "codeAction", "docAction"])
+      expect(JSON.stringify(payload)).not.toContain(`"${key}":`);
     expect(payload.results[0]).not.toHaveProperty("alternateFollowUps");
   });
 

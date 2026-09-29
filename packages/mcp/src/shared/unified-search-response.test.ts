@@ -12,10 +12,26 @@ import {
 import { defaultUnifiedSearchOutcome } from "../services/test-helpers.js";
 import {
   buildSourceStatusWarnings,
+  buildUnifiedSearchStatusPayload as buildStatusPresentation,
+  buildUnifiedSearchSuccessPayload as buildSuccessPresentation,
   buildUnifiedSearchErrorPayload,
-  buildUnifiedSearchStatusPayload,
-  buildUnifiedSearchSuccessPayload,
+  projectUnifiedSearchStatusPayload,
+  projectUnifiedSearchSuccessPayload,
+  type UnifiedSearchCompletedPresentation,
+  type UnifiedSearchIncompletePresentation,
+  type UnifiedSearchStatusResultPresentation,
 } from "./unified-search-response.js";
+
+function buildUnifiedSearchSuccessPayload(
+  ...args: Parameters<typeof buildSuccessPresentation>
+) {
+  return projectUnifiedSearchSuccessPayload(buildSuccessPresentation(...args));
+}
+function buildUnifiedSearchStatusPayload(
+  ...args: Parameters<typeof buildStatusPresentation>
+) {
+  return projectUnifiedSearchStatusPayload(buildStatusPresentation(...args));
+}
 
 function completedOutcomeWithHits(
   hits: UnifiedSearchHit[],
@@ -500,6 +516,12 @@ describe("buildUnifiedSearchSuccessPayload", () => {
     const filePath = "packages/coding-agent/src/core/compaction/compaction.ts";
     const hit: UnifiedSearchHit = {
       id: "pi-mono-compact",
+      readTarget: {
+        target: `github:badlogic/pi-mono@${commitSha}`,
+        path: filePath,
+        startLine: 858,
+        endLine: 964,
+      },
       resultType: "REPOSITORY_CODE",
       targetLabel: "badlogic/pi-mono@main",
       title: "compact",
@@ -583,6 +605,12 @@ describe("buildUnifiedSearchSuccessPayload", () => {
     const commitSha = "0123456789abcdef0123456789abcdef01234567";
     const hit: UnifiedSearchHit = {
       id: "associated",
+      readTarget: {
+        target: `github:owner/repo@${commitSha}`,
+        path: "src/feature.ts",
+        startLine: 44,
+        endLine: 48,
+      },
       resultType: "REPOSITORY_CODE",
       targetLabel: "owner/repo@main",
       title: "primarySymbol",
@@ -639,6 +667,12 @@ describe("buildUnifiedSearchSuccessPayload", () => {
   it("retains equal structured ranges when invalid spans leave the symbol associated", () => {
     const hit: UnifiedSearchHit = {
       id: "invalid-span-association",
+      readTarget: {
+        target: "github:owner/repo@exact-ref",
+        path: "src/boundary.ts",
+        startLine: 1,
+        endLine: 1,
+      },
       resultType: "REPOSITORY_CODE",
       targetLabel: "owner/repo@main",
       locator: {
@@ -717,6 +751,12 @@ describe("buildUnifiedSearchSuccessPayload", () => {
     const hits: UnifiedSearchHit[] = [
       {
         id: "package-evidence",
+        readTarget: {
+          target: `github:owner/monorepo@${commitSha}`,
+          path: "packages/workspace-package/src/index.ts",
+          startLine: 20,
+          endLine: 24,
+        },
         resultType: "REPOSITORY_CODE",
         targetLabel: "npm:workspace-package@1.0.0",
         title: "associated",
@@ -730,6 +770,12 @@ describe("buildUnifiedSearchSuccessPayload", () => {
       },
       {
         id: "package-definition",
+        readTarget: {
+          target: `github:owner/monorepo@${commitSha}`,
+          path: "packages/workspace-package/src/index.ts",
+          startLine: 10,
+          endLine: 40,
+        },
         resultType: "REPOSITORY_CODE",
         targetLabel: "npm:workspace-package@1.0.0",
         title: "defined",
@@ -770,6 +816,12 @@ describe("buildUnifiedSearchSuccessPayload", () => {
   it("centres a capped large-definition follow-up on evidence without changing its structured range", () => {
     const hit: UnifiedSearchHit = {
       id: "large-definition",
+      readTarget: {
+        target: "github:owner/repo@exact-served-ref",
+        path: "src/large.ts",
+        startLine: 269,
+        endLine: 1286,
+      },
       resultType: "REPOSITORY_CODE",
       targetLabel: "owner/repo@main",
       title: "largeFunction",
@@ -901,6 +953,12 @@ describe("buildUnifiedSearchSuccessPayload", () => {
   it("keeps the match in capped oversized evidence without an enclosing definition", () => {
     const hit: UnifiedSearchHit = {
       id: "oversized-associated-evidence",
+      readTarget: {
+        target: "github:owner/repo@exact-served-ref",
+        path: "src/evidence.ts",
+        startLine: 600,
+        endLine: 950,
+      },
       resultType: "REPOSITORY_CODE",
       targetLabel: "owner/repo@main",
       locator: {
@@ -1001,6 +1059,7 @@ describe("buildUnifiedSearchSuccessPayload", () => {
               ...hit,
               resultType: "REPOSITORY_DOC",
               targetLabel: "expressjs/express",
+              readTarget: { target: "github:expressjs/express/README.md" },
               locator: {
                 ...hit.locator,
                 pageId: "github:expressjs/express/README.md",
@@ -1021,7 +1080,7 @@ describe("buildUnifiedSearchSuccessPayload", () => {
     );
   });
 
-  it("retains documentation locators and prefers exact fragment follow-ups", () => {
+  it("retains documentation locators and renders the selected heading explicitly", () => {
     if (defaultUnifiedSearchOutcome.state !== "completed") {
       throw new Error("expected completed outcome fixture");
     }
@@ -1040,6 +1099,10 @@ describe("buildUnifiedSearchSuccessPayload", () => {
             {
               ...hit,
               resultType: "DOCUMENTATION_PAGE",
+              readTarget: {
+                target: docsReadTarget,
+                selector: "route-handlers",
+              },
               locator: {
                 pageId: "legacy-routing-id",
                 docsReadTarget,
@@ -1059,7 +1122,7 @@ describe("buildUnifiedSearchSuccessPayload", () => {
       sourceUrl: `${docsReadTarget}#route-handlers`,
     });
     expect(payload.results[0]?.followUp).toBe(
-      `read target=${JSON.stringify(`${docsReadTarget}#route-handlers`)}`,
+      `read target=${JSON.stringify(docsReadTarget)} selector="route-handlers"`,
     );
   });
 
@@ -1081,6 +1144,7 @@ describe("buildUnifiedSearchSuccessPayload", () => {
             {
               ...hit,
               resultType: "DOCUMENTATION_PAGE",
+              readTarget: { target: docsReadTarget },
               locator: {
                 pageId: docsReadTarget,
                 docsReadTarget,
@@ -3461,6 +3525,171 @@ describe("buildUnifiedSearchStatusPayload", () => {
 
       expect(payload.progress?.next).toBe("rerun search");
       expect(payload.progress?.next).not.toContain("search_status");
+    },
+  );
+});
+
+describe("internal action/public JSON boundary", () => {
+  const privateHit = {
+    type: "documentation_page",
+    target: "npm:express",
+    locator: {
+      docsReadTarget: "https://docs.test/page",
+      startLine: 503,
+      endLine: 508,
+    },
+    readTarget: { target: "https://docs.test/page", selector: "router" },
+    repositoryEvidence: null,
+    documentationPreview: null,
+  };
+  const publicHit = {
+    type: privateHit.type,
+    target: privateHit.target,
+    locator: privateHit.locator,
+    repositoryEvidence: null,
+    documentationPreview: null,
+  };
+  const progress = {
+    status: "INDEXING",
+    targetsReady: 0,
+    targetsTotal: 1,
+    elapsedMs: 5,
+  };
+
+  it("retains all current completed/incomplete search envelope fields", () => {
+    const completed: UnifiedSearchCompletedPresentation = {
+      query: { raw: "router" },
+      completed: true,
+      partialResults: false,
+      hasMore: true,
+      nextOffset: 11,
+      results: [privateHit],
+      searchRef: "retained",
+      warnings: ["warning"],
+      sourceStatus: [],
+      evidenceNotice: "coverage note",
+    };
+    const incomplete: UnifiedSearchIncompletePresentation = {
+      ...completed,
+      completed: false,
+      searchRef: "interim",
+      progress,
+    };
+    for (const payload of [completed, incomplete])
+      expect(projectUnifiedSearchSuccessPayload(payload)).toEqual({
+        ...payload,
+        results: [publicHit],
+      });
+  });
+
+  it("retains all current completed/interim status envelope and result fields", () => {
+    const result: UnifiedSearchStatusResultPresentation = {
+      query: { raw: "router" },
+      partialResults: true,
+      warnings: ["warning"],
+      sources: ["docs"],
+      hasMore: true,
+      nextOffset: 11,
+      results: [privateHit],
+      sourceStatus: [],
+      evidenceNotice: "coverage note",
+    };
+    const completed = {
+      completed: true as const,
+      searchRef: "retained",
+      result,
+    };
+    const incomplete = {
+      completed: false as const,
+      searchRef: "interim",
+      progress,
+      result,
+      warnings: ["pending"],
+    };
+    for (const payload of [completed, incomplete])
+      expect(projectUnifiedSearchStatusPayload(payload)).toEqual({
+        ...payload,
+        result: { ...result, results: [publicHit] },
+      });
+  });
+
+  it("keeps absent incomplete result and partialResults fields omitted", () => {
+    const status = {
+      completed: false as const,
+      searchRef: "pending",
+      progress,
+      warnings: [],
+    };
+    const search = {
+      completed: false as const,
+      query: { raw: "router" },
+      hasMore: false,
+      results: [],
+      searchRef: "pending",
+    };
+    expect(projectUnifiedSearchStatusPayload(status)).toEqual(status);
+    expect(projectUnifiedSearchStatusPayload(status)).not.toHaveProperty(
+      "result",
+    );
+    expect(projectUnifiedSearchSuccessPayload(search)).toEqual(search);
+    expect(projectUnifiedSearchSuccessPayload(search)).not.toHaveProperty(
+      "partialResults",
+    );
+  });
+
+  it.each(["completed", "incomplete"] as const)(
+    "projects %s search and retained status without leaking descriptors",
+    (state) => {
+      if (defaultUnifiedSearchOutcome.state !== "completed")
+        throw new Error("completed fixture required");
+      const original = defaultUnifiedSearchOutcome.result.results[0]!;
+      const readTarget = {
+        target: "github:right/repo@served-sha",
+        path: "root/right.ts",
+        selector: "logical",
+        startLine: 1,
+        endLine: 900,
+      };
+      const result = {
+        ...defaultUnifiedSearchOutcome.result,
+        results: [{ ...original, readTarget }],
+        page: { offset: 10, limit: 10, returned: 1, hasMore: true },
+      };
+      const outcome: UnifiedSearchOutcome =
+        state === "completed"
+          ? { state, completed: true, searchRef: "retained", result }
+          : { state, completed: false, searchRef: "retained", result };
+      const success = buildSuccessPresentation(
+        {
+          query: "router",
+          targets: [{ registry: "NPM", packageName: "express" }],
+        },
+        "router",
+        "router",
+        outcome,
+      );
+      const status = buildStatusPresentation(outcome);
+      expect(success.results[0]?.readTarget).toEqual(readTarget);
+      expect(status.result?.results[0]?.readTarget).toEqual(readTarget);
+      const publicSuccess = projectUnifiedSearchSuccessPayload(success);
+      const publicStatus = projectUnifiedSearchStatusPayload(status);
+      expect(publicSuccess.results[0]?.locator).toEqual(
+        success.results[0]?.locator,
+      );
+      expect(publicStatus.result?.results[0]).toEqual(publicSuccess.results[0]);
+      expect(publicSuccess.nextOffset).toBe(11);
+      expect(publicStatus.result?.nextOffset).toBe(11);
+      expect(publicSuccess.results[0]?.followUp).toBe(
+        'read target="github:right/repo@served-sha" path="root/right.ts" selector="logical" start_line=1 end_line=300',
+      );
+      for (const json of [
+        JSON.stringify(publicSuccess),
+        JSON.stringify(publicStatus),
+      ]) {
+        for (const key of ["readTarget", "codeAction", "docAction"])
+          expect(json).not.toContain(`"${key}":`);
+      }
+      expect(original.locator.filePath).toBe("lib/router/index.js");
     },
   );
 });

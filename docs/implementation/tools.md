@@ -269,8 +269,9 @@ The old compatibility source was navigation context and was never match proof.
 
 Repository code/docs text shows matched source with the existing outer-to-inner
 semantic scope hierarchy, without routine authority captions or field inventories.
-Scopes are declaration metadata, not reconstructed source signatures. Matched
-source bounds own the header range; source indentation, line numbering, and line
+Scopes are declaration metadata, not reconstructed source signatures.
+Producer target attribution and target-relative paths stay in the evidence
+header; source bounds own its range. Source indentation, line numbering, and line
 boundaries are preserved without prose wrapping or client cropping. The `>` gutter
 marks highlighted lines without color. Whole-line omissions, inline crops,
 truncated scope chains, and incomplete highlights retain separate ASCII notices.
@@ -300,13 +301,19 @@ removal and wrapping. A null preview leaves the actionable header. Repository
 docs use repository evidence, and explicit symbol hits retain title and locator
 navigation without a summary body.
 
-Header attribution and the JSON `followUp` use semantic `preferredRead` when
-available. Its target label determines package versus repository attribution:
-package reads use the package-relative path; repository reads use the root-relative
-path and exact commit. Preferred-read bounds are explicit-read coordinates, not
-display source. The 300-line MCP follow-up cap centers on matched source when
-available; original structured
-bounds remain intact. Text does not print redundant per-hit read commands.
+Backend `readTarget` owns each copyable action, including its target/path pair,
+selector and full bounds. Headers retain attribution and producer preview/source
+coordinates; one unwrapped action follows each hit. Shared presentation quotes
+CLI arguments and MCP JSON values without reconstructing fragments or choosing
+addresses from semantic/package/repository metadata. `selector` can be a code
+symbol or docs anchor. CLI text retains full selected ranges. Search JSON keeps
+MCP syntax/caps on both surfaces, and explicit path actions keep the existing
+300-line evidence-centered window. Pathless docs bounds remain uncapped.
+Null/absent actions get unavailable guidance, including missing exact revision
+for repository symbol hits whose only revision is mutable. Public JSON uses an
+explicit whitelist; descriptors stay internal through interim and retained status
+snapshots, while producer provenance and null/omission behavior persist. See
+[unified-read.md](unified-read.md) for parsing and continuation ownership.
 
 The service selects only v31 repository evidence on both search paths, for CLI
 and MCP text and JSON. Omitting the legacy fields from the selection makes the
@@ -769,44 +776,41 @@ available. Repository documentation retains its heading. JSON retains titles.
 **Hit anatomy within unified search text-v1:**
 
 ```
-[1] <target> <path:line-range> [repo doc] - <title>
-  <summary line 1>
-  <summary line 2 (wrapped at output width)>
+[1] <producer-target> <path:preview-range> [repo doc] - <title>
+  <evidence or summary, wrapped at output width>
+  read target="<served-target>" path="<exact-path>" start_line=N end_line=M
 [blank]
-[2] <docs-read-target#anchor> [docs page] <target> - <title>
+[2] <page-target> [docs page] <package-attribution> - #<heading> - <title>
   <summary, when informative>
+  read target="<page-target>" selector="<heading>"
 ```
 
 Hit headers are numbered so ranked results can be referenced as `[1]` through
-`[N]`. Repository and code hits keep the exact target and file location needed
-for `read` before a bracketed type tag (`[repo doc]`, `[repo code]`, or
-`[repo symbol]`); their free-form title is the final header tail. Package-attributed
-repository docs with complete registry/name/version and target-relative file path
-use the served package address and `filePath:lines`, just like code headers;
-JSON-derived follow-ups pass that package target and separate exact path to
-unified `read`. The original `docsReadTarget`, page ID, repository commit and
-repository-root path remain provenance in JSON. Semantic preferred reads retain
-precedence; repository-only and incomplete legacy docs retain the emitted page
-locator with separate bounds. `docsReadTarget` is a legacy-named field accepted
-by unified read, not an exclusive instruction to use the deprecated docs reader.
-Hosted documentation hits prefer the exact read target needed for `read`, a stable package
-target, distinct human-readable source URL, and title in that order. When a
-crawled hit's source URL is exactly its HTTP(S) `docsReadTarget` plus a nonempty
-fragment, the shared formatter promotes that unchanged source URL to the read
-target instead of repeating the fragment as provenance. Other distinct source
-provenance uses `host/path#anchor` without the protocol. Exact duplicate locators
-are omitted. Unavailable fields are rendered as
-explicit `documentation target unavailable`, `target unavailable`,
-`source URL unavailable`, or `title unavailable` values. Executable
-`read` / `read` command
-lines, qualified non-follow-up internal result IDs, and kind/category tails are
-omitted from default text; the emitted target remains because it is the
-`read` follow-up locator, and JSON keeps `docsReadTarget`, compatible `pageId`,
-provenance `sourceUrl`, and the generated follow-up. Discovery falls back to
-`pageId` only when its nullable `docsReadTarget` is absent. Repository hits
-without a file path use the explicit `location unavailable` value and do not
-claim to be follow-up readable. A
-summary's first line is omitted when it repeats the title
+`[N]`. Repository headers preserve producer package/repository attribution,
+target-relative file paths and preview/source ranges before the type tag
+(`[repo doc]`, `[repo code]`, or `[repo symbol]`). Their title is the final tail.
+These evidence facts do not select the read address: the separate native action
+carries the canonical target, exact path, selector and bounds selected by the
+backend. Replay that complete action unchanged for more context. The original
+`docsReadTarget`, page ID, repository commit and repository-root path remain
+provenance in JSON. `docsReadTarget` is accepted by unified read, not an exclusive
+instruction to use the deprecated docs reader.
+Hosted documentation headers show a page locator, package attribution, distinct
+heading/source provenance and title; the complete action selects the section. Source provenance uses
+`host/path#anchor` without the protocol; when it is the target plus a fragment,
+only that distinct fragment is shown. It never chooses an action or promotes a
+fragment into its target. Exact duplicate locators are omitted. Unavailable
+fields retain explicit `documentation target unavailable`, `target unavailable`,
+`source URL unavailable`, or `title unavailable` values. One unwrapped native
+read action follows each hit and preserves the descriptor selector and bounds;
+missing metadata produces unavailable guidance. Qualified non-follow-up internal
+IDs and kind/category tails stay out of default text. JSON keeps existing
+`docsReadTarget`, compatible `pageId`, provenance `sourceUrl` and `followUp`,
+without internal descriptors. Repository headers preserve producer target/path
+and preview ranges; a missing producer path uses `location unavailable` without
+manufacturing it from the action.
+
+A summary's first line is omitted when it repeats the title
 after removing Markdown heading markers, as is an immediately following
 setext underline. Source indentation is retained when summaries wrap, with a
 consistent two-space hit-body indent. If a title does not fit on the header
@@ -819,7 +823,7 @@ Breakdowns use `repo code hit(s)` and `repo symbol(s)` alongside `repo doc(s)`
 and `docs page(s)`. When more results exist without a next offset, the final field is
 `more available`. Pagination is not repeated as a bottom paragraph.
 
-**Follow-up — mutable hosted docs and crawled-doc section anchors.** Hosted/crawled `documentation_page` HTTP(S) targets address mutable current content, while repository documentation is separately snapshot-addressed. Search `startLine` / `endLine` values are display/evidence coordinates, so the shared formatter retains them in structured locator evidence but never attaches them to an automatic hosted-doc follow-up. Page-only actions forward the exact emitted `docsReadTarget` (or HTTP(S) `pageId` fallback) without bounds. When an emitted `sourceUrl` is byte-for-byte the page target plus a nonempty fragment, the formatter promotes that exact URL unchanged; a target already containing a fragment also passes unchanged. Repository-doc actions retain their exact snapshot target and ranges. Explicit caller-supplied read bounds remain intentional page-relative selection and still reach the public read boundary unchanged. A sufficient search snippet needs no read. For a fragment read, the backend resolves the heading and its full subtree through the next equal-or-higher heading and reports its absolute page range. Missing, duplicate, windowed/inexact, or unsupported sections return non-retryable `DOCUMENTATION_SECTION_UNRESOLVED` with a reason; they never become `NOT_FOUND` or a successful full-page read. Publisher-only IDs omitted during ingestion remain unavailable. The client never decodes or normalizes locator bytes and does not synthesize website slug rules.
+**Follow-up — mutable hosted docs and crawled-doc section anchors.** Hosted/crawled `documentation_page` HTTP(S) targets address mutable current content, while repository documentation is separately snapshot-addressed. The backend descriptor selects target, optional path, selector and bounds; search preview/evidence coordinates remain independent. Both surfaces preserve descriptor bytes and render selectors separately instead of promoting provenance fragments or inventing heading bounds. MCP search actions narrow explicit path selections to 300 lines; pathless docs selections remain complete, and CLI text retains the full selection. Missing action metadata produces unavailable guidance. A sufficient search snippet needs no read. For a heading read, the backend resolves the heading and its full subtree through the next equal-or-higher heading and reports its absolute page range. Missing, duplicate, windowed/inexact, or unsupported sections return non-retryable `DOCUMENTATION_SECTION_UNRESOLVED` with a reason; they never become `NOT_FOUND` or a successful full-page read. Publisher-only IDs omitted during ingestion remain unavailable. The client never decodes or normalizes locator bytes and does not synthesize website slug rules.
 
 Completed-empty action selection is target-aware: exact terminal lanes with no
 searched/indexing peer get local recovery, while searched-empty evidence can get
@@ -885,7 +889,16 @@ CLI have no local display cap. The deprecated `githits docs read` command keeps
 its legacy `getDocPage` root and is documented separately in
 `cli-commands.md`.
 
-The required backend `contentRange` supplies `startLine`, `endLine`, `totalLines`, and resolved `anchor`. `page.content` is already the selected body, so the client never reapplies absolute bounds. Local MCP truncation slices only the returned prefix from `contentRange.startLine`, reports the actual displayed absolute range, and points continuation at the stable `pageId`; it stops at the backend selection end so continuing a section cannot leak into the next section. `totalLines` is the whole stored page extent and counts newline splits, including a trailing empty line. Empty pages report `totalLines: 0` with absent output bounds. `anchor` is present only for a resolved indexed section.
+The required backend `contentRange` supplies `startLine`, `endLine`, `totalLines`,
+and resolved `anchor`. `page.content` is already the selected body, so the client
+never reapplies absolute bounds. Local MCP truncation slices the returned prefix
+and reports the displayed absolute range. Its concrete continuation retains the
+served target/path, clears the selector, and selects the whole remaining range
+through `contentRange.endLine`; the next response applies its own cap. Retaining
+that end across retries covers the entire section without entering the next one.
+`totalLines` counts the whole stored page, including a trailing empty line. Empty
+pages report `totalLines: 0` with absent bounds. `anchor` is present only for a
+resolved indexed section.
 
 `read` passes the docs `target` string through unchanged, whether it
 is an emitted HTTP(S) `docsReadTarget` or a historical page ID. Successful JSON

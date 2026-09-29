@@ -10,11 +10,11 @@ import {
 } from "./read-file-response.js";
 import { renderReadFileText } from "./read-file-text.js";
 import {
-  buildReadPackageDocContinuationHint,
   buildReadPackageDocSuccessPayload,
   formatReadPackageDocTerminal,
 } from "./read-package-doc-response.js";
 import { renderReadPackageDocText } from "./read-package-doc-text.js";
+import { buildReadContinuationHint } from "./read-target-range.js";
 
 /** Present the backend's typed read outcome at the shared CLI and MCP boundary. */
 export function formatReadResult(
@@ -34,8 +34,8 @@ export function formatReadResult(
     response.source !== "docs" && request.selector === undefined && hash >= 0
       ? request.target.slice(hash + 1)
       : undefined;
-  // Follow-up searches and exact-file continuations address the base target.
-  // The original fragment remains in the read request and returned payload.
+  // Symbol-search recovery addresses the requested base target. Concrete read
+  // continuations below use the served descriptor; the request stays unchanged.
   const followUpTarget =
     codeFragment === undefined ? request.target : request.target.slice(0, hash);
   if (response.source === "symbol_resolution") {
@@ -90,7 +90,7 @@ export function formatReadResult(
           : "More matches exist; narrow with an exact path.",
       );
     if (action) lines.push(action);
-    return lines.join("\n") + "\n";
+    return `${lines.join("\n")}\n`;
   }
   if (response.source === "code") {
     const requested = response.result.targetResolution?.requested;
@@ -103,6 +103,7 @@ export function formatReadResult(
     });
     if (
       (format === "mcp-text" || format === "mcp-json") &&
+      !payload.isBinary &&
       payload.content &&
       payload.startLine !== undefined
     ) {
@@ -112,9 +113,15 @@ export function formatReadResult(
           : MCP_READ_MAX_SPAN;
       const lines = splitReadFileContentLines(payload);
       if (lines.length > maxLines) {
+        const returnedEndLine =
+          response.result.endLine ?? payload.startLine + lines.length - 1;
         payload.content = lines.slice(0, maxLines).join("\n");
         payload.endLine = payload.startLine + maxLines - 1;
-        payload.hint = `Continue with read target=${JSON.stringify(followUpTarget)} path=${JSON.stringify(payload.path)} start_line=${payload.endLine + 1}.`;
+        payload.hint = buildReadContinuationHint(
+          response.result.readTarget,
+          payload.endLine + 1,
+          returnedEndLine,
+        );
       }
     }
     if (format === "mcp-json" || format === "cli-json")
@@ -143,11 +150,10 @@ export function formatReadResult(
     response.result.contentRange.endLine !== undefined &&
     payload.endLine < response.result.contentRange.endLine
   ) {
-    payload.hint = buildReadPackageDocContinuationHint(
-      payload.pageId,
+    payload.hint = buildReadContinuationHint(
+      response.result.readTarget,
       payload.endLine + 1,
       response.result.contentRange.endLine,
-      maxOutputLines,
     );
   }
   if (format === "mcp-json" || format === "cli-json")

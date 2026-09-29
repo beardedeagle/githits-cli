@@ -26,9 +26,9 @@ the backend's unified `read` resolver. The returned union type determines
 whether CLI/MCP present code, documentation, or a symbol-resolution outcome.
 The client does not classify a pathless target from its spelling.
 The client sends the fragment unchanged to the backend without adding a
-`selector`; the backend decodes and validates it once. Search actions after a
-symbol miss and exact-file continuation hints use the base target because those
-follow-ups do not accept symbol fragments; this does not change the read request.
+`selector`; the backend decodes and validates it once. Search recovery after a symbol miss uses the requested base target. Successful
+read continuations instead retain the backend-served descriptor identity and
+clear its selector; neither changes the original read request.
 Compact repository refs containing `/` can resemble repository page IDs. The
 backend interprets snapshot page IDs and their `#heading` or line continuations
 as indexed file reads; other fragments can resolve code symbols, with an
@@ -54,31 +54,41 @@ the generic code-target parser would otherwise mistake `SHA/path` for the ref.
 The `#` suffix selects a symbol or heading; compact repository refs use `@`.
 Structured `--git-ref` remains available for unusual refs containing `#`.
 
-Automatic search follow-ups select those opaque targets earlier in
-`packages/mcp/src/shared/follow-up-command-text.ts`. Hosted/crawled
-`documentation_page` HTTP(S) targets are mutable current-content addresses, so
-their generated actions forward the exact emitted page URL or fragment without
-search display/evidence coordinates. Repository documentation is
-snapshot-addressed and retains its source ranges. In search, package-attributed
-repository docs with complete registry/name/version and target-relative `filePath`
-use `read(target: "registry:name@version", path: filePath, ...)`, matching the
-package identity in their text headers. `documentationReadLocator()` owns this
-selection for both text and derived follow-ups. Semantic preferred reads retain
-precedence. Repository-attributed or incomplete legacy hits retain the exact
-emitted page locator. MCP package-path follow-ups use the existing 300-line cap;
-CLI follow-ups keep the selected range. Original snapshot locators and repository
-provenance remain available in JSON. This automatic-action policy does not alter
-explicit `read` arguments handled here.
+The backend owns each automatic read action as `ReadTarget`: opaque `target`,
+optional `path`, target-dependent `selector` (code symbol or docs anchor), and
+optional absolute `startLine`/`endLine`. Core validates these facts without
+parsing identity, resolving refs or decoding selectors. Shared presentation
+quotes the same action for CLI and MCP. For a dash-leading CLI path, it emits
+selector/range flags before an option terminator and the literal positional path,
+so Commander preserves that filename after shell quotes are removed.
+Search/status select all five fields;
+semantic/package/repository address priority is entirely backend-owned.
+Legacy locator and `preferredRead` metadata remain evidence and provenance,
+without choosing an alternate action. Search text retains producer attribution,
+target-relative preview paths/ranges in repository evidence headers and snippets,
+and emits one unwrapped read command per hit, including explicit
+selectors. The previous text baseline had no per-hit executable command.
 
-The backend's `docsReadTarget` name predates unified read, but its value is still
-accepted by `Query.read.target`. Discovery does not expose a general `read.target`
-pointer: it exposes documentation locators alongside package/repository identity
-and separate path coordinate systems. `filePath` belongs to the attributed
-package or repository target; `repositoryFilePath` belongs to the repository
-root. Clients must choose an address and its corresponding path together rather
-than parsing or splicing a package target into an opaque documentation page ID.
-Package addressing uses the served version; it does not create a stronger
-snapshot guarantee than the backend's package-to-repository resolution.
+CLI text actions retain the complete selected range. Search JSON `followUp`
+uses MCP syntax and the existing 300-line action cap on both surfaces. Only
+explicit actions with a path are narrowed; pathless repository-doc page-ID
+ranges remain uncapped. Semantic cap focus is producer `matchedSource`; other
+code/docs actions use `locator.evidenceRange`. Missing evidence starts at the
+selection origin. Bounds never grow, and previews never become heading bounds.
+
+Search descriptors are internal presentation data. Explicit per-hit and
+success/status projections preserve the existing public JSON schema, content,
+provenance, and null/omission behavior, including interim and retained snapshots.
+No `readTarget`, `codeAction`, or `docAction` is serialized. Missing descriptors
+from old custom search/read providers produce unavailable guidance rather than
+reconstructed addresses. A repository symbol without a served SHA cannot use its
+mutable `gitRef`; its guidance is `follow-up unavailable: missing exact revision`.
+Complete backend-selected package actions remain available.
+
+Docs inventory selects target-only `readTarget` and maps it to the existing
+required `docsReadTarget` string. Both text surfaces emit exactly one whole-page
+action, without a separately reconstructed repository-code shortcut. Existing
+custom inventory providers keep their required opaque string actions.
 
 The MCP tool accepts `target`, optional `path`, `selector`, `start_line`, `end_line`,
 `wait_timeout_ms`, and `format`. Targets for code are compact package/repository
@@ -102,10 +112,12 @@ source-specific.
 `CodeContextResult` branch selects `content`, `filePath`, `language`,
 `totalLines`, `startLine`, `endLine`, `isBinary`, `codeIndexState`,
 `indexingRef`, `availableVersions`, `indexingEstimate`, and
-`targetResolution` (including their existing subfields). The
+`targetResolution` (including their existing subfields), plus
+`codeAction: readTarget { target path selector startLine endLine }`. The
 `GetDocPageResult` branch selects `registry`, `packageName`, `version`,
 `sourceKind`, `contentRange { startLine endLine totalLines anchor }`, and the
-page's `id`, `docsReadTarget`, `title`, `content`, `contentFormat`,
+enclosing `docAction: readTarget { target path selector startLine endLine }`,
+and the page's `id`, `docsReadTarget`, `title`, `content`, `contentFormat`,
 `breadcrumbs`, `lastUpdatedAt`, `sourceKind`, `source { url label }`, `repoUrl`,
 `gitRef`, `requestedRef`, `filePath`, and `baseUrl` fields.
 The `CodeSymbolResolutionResult` branch selects status, up to ten candidates,
@@ -126,6 +138,17 @@ fallback for compact reads. Custom endpoints configured with
 `Query.read`, both union branches, and this selected minimum schema. The legacy
 roots remain available for the compatibility commands, but they are not a
 fallback for compact reads.
+
+Full selected descriptors require all five wire keys; nullable code/search
+actions accept explicit null, while docs actions require an object. Missing or
+malformed selected fields produce the existing malformed-response error. The
+union uses distinct aliases because nullable code and non-null docs actions
+conflict under one GraphQL response key; core normalizes both to `readTarget`.
+Legacy compatibility queries omit the descriptor and keep their parser contracts.
+Optional SDK metadata (`ReadTarget` is exported by `@githits/mcp/client`) preserves
+old custom-service source compatibility. No new service method is required.
+The small scalar selection adds response data; no latency/byte-saving claim or
+extra body hydration is made.
 
 ## Sections, windows, and waiting
 
@@ -156,6 +179,21 @@ fallback for compact reads.
   0–60,000, including explicit zero. The backend applies it when indexing is
   relevant. INDEXING retains backend metadata and supplies recovery through the
   same read locator. No client retry loop.
+
+Display-cap continuations retain the served `target`/`path`, clear `selector`,
+and select the whole remaining returned range from the next line through the
+returned selection endpoint. The next request/display cap limits its response;
+the action's end is never narrowed to just that next capped window.
+Symbol/heading continuations cannot exceed that selection. Code
+providers with no `endLine` use the existing returned-content line splitter to
+establish its endpoint before truncation, including trailing-newline handling.
+Exact-file fetch caps retain generic retry guidance and reported file extent.
+For an explicit selection, each retry preserves its end, clamped to actual EOF;
+unbounded file retries keep their existing start-only guidance. Empty/binary
+reads produce no fabricated action or zero bounds. All
+compact reads remain one backend call; no broader read is added for a hint.
+CLI text/JSON keeps full selected content; MCP code caps apply to text/JSON,
+whereas MCP docs caps apply only to text.
 
 CLI uses `--lines` or `--start`/`--end` for either backend result, with the
 same explicit bounds sent to unified `read`. Exact-file paths also accept
@@ -228,11 +266,28 @@ client does not pick a duplicate or infer a symbol from source text. Returned
 repository targets use `@ref`; existing exact-file and docs reads remain valid
 without `selector`.
 
+## Read-action release prerequisites
+
+This feature records patch impact for both public packages without changing
+versions. Dev descriptor availability permits client verification. Publication
+requires the full selected schema on authenticated production and any configured
+client API endpoint. Old clients remain compatible with additive backend fields;
+rollback is the prior client package, with fields retained and no runtime schema
+fallback. Hosted adoption still requires its own MCP dependency update and deploy.
+Broader public CLI/package skill promotion remains at the applicable release
+boundary; the stable MCP guide has the bounded same-PR exception below.
+
 ## Public skill release follow-through
 
-The stable MCP quick-start and embedded `skills/githits-mcp/SKILL.md` guide remain
-release-synchronized under the exact-parity exception. Other public skills are
-served from main before npm release and must follow their release-boundary policy.
+The stable MCP quick-start builder and embedded `skills/githits-mcp/SKILL.md` copy
+change together with the backing behavior in this PR under the explicit
+exact-parity exception. This accepts a bounded main-to-release window and ships
+with the next applicable CLI/MCP artifacts. The CLI-code skill and reference
+also receive a bounded version-neutral wording correction now: replay generated
+follow-ups with every supplied argument unchanged, including selectors/bounds.
+That rule works for released fragment actions and current selector actions, and
+adds no new layout or behavior promise. Wider skill promotion retains its
+release-boundary policy because main can serve those skills before npm release.
 The 0.22.0 release branch updated `skills/githits-code/SKILL.md` and its
 reference to prefer `githits read`, show selector reads, and retain legacy
 commands only as compatibility guidance. The root 0.22.1 release branch adds

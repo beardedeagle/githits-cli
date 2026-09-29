@@ -35,22 +35,28 @@ describe("buildLocalMcpQuickStart", () => {
     expect(quickStart).not.toContain("[@version]");
     expect(quickStart).not.toContain("[@ref]");
     expect(quickStart).toContain(
-      "Use snippets when sufficient; otherwise follow generated",
+      "Use snippets when sufficient; otherwise replay the complete emitted read action",
     );
     expect(quickStart).toContain(
       "Hosted/crawled HTTP(S) docs locators address mutable current content",
     );
     expect(quickStart).toContain(
-      "exact emitted URL or fragment without search line bounds",
+      "A `[docs page]` header is a page locator; use its complete action for the section",
     );
     expect(quickStart).toContain(
-      "fragment returns its heading and full subtree through the next",
+      "or generated `followUp` unchanged, including supplied `selector` and bounds",
+    );
+    expect(quickStart).toContain(
+      "A direct HTTP(S) docs fragment read without explicit bounds returns its heading",
+    );
+    expect(quickStart).toContain(
+      "and full subtree through the next equal-or-higher heading",
     );
     expect(quickStart).toContain(
       "Repository docs are snapshot-addressed and keep returned ranges",
     );
     expect(quickStart).toContain(
-      "`read` bounds only when intentionally selecting a current page range",
+      "a direct `read`, add bounds only to intentionally select a current page range",
     );
     expect(quickStart).toContain(
       "This guide owns shared policy; selected tools own call syntax and exceptions",
@@ -109,7 +115,7 @@ describe("buildLocalMcpQuickStart", () => {
     expect(instructions).toContain('`source:"docs"`');
     expect(instructions).toContain("request JSON only for missing fields");
     expect(instructions).toContain(
-      "use a `[docs page]` target unchanged, otherwise its returned target/range",
+      "replay the complete emitted read action unchanged, otherwise use its returned target/range",
     );
     expect(instructions).toContain("EXACT/HIGH");
     expect(instructions).toContain("CLEAR or NOT_APPLICABLE");
