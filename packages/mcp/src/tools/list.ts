@@ -51,7 +51,7 @@ const schema: ZodRawShape = {
     .max(1000)
     .optional()
     .describe(
-      "Target-relative literal paths and globs form a union for packages, repositories, and sites. Omit or pass `[]` to browse the root.",
+      "Target-relative literal paths and globs form a union for packages, repositories, and sites. Site paths with one leading `/` stay within the supplied target; `/` alone selects its root. Omit or pass `[]` to browse the root.",
     ),
   recursive: z
     .boolean()
@@ -63,12 +63,16 @@ const schema: ZodRawShape = {
     .array(z.string())
     .max(64)
     .optional()
-    .describe("Source inventories only; filter by file type."),
+    .describe(
+      "Source inventories only; classifications such as `source` or `doc`, case-insensitive. Select file extensions with a `paths` glob such as `lib/**/*.js`.",
+    ),
   languages: z
     .array(z.string())
     .max(64)
     .optional()
-    .describe("Source inventories only; filter by language."),
+    .describe(
+      "Source inventories only; language names such as `javascript`, `typescript`, or `rust`, case-insensitive.",
+    ),
   intents: z
     .array(z.enum(LIST_INTENTS))
     .max(64)
@@ -100,7 +104,7 @@ const schema: ZodRawShape = {
     .enum(["text", "json"])
     .default("text")
     .describe(
-      "Omit `format` to use token-efficient text when the model reads the result or follows read and continuation guidance. Set `json` only when code consumes the raw response instead of the model by parsing or filtering it programmatically.",
+      "Omit `format` to use token-efficient text when the model reads the result or follows read and continuation guidance. Set `json` for exact entry kinds or actions, or when code consumes the raw response instead of the model by parsing or filtering it programmatically.",
     ),
 };
 
@@ -110,12 +114,13 @@ const DESCRIPTION =
   "for topics.\n\n" +
   "Replaces code_files and docs_list. Package targets cover one package-owned " +
   "tree; repository targets cover the whole snapshot. Both include source and " +
-  "documentation. Hosted docs use a separate explicit `site:` target from docs " +
-  "search. `paths` are target-relative literals or globs for every target and " +
+  "documentation. Hosted docs use an explicit `site:` target supplied by the " +
+  "user or a docs search result. `paths` are target-relative literals or globs for every target and " +
   "form a union; omit them for the root. Directories show immediate children " +
-  "unless `recursive` expands them; glob depth is independent of recursion. Keep text for " +
-  "model use, including read and continuation guidance; use JSON only when code " +
-  "consumes the raw response programmatically.";
+  "unless `recursive` expands them; glob depth is independent of recursion. " +
+  "In site text, a path without trailing `/` is a page even when its source URL ended in `/`. " +
+  "Keep text for model use, including read and continuation guidance; use JSON " +
+  "for exact entry kinds or actions and programmatic consumption.";
 
 export function createListTool(
   service: ListService,

@@ -62,8 +62,8 @@ describe("buildListParams", () => {
       target: "  npm:Express@5.2.1  ",
       paths: [" src/ ", "docs/**/*.md", "lib/a%2Fb.ts"],
       recursive: false,
-      fileTypes: ["source", "DOC"],
-      languages: ["TypeScript", "Rust"],
+      fileTypes: ["source", "doc"],
+      languages: ["typescript", "rust"],
       intents: [
         "PRODUCTION",
         "TEST",
@@ -104,6 +104,33 @@ describe("buildListParams", () => {
     expect(result.limit).toBeUndefined();
     expect(result.waitTimeoutMs).toBeUndefined();
     expect(buildListParams(input({ after: "" })).after).toBeUndefined();
+  });
+
+  it("accepts a leading slash on site selectors within the supplied target", () => {
+    expect(
+      buildListParams(
+        input({
+          target: "site:docs.example.test/guide",
+          paths: ["/api/", "/**/*.md", "plain/"],
+        }),
+      ).paths,
+    ).toEqual(["api/", "**/*.md", "plain/"]);
+    expect(
+      buildListParams(input({ paths: ["/src/", "//literal/"] })).paths,
+    ).toEqual(["/src/", "//literal/"]);
+  });
+
+  it("accepts a lone slash as the site root without changing union selections", () => {
+    const root = buildListParams(
+      input({ target: "site:docs.example.test/guide", paths: ["/"] }),
+    );
+    expect(root.paths).toBeUndefined();
+    expect(root.target).toBe("site:docs.example.test/guide");
+    expectInvalid("paths", () =>
+      buildListParams(
+        input({ target: "site:docs.example.test", paths: ["/", "api/"] }),
+      ),
+    );
   });
 
   it("rejects missing or blank target and missing detailed-field boolean", () => {

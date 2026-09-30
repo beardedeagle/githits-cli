@@ -40,6 +40,19 @@ describe("buildLocalMcpQuickStart", () => {
     expect(quickStart).toContain(
       "explicit `site:` inventory that\n`list` does not discover",
     );
+    expect(quickStart).toContain(
+      "pair a listed path with the shared read target in its header",
+    );
+    expect(quickStart).toContain("a full URL row is its own read target");
+    expect(quickStart).toContain(
+      "A site row without a\ntrailing `/` is a page path even if its source URL ended in `/`",
+    );
+    expect(quickStart).toContain(
+      "Use JSON for exact entry kinds and per-entry\n`read` actions",
+    );
+    expect(quickStart).toContain(
+      "the required target sets the site scope; selectors with\nor without one leading `/` stay within it",
+    );
     expect(quickStart).not.toContain("`code_files`");
     expect(quickStart).not.toContain("`docs_list`");
     expect(quickStart).toContain(
@@ -48,13 +61,13 @@ describe("buildLocalMcpQuickStart", () => {
     expect(quickStart).not.toContain("[@version]");
     expect(quickStart).not.toContain("[@ref]");
     expect(quickStart).toContain(
-      "Use snippets when sufficient; otherwise read the\ntarget in that header",
+      "returned HTTP(S) page target unchanged to `read`",
     );
     expect(quickStart).toContain(
       "Hosted/crawled HTTP(S) docs locators address mutable current content",
     );
     expect(quickStart).toContain(
-      "target in that header. For an exact section or bounds, request search JSON",
+      "A `site:` read requires a\nseparate exact page `path`",
     );
     expect(quickStart).toContain(
       "its `followUp` unchanged, including supplied `selector` and bounds",
