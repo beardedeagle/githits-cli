@@ -14,6 +14,7 @@ import { version } from "../../package.json";
 import { createContainer } from "../container.js";
 import { loadExperimentalSettings } from "../services/experimental-config.js";
 import { FileSystemServiceImpl } from "../services/filesystem-service.js";
+import { updateInstalledMcpSkill } from "../services/mcp-skill-update.js";
 
 const LOCAL_MCP_SERVER_METADATA = { name: "githits", version };
 
@@ -100,13 +101,20 @@ export interface McpCommandStartup {
   onServerCreated: (server: LocalMcpServer) => void;
 }
 
+export interface McpCommandStartupDependencies {
+  updateSkill?: typeof updateInstalledMcpSkill;
+  warn?: (message: string) => void;
+}
+
 export async function createMcpCommandStartup(
   options: CreateMcpCommandStartupOptions = {},
+  dependencies: McpCommandStartupDependencies = {},
 ): Promise<McpCommandStartup> {
   getEnvSessionId();
+  const fs = new FileSystemServiceImpl();
   const experimentalPolicy = options.experimentalTools
     ? OVERRIDE_LOCAL_MCP_POLICY
-    : await loadExperimentalSettings(new FileSystemServiceImpl()).then(
+    : await loadExperimentalSettings(fs).then(
         (settings): LocalExperimentalMcpPolicy => ({
           tools: settings.tools,
         }),
@@ -117,6 +125,25 @@ export async function createMcpCommandStartup(
     clientName: "githits-cli/mcp",
     agentProvider: () => readMcpClientVersion(server),
   });
+  const warn = (message: string): void => {
+    try {
+      (dependencies.warn ?? console.error)(message);
+    } catch {
+      // Best-effort maintenance diagnostics must not prevent server startup.
+    }
+  };
+  try {
+    await (dependencies.updateSkill ?? updateInstalledMcpSkill)({
+      fs,
+      version,
+      env: {
+        GITHITS_DISABLE_SKILL_UPDATE: process.env.GITHITS_DISABLE_SKILL_UPDATE,
+      },
+      warn,
+    });
+  } catch {
+    warn("GitHits MCP skill maintenance failed; continuing startup.");
+  }
   return {
     services,
     experimentalPolicy,
