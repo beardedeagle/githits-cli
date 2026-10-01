@@ -174,8 +174,9 @@ See [the retained compatibility findings](../../docs/implementation/agentic-eval
 
 For a trusted same-repository PR, commit the filled
 `eval/agentic/openrouter.toml` on the trial branch and add `agent-eval-openrouter`
-to run the standard 52-cell matrix: two discovery cells, 25 intent cells, and
-25 full-guidance cells, followed by one aggregate Braintrust export. Keep the
+to run the standard matrix: `canary` discovery plus `stable-full` intent and
+full-guidance cells, followed by one aggregate Braintrust export. Cell counts
+come from `eval/agentic/suites.json`. Keep the
 active trial config out of `main`: leave the trial PR unmerged or remove the
 config before merging; only the blank example belongs in the permanent setup.
 The shared `.github/workflows/agent-evals.yml` owns this coverage. It requires
@@ -737,7 +738,7 @@ for 14 days.
 
 The final summary job always runs for an authorized workflow, downloads all three
 scenario artifacts without flattening them, appends the concise report to
-`GITHUB_STEP_SUMMARY`, and then exports the normalized 52-cell result to
+`GITHUB_STEP_SUMMARY`, and then exports the normalized matrix result to
 Braintrust. The local equivalent report command is:
 
 ```bash
@@ -944,7 +945,7 @@ use at least one agent for quick iteration.
 | Release notes UX, `pkg_changelog`                                  | `package-changelog.md`; use `package-changelog-range.md` for range/body-preview behavior and `package-changelog-exact.md` for a pinned selected-release call                                                                                                                                                                                           |
 | Upgrade evidence UX, `pkg_upgrade_review`                          | `package-upgrade-safety.md`                                                                                                                                                                                                                                                           |
 | Package, repository, and site inventory plus exact file/page follow-up, `list`, `read` | `list-package-repository.md`, `list-recursion-glob.md`, `list-site-read.md`, `list-continuation.md`, and `list-package-docs-site.md`; use `code-file-navigation.md` and `code-read-window.md` for source navigation, and `docs-discovery.md`, `docs-search-followup.md`, `docs-search-noise.md`, and `docs-fragment-read.md` for documentation search and page selection |
-| Deterministic source search UX, `code_grep`                        | `code-grep-investigation.md`                                                                                                                                                                                                                                                          |
+| Deterministic source and hosted-documentation matching UX, `grep` | `code-grep-investigation.md`, `grep-mixed-docs.md` |
 | Multi-tool code navigation strategy and MCP/skill guidance         | `express-router.md`; `opencode-compaction.md` is the remote-MCP routing regression derived from the connector transcript                                                                                                                                                              |
 | Experimental target resolution                                     | `experimental-resolution-follow-up.md`; use `experimental-site-resolution-follow-up.md` for site resolution into documentation search or inventory browsing                                                                                                                                                          |
 | Experimental exact source diff                                     | `experimental-code-diff.md`                                                                                                                                                                                                                                                           |

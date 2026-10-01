@@ -20,7 +20,7 @@ continues. Treat the displayed served target as exact provenance and follow a
 
 If discovery returns no useful hits, follow its rendered pivots instead of
 repeating it unchanged. Once the query is an exact identifier or string, use
-`code grep` and then read the focused match; symbol discovery may not include
+`githits grep` and then read the focused match; symbol discovery may not include
 re-exports or generated aliases.
 
 If a missing or ambiguous site returns suggested site targets, retry one of those exact labels explicitly. They are advisory, not aliases, and GitHits does not select or retry one automatically. A truncation notice means more valid candidates were omitted.
@@ -59,12 +59,33 @@ Useful filters: `--path`, repeatable `--glob`, repeatable `--ext`, repeatable `-
 
 `githits read '<target>#<symbol>'` or `githits read <target> --selector <name>` reads a known indexed code symbol; add an exact `<path>` to narrow resolution to one file. The backend decides whether a repository fragment identifies a code symbol or a documentation heading. Ambiguous, missing, or unsupported snapshots return recovery guidance. For repository addressing, prefer a compact repository target; `githits read --repo-url <url> [--git-ref <ref>] <path>` remains a compatibility path.
 
-## Code Grep
+## Grep
+
+`githits grep <pattern> <targets...>` finds a known pattern across ordered
+package, repository, and `site:` targets. Defaults: RE2 regex, case-sensitive,
+zero context, all indexed repository files, and 100 occurrences per page.
+Use `-F` for literal text, `-i` to ignore case, and `-A`/`-B`/`-C` for up to
+10 context lines. RE2 has no lookaround or backreferences; multi-file regex
+needs a literal anchor.
+
+Scope repository files with repeatable `--path`, `--path-prefix`, or quoted
+`--glob` selectors (OR), and `--corpus source|documentation|all`. These filters
+do not restrict package-selected hosted docs. File/page headers are read
+locators; copy the target and optional path and use `read --lines` for more
+context. Counts describe the returned page. Continue only when needed with
+`--cursor` and the same ordered targets, pattern, and matching controls.
+`--limit` is a global page cap (1-1000), and `--wait` is a first-page
+preparation wait in milliseconds (0-300000; default 0).
+
+When no matches are found, change the pattern, broaden the file scope, or use
+`search` for topic discovery; do not repeat the same call.
+
+### Legacy code grep
+
+`githits code grep` searches one package/repository's files with its own
+options; it does not include hosted docs.
 
 `githits code grep <spec> <pattern> [path-prefix]` runs deterministic text grep. Use `--regex` for RE2 regex, `--case-sensitive`, `-C`, `-A`, `-B`, `--path`, repeatable `--glob`, repeatable `--ext`, `--exclude-docs`, `--exclude-tests`, `--limit`, `--per-file-limit`, `--cursor`, `--symbol-field`, `--wait`, `--verbose`, `--json`.
-
-Use `search` for discovery and `code grep` only when you know the pattern.
-When grep returns no matches, do not repeat it unchanged. Change or shorten the pattern, broaden the path/filter scope, or switch to `search` for conceptual intent.
 
 ## Docs
 
@@ -78,12 +99,16 @@ Partial and capped documentation coverage are usable published evidence. Report 
 
 ## Command Name Mapping
 
+These workflow mappings do not promise one-to-one flag compatibility. Use each
+MCP tool with its own schema and documented capabilities.
+
 - `githits example` maps to MCP `get_example`.
 - `githits search` maps to MCP `search`.
 - `githits search-status` maps to MCP `search_status`.
 - `githits code files` is a legacy CLI browser; use MCP `list` for package or repository inventories.
 - `githits list` maps to MCP `list` with the same target, path selection, and opaque cursor.
-- `githits code grep` maps to MCP `code_grep`.
+- `githits grep` maps to MCP `grep` with the same ordered targets and matching controls.
+- `githits code grep` has no exact MCP alias; use MCP `grep` with its own schema and mixed-source capabilities.
 - `githits read <target> <path>` maps to MCP `read` with `target` and `path`.
 - `githits read <target> --selector <name>` maps to MCP `read` with `target` and `selector`, optionally with `path` for code.
 - `githits read '<target>#<symbol>'` maps to MCP `read` with the fragment in `target`, optionally with `path` for code.

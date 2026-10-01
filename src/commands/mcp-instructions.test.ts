@@ -5,6 +5,7 @@ import { EXTERNAL_CONTENT_POSTURE } from "../../packages/mcp/src/tools/guardrail
 import {
   createMockCodeNavigationService,
   createMockGitHitsService,
+  createMockGrepService,
   createMockListService,
   createMockPackageIntelligenceService,
   createMockReadService,
@@ -19,6 +20,7 @@ function createTestServices(
     githitsService: createMockGitHitsService(),
     listService: createMockListService(),
     readService: createMockReadService(),
+    grepService: createMockGrepService(),
     ...overrides,
   };
 }
@@ -29,7 +31,7 @@ const KNOWN_TOOLS = [
   "search_status",
   "list",
   "read",
-  "code_grep",
+  "grep",
   "pkg_info",
   "pkg_vulns",
   "pkg_deps",
@@ -56,10 +58,10 @@ describe("buildMcpQuickStart", () => {
     const instructions = buildMcpQuickStart();
     expect(instructions).toStartWith("# GitHits routing guide");
     expect(instructions).toContain(
-      "Choose the route below, then discover the tool and read its arguments",
+      "Choose a route, discover that tool, and read its schema for syntax and defaults",
     );
     expect(instructions).toContain(
-      "Find a known literal or regex in a public repository/package | `code_grep`",
+      "Find a known regex or literal in public source or documentation | `grep`",
     );
     expect(instructions).toContain(
       "Browse files or documentation pages in a known package, repository, or site | `list`",
@@ -69,9 +71,8 @@ describe("buildMcpQuickStart", () => {
     expect(instructions).toContain(
       "Compare current and target dependency versions for an upgrade | `pkg_upgrade_review`",
     );
-    expect(instructions).toContain(
-      "selected tools own call syntax and exceptions",
-    );
+    expect(instructions).toContain("Counts cover one page");
+    expect(instructions).toContain("only as needed");
   });
 
   it("preserves output, scope, provenance and evidence limits", () => {
@@ -195,7 +196,7 @@ describe("buildMcpQuickStart", () => {
       "search_status",
       "list",
       "read",
-      "code_grep",
+      "grep",
       "pkg_info",
       "pkg_vulns",
       "pkg_deps",
@@ -231,8 +232,8 @@ describe("buildMcpQuickStart", () => {
     expect(descriptions.get("list")).toStartWith(
       "List files and documentation paths in a known package, repository, or site.",
     );
-    expect(descriptions.get("code_grep")).toStartWith(
-      "Find text, regex, or identifier matches in a public repo or package",
+    expect(descriptions.get("grep")).toStartWith(
+      "Find regex or literal matches across source and documentation.",
     );
     expect(descriptions.get("pkg_vulns")).toStartWith(
       "Check current package advisories. Do not trust your memory for vulnerabilities.",
