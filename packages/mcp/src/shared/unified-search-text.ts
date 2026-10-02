@@ -16,6 +16,7 @@
  */
 
 import { colors, dim, highlight, highlightRanges } from "./colors.js";
+import { renderReadTarget } from "./read-target-text.js";
 import {
   formatRepositoryTarget,
   parseRepositoryTargetSpec,
@@ -102,7 +103,7 @@ export function renderUnifiedSearchPresentationText(
     );
   }
 
-  appendPresentationAction(lines, presentation, settings);
+  appendPresentationAction(lines, presentation, result.results, settings);
   return lines.join("\n");
 }
 
@@ -155,15 +156,12 @@ function formatPresentationOutcome(
         ["No results yet", label, readiness].filter(Boolean).join(SEP),
       );
     }
-    const resultKind =
-      presentation.availability.kind === "partial" ? "partial" : "interim";
+    const resultLabel =
+      presentation.availability.kind === "partial"
+        ? countLabel.replace("result", "partial result")
+        : countLabel;
     return finish(
-      [
-        countLabel.replace("result", `${resultKind} result`),
-        formatResultBreakdown(results),
-        label,
-        readiness,
-      ]
+      [resultLabel, formatResultBreakdown(results), label, readiness]
         .filter(Boolean)
         .join(SEP),
     );
@@ -447,6 +445,24 @@ function appendPresentationTargetGroup(
   const details: string[] = [];
   const using = formatUsingSegment(group);
   if (using) details.push(using);
+  const snapshots = group.trustLimits.filter(
+    (limit) => limit.kind === "repository_snapshot",
+  );
+  for (const snapshot of snapshots) {
+    if (snapshot.requestedCommitDiffers && snapshot.requestedRef) {
+      details.push(
+        `requested ${snapshot.requestedRef} resolves to a different commit${snapshot.indexingRequestedRef === snapshot.requestedRef ? " and is indexing" : ""}`,
+      );
+    }
+    if (
+      snapshot.indexingRequestedRef &&
+      !(
+        snapshot.requestedCommitDiffers &&
+        snapshot.indexingRequestedRef === snapshot.requestedRef
+      )
+    )
+      details.push(`${snapshot.indexingRequestedRef} is indexing`);
+  }
 
   const searched = formatSourceStateSegment(group, "searched");
   if (searched) details.push(`searched: ${searched}`);
@@ -504,6 +520,19 @@ function formatTargetStatus(
 function formatUsingSegment(
   group: UnifiedSearchTargetGroup,
 ): string | undefined {
+  const snapshots = group.trustLimits.filter(
+    (limit) => limit.kind === "repository_snapshot",
+  );
+  if (snapshots.length > 0) {
+    return [
+      ...new Set(
+        snapshots.map(
+          (snapshot) =>
+            `commit: ${snapshot.commitTarget}${snapshot.indexedRef ? ` (indexed from ref ${snapshot.indexedRef})` : ""}`,
+        ),
+      ),
+    ].join("; ");
+  }
   const stale = group.trustLimits
     .filter(
       (limit): limit is Extract<UnifiedSearchTrustLimit, { kind: "stale" }> =>
@@ -856,6 +885,7 @@ function formatRemaining(count: number): string {
 function appendPresentationAction(
   lines: string[],
   presentation: UnifiedSearchPresentation,
+  results: UnifiedSearchHitPresentation[],
   options: NormalizedTextOptions,
 ): void {
   const action = presentation.action;
@@ -863,16 +893,62 @@ function appendPresentationAction(
   if (lines[lines.length - 1] !== "") {
     lines.push("");
   }
-  if (action.kind === "poll" || action.kind === "status") {
+  const useResults = "useResults" in action && action.useResults;
+  const priorHead = presentation.targetGroups
+    .flatMap((group) =>
+      group.trustLimits.filter((limit) => limit.kind === "repository_snapshot"),
+    )
+    .find((snapshot) => snapshot.priorHead);
+  if (useResults) {
+    const hit = results.find((hit) => hit.readTarget);
+    lines.push(
+      ...wrapText(
+        hit
+          ? "Next: use these hits now; read for details:"
+          : "Next: use these hits now.",
+        options.width,
+      ),
+    );
+    if (hit?.readTarget)
+      lines.push(renderReadTarget(hit.readTarget, options.actionSyntax));
+    if (priorHead) {
+      lines.push(
+        ...wrapText(
+          `For a specific ref, search ${priorHead.commitTarget.replace(/@[^@]+$/, "@<ref>")}.`,
+          options.width,
+        ),
+      );
+    }
+  }
+  if (action.kind === "poll") {
     const next =
       options.actionSyntax === "cli"
         ? `Next: githits search-status ${action.searchRef} --wait ${action.waitTimeoutMs / 1000}`
         : `Next: search_status search_ref=${JSON.stringify(action.searchRef)} wait_timeout_ms=${action.waitTimeoutMs}`;
-    lines.push(highlight(next, options.useColors));
+    if (useResults) {
+      lines.push(
+        ...wrapText(
+          priorHead
+            ? "If you need current HEAD, wait (hits and order may change):"
+            : "If you need updated results, wait (hits and order may change):",
+          options.width,
+        ),
+      );
+    }
+    lines.push(
+      highlight(
+        useResults ? next.replace("Next: ", "") : next,
+        options.useColors,
+      ),
+    );
     return;
   }
   if (action.kind === "new_search") {
-    lines.push("Next: rerun search later.");
+    lines.push(
+      useResults
+        ? "For updated results, search again."
+        : "Next: search again later.",
+    );
     return;
   }
   if (action.kind === "query_rewrite") {
