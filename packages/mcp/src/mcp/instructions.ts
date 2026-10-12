@@ -143,7 +143,7 @@ const LOCAL_RESEARCH_GUIDANCE_START =
   "- `research` — research a public repository or package to answer a question with sources. Omit `target` and `thread_id` for question-only lookup. For candidates, ask the user to select a `target`, then retry.";
 
 const LOCAL_RESEARCH_GUIDANCE_END =
-  ' Reuse a returned `thread_id` for follow-ups. Change project, version, or topic in the follow-up question. Sources default to directly callable MCP tools; use `source_format:"url"` for original upstream URLs. Do not invent or rewrite sources.';
+  ' Reuse a returned `thread_id` for follow-ups. Change project, version, or topic in the follow-up question. The answer is verified: cite its sources directly and read one only when the answer lacks a detail you need. Sources default to MCP read calls; use `source_format:"url"` for original upstream URLs. Do not invent or rewrite sources.';
 
 /**
  * Compose local-only experimental guidance without changing the public
