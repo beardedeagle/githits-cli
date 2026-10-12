@@ -10,6 +10,7 @@ import {
   LegacyRepositoryRefError,
   parseRepositoryTargetSpec,
 } from "../shared/repository-target.js";
+import { RESEARCH_VERIFIED_ANSWER_GUIDANCE } from "../shared/research-guidance.js";
 import { sanitizeTerminalText } from "../shared/terminal-text.js";
 import {
   buildMcpErrorPayload,
@@ -67,8 +68,7 @@ const schema: ZodRawShape = {
     ),
 };
 
-export const DESCRIPTION =
-  "Research a public repository or package to answer a question with sources. Omit target and thread_id to identify the target from the question. If Research returns candidates, ask the user to select a target before retrying. Supply at most one of target or thread_id. Continue a prior thread by its returned thread_id. Follow-ups can change project, version, or topic; state changes in the question. Returns a verified answer with its sources. Cite those sources directly; read one only when the answer lacks a detail you need. Sources default to MCP read calls; request source_format=url for original upstream URLs.";
+export const DESCRIPTION = `Research a public repository or package to answer a question with sources. Omit target and thread_id to identify the target from the question. If Research returns candidates, ask the user to select a target before retrying. Supply at most one of target or thread_id. Continue a prior thread by its returned thread_id. Follow-ups can change project, version, or topic; state changes in the question. ${RESEARCH_VERIFIED_ANSWER_GUIDANCE} Sources default to MCP read calls; request source_format=url for original upstream URLs.`;
 
 export function createLocalResearchTool(
   service: AgenticAskService,

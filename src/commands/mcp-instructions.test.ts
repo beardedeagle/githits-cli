@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { buildMcpQuickStart, type McpToolServices } from "@githits/mcp";
-import { getMcpToolDefinitions } from "@githits/mcp/internal";
+import {
+  getMcpToolDefinitions,
+  RESEARCH_VERIFIED_ANSWER_GUIDANCE,
+} from "@githits/mcp/internal";
 import { EXTERNAL_CONTENT_POSTURE } from "../../packages/mcp/src/tools/guardrails.js";
 import {
   createMockCodeNavigationService,
@@ -195,5 +198,21 @@ describe("buildMcpQuickStart", () => {
     expect(descriptions.get("pkg_vulns")).toStartWith(
       "Check current package advisories. Do not trust your memory for vulnerabilities.",
     );
+  });
+});
+
+describe("remote MCP surface", () => {
+  it("excludes the experimental research tool and its guidance", () => {
+    // Research is local and experimental; hosted MCP guidance and tools must
+    // not mention it or its answer guidance.
+    const tools = getMcpToolDefinitions(createTestServices());
+    const published = [
+      buildMcpQuickStart(),
+      ...tools.map((tool) => JSON.stringify(tool)),
+    ].join("\n");
+
+    expect(tools.map((tool) => tool.name)).not.toContain("research");
+    expect(published).not.toContain(RESEARCH_VERIFIED_ANSWER_GUIDANCE);
+    expect(published).not.toContain("`research`");
   });
 });

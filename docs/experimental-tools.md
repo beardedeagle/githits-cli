@@ -5,7 +5,7 @@ dogfooding before they are considered for the stable surface:
 
 | MCP tool | CLI command | Purpose |
 |---|---|---|
-| `research` | `githits research` (`githits ask` alias) | Research a grounded question about one canonical open-source target and return executable source-reading calls or original upstream URLs. |
+| `research` | `githits research` (`githits ask` alias) | Research a grounded question about one canonical open-source target and return a verified answer whose sources are cited directly, as source-reading calls to run only when a detail is missing or as original upstream URLs. |
 
 Experimental means the tools are disabled and hidden from CLI help by default,
 their contracts may change based on dogfood evidence, and they may be revised or
