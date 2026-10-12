@@ -6,10 +6,17 @@ import {
   type AgenticAskService,
 } from "@githits/core-internal";
 import { TermsAcceptanceRequiredError } from "@githits/core-internal/browser";
-import { AuthRequiredError } from "@githits/mcp/internal";
+import {
+  AuthRequiredError,
+  RESEARCH_VERIFIED_ANSWER_GUIDANCE,
+} from "@githits/mcp/internal";
 import { Command } from "commander";
 import displayContract from "../../packages/core-internal/src/services/fixtures/ask-display-contract.json";
-import { formatResearchMcpText } from "../../packages/mcp/src/mcp/local-research.js";
+import { buildLocalMcpInstructions } from "../../packages/mcp/src/mcp/instructions.js";
+import {
+  formatResearchMcpText,
+  DESCRIPTION as MCP_RESEARCH_DESCRIPTION,
+} from "../../packages/mcp/src/mcp/local-research.js";
 import {
   formatAgenticAskHumanResponse,
   type ResearchCommandDependencies,
@@ -711,5 +718,25 @@ describe("Research registration", () => {
       program.parseAsync(["node", "githits", ...args]),
     ).rejects.toBeInstanceOf(Error);
     expect(rootWorkStarted).toBe(false);
+  });
+});
+
+describe("Research answer guidance", () => {
+  it("tells CLI and local MCP callers to cite verified sources directly", () => {
+    const program = new Command().name("githits");
+    const help = registerResearchCommand(program)
+      .helpInformation()
+      .replace(/\s+/g, " ");
+
+    // Agents re-read cited sources after a complete answer; every surface
+    // must describe them as citations to read only when a detail is missing.
+    expect(help).toContain(RESEARCH_VERIFIED_ANSWER_GUIDANCE);
+    expect(help).toContain("Source pointers: CLI read commands (default)");
+    expect(MCP_RESEARCH_DESCRIPTION).toContain(
+      RESEARCH_VERIFIED_ANSWER_GUIDANCE,
+    );
+    expect(
+      buildLocalMcpInstructions({ enabledExperimentalTools: ["research"] }),
+    ).toContain(RESEARCH_VERIFIED_ANSWER_GUIDANCE);
   });
 });

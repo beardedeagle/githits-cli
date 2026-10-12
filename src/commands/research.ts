@@ -10,6 +10,7 @@ import {
   LegacyRepositoryRefError,
   mapAgenticAskError,
   parseRepositoryTargetSpec,
+  RESEARCH_VERIFIED_ANSWER_GUIDANCE,
   requireAuth,
   sanitizeTerminalText,
 } from "@githits/mcp/internal";
@@ -216,6 +217,7 @@ export function validateResearchCommandBeforeAction(command: Command): void {
 }
 
 const DESCRIPTION = `Research a public repository or package to answer a question with cited sources.
+${RESEARCH_VERIFIED_ANSWER_GUIDANCE}
 
 Omit the target to let GitHits infer one public repository or package from your
 question. Quote multi-word questions. An explicit target keeps the search scoped.
@@ -244,7 +246,7 @@ export function registerResearchCommand(program: Command): Command {
     .addOption(
       new Option(
         "--source-format <format>",
-        "Source pointers: native CLI commands (default) or upstream URLs",
+        "Source pointers: CLI read commands (default) or upstream URLs",
       ).choices(["cli", "url"]),
     )
     .option("--json", "Output the response as JSON")
