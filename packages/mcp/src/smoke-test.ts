@@ -1253,13 +1253,11 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
     "pkg_changelog default leaked CLI verbose flag",
   );
   if (
-    changelogText.includes("truncated") ||
+    changelogText.includes("more lines") ||
     changelogText.includes("full bodies")
   ) {
     assert(
-      changelogText.includes(
-        'pass verbose=true, body_lines=<n>, or format="json"',
-      ),
+      changelogText.includes("pass verbatim=true"),
       "pkg_changelog truncation hint is not MCP-native",
     );
   }
@@ -1274,13 +1272,11 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
   );
   // Live entries may fit within the requested body limit without truncation.
   if (
-    changelogBodyLinesText.includes("truncated") ||
+    changelogBodyLinesText.includes("more lines") ||
     changelogBodyLinesText.includes("full bodies")
   ) {
     assert(
-      changelogBodyLinesText.includes(
-        'pass verbose=true, body_lines=<n>, or format="json"',
-      ),
+      changelogBodyLinesText.includes("pass verbatim=true"),
       "pkg_changelog body_lines missing MCP-native truncation hint",
     );
   }
@@ -1294,15 +1290,12 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
       target: "npm:express",
       limit: 2,
       body_lines: 3,
-      verbose: true,
-      omit_bodies: true,
+      verbatim: true,
     }),
     "pkg_changelog verbose overrides preview controls",
   );
   assert(
-    !changelogFullBodiesText.includes(
-      'pass verbose=true, body_lines=<n>, or format="json"',
-    ),
+    !changelogFullBodiesText.includes("pass verbatim=true"),
     "pkg_changelog verbose still truncated body previews",
   );
 
@@ -1316,6 +1309,65 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
   );
   assertRecord(changelogJson, "pkg_changelog json");
   assertRecord(changelogJson.entries, "pkg_changelog json entries");
+  assertRecord(changelogJson.statements, "pkg_changelog json statements");
+  assert(
+    Array.isArray(changelogJson.statements.items),
+    "pkg_changelog json missing parsed statements",
+  );
+  assert(
+    Array.isArray(changelogJson.statements.coverage),
+    "pkg_changelog json missing coverage",
+  );
+  assert(
+    Array.isArray(changelogJson.entries.items) &&
+      changelogJson.entries.items.every(
+        (entry: unknown) =>
+          typeof entry === "object" && entry !== null && !("body" in entry),
+      ),
+    "pkg_changelog default JSON over-fetched note bodies",
+  );
+  const filteredChangelog = assertJsonResult(
+    await callTool(caller, "pkg_changelog", {
+      target: "npm:express@5.2.1",
+      changes: "actionable",
+      format: "json",
+    }),
+    "pkg_changelog actionable",
+  );
+  assertRecord(filteredChangelog, "pkg_changelog actionable");
+  assertRecord(
+    filteredChangelog.statements,
+    "pkg_changelog filtered statements",
+  );
+  assert(
+    Array.isArray(filteredChangelog.statements.items) &&
+      filteredChangelog.statements.items.every(
+        (item: unknown) =>
+          typeof item === "object" &&
+          item !== null &&
+          "classification" in item &&
+          typeof item.classification === "object" &&
+          item.classification !== null &&
+          "tier" in item.classification &&
+          item.classification.tier === "must_act",
+      ),
+    "pkg_changelog actionable includes another tier",
+  );
+  const timelineChangelog = assertJsonResult(
+    await callTool(caller, "pkg_changelog", {
+      target: "npm:express",
+      limit: 1,
+      omit_bodies: true,
+      changes: "ignored",
+      format: "json",
+    }),
+    "pkg_changelog timeline-only",
+  );
+  assertRecord(timelineChangelog, "pkg_changelog timeline-only");
+  assert(
+    !("statements" in timelineChangelog),
+    "pkg_changelog timeline-only classified notes",
+  );
 
   const changelogExact = assertJsonResult(
     await callTool(caller, "pkg_changelog", {

@@ -24,10 +24,7 @@ import {
   PkgseerTransportError,
   postPkgseerGraphql,
 } from "../shared/pkgseer-graphql.js";
-import {
-  type PkgseerRegistry,
-  toPkgseerRegistryLowercase,
-} from "../shared/pkgseer-registry.js";
+import type { PkgseerRegistry } from "../shared/pkgseer-registry.js";
 import type { ClientHeaderBuilder } from "../shared/request-headers.js";
 import {
   ClientUpdateRequiredError,
@@ -324,7 +321,7 @@ export interface PackageUpgradeChangelogEntry {
 }
 
 /** Backend model labels for one release-note statement, never a package verdict. */
-export interface PackageUpgradeChangelogRiskItem {
+export interface ChangelogRiskItem {
   version: string;
   tier: "MUST_ACT" | "SHOULD_KNOW" | "UNCLASSIFIED";
   /** Backend ambiguity policy; confidence is evidence, not a client threshold. */
@@ -340,11 +337,17 @@ export interface PackageUpgradeChangelogRiskItem {
   url?: string;
   heading?: string;
   source?: string;
+  model?: string;
+  formulation?: string;
+}
+
+/** Upgrade reviews always select classifier provenance. */
+export interface PackageUpgradeChangelogRiskItem extends ChangelogRiskItem {
   model: string;
   formulation: string;
 }
 
-export interface PackageUpgradeChangelogRiskCoverage {
+export interface ChangelogRiskCoverage {
   versionsClassified: number;
   versionsNotAssessed: number;
   versionsWithoutNotes: number;
@@ -358,6 +361,9 @@ export interface PackageUpgradeChangelogRiskCoverage {
   itemsUnclassified: number;
   itemsOmitted: number;
 }
+
+export interface PackageUpgradeChangelogRiskCoverage
+  extends ChangelogRiskCoverage {}
 
 export interface PackageUpgradeChangelog {
   riskItems: PackageUpgradeChangelogRiskItem[];
@@ -700,8 +706,11 @@ export interface PackageChangelogParams {
   toVersion?: string;
   /** Latest-mode cap (1–50). Rejected client-side when `fromVersion` is set. */
   limit?: number;
-  /** Include raw markdown bodies in entries. Defaults to true. */
-  includeBodies?: boolean;
+  /** Default: complete parsed statements. Original notes and timeline do no label work. */
+  view?: PackageChangelogView;
+  statementTiers?: ChangelogStatementTier[];
+  /** Select full statement text and classification provenance for machine consumers. */
+  includeJsonFields?: boolean;
 }
 
 /**
@@ -728,12 +737,74 @@ export interface ChangelogEntryDetail {
   hasChangelog?: boolean;
 }
 
-export interface ChangelogReport {
-  /** Echo of addressing + filter as the backend saw it. */
-  package?: ChangelogPackageInfo;
-  /** `"releases"` | `"changelog_file"` | `"hexdocs"` when resolved; absent for package versions with no changelog entry. */
+export type PackageChangelogView = "statements" | "verbatim" | "timeline";
+export type ChangelogStatementTier =
+  | "MUST_ACT"
+  | "SHOULD_KNOW"
+  | "NO_IMPACT"
+  | "UNCLASSIFIED";
+export type ChangelogStatementAssessmentStatus =
+  | "CLASSIFIED"
+  | "NOT_ASSESSED"
+  | "WITHOUT_NOTES"
+  | "UNPARSEABLE";
+
+export interface ChangelogStatementClassification {
+  tier: ChangelogStatementTier;
+  ambiguous: boolean;
+  kind?: ChangelogRiskItem["kind"];
+  tierConfidence?: number;
+  kindConfidence?: number;
+  model?: string;
+  formulation?: string;
+}
+
+export interface ChangelogStatementContext {
+  heading?: string;
+  text: string;
+  textTruncated: boolean;
+  fullText?: string;
+}
+
+export interface ChangelogStatement {
+  version: string;
+  position: number;
+  sourceIndex: number;
+  sourcePosition?: number;
+  heading?: string;
   source?: string;
-  /** Entries in backend/source order. Empty array = resolved source but nothing in range. */
+  url?: string;
+  text: string;
+  textTruncated: boolean;
+  fullText?: string;
+  context?: ChangelogStatementContext;
+  /** Null is missing assessment, never a no-impact classification. */
+  classification: ChangelogStatementClassification | null;
+}
+
+export interface ChangelogStatementCoverage {
+  version: string;
+  status: ChangelogStatementAssessmentStatus;
+  statementsTotal: number;
+  statementsAssessed: number;
+  statementsNotAssessed: number;
+  statementsNoImpact: number;
+  statementsUnclassified: number;
+}
+
+export interface ChangelogStatements {
+  totalCount: number;
+  matchingCount: number;
+  items: ChangelogStatement[];
+  coverage: ChangelogStatementCoverage[];
+}
+
+export interface ChangelogReport {
+  statements?: ChangelogStatements;
+  /** Optional legacy addressing echo; hosts already know the request identity. */
+  package?: ChangelogPackageInfo;
+  source?: string;
+  /** Entries in backend/source order. */
   entries: ChangelogEntryDetail[];
 }
 
@@ -2026,11 +2097,10 @@ const packageUpgradeChangelogEntrySchema = z.object({
   signals: z.array(z.string()),
 });
 
-const packageUpgradeChangelogRiskItemSchema = z.object({
+const changelogRiskItemBaseSchema = z.object({
   version: z.string(),
   tier: z.enum(["MUST_ACT", "SHOULD_KNOW", "UNCLASSIFIED"]),
   ambiguous: z.boolean(),
-  tierConfidence: z.number().min(0).max(1).nullable(),
   kind: z
     .enum([
       "REMOVES_OR_RENAMES_API",
@@ -2042,17 +2112,22 @@ const packageUpgradeChangelogRiskItemSchema = z.object({
       "NOTABLE_CHANGE",
     ])
     .nullable(),
-  kindConfidence: z.number().min(0).max(1).nullable(),
   text: z.string(),
   textTruncated: z.boolean(),
   fullText: z.string().optional(),
   url: z.string().nullable(),
-  heading: z.string().nullable(),
   source: z.string().nullable(),
-  model: z.string(),
-  formulation: z.string(),
 });
 
+const changelogRiskDetailFields = {
+  tierConfidence: z.number().min(0).max(1).nullable(),
+  kindConfidence: z.number().min(0).max(1).nullable(),
+  heading: z.string().nullable(),
+  model: z.string(),
+  formulation: z.string(),
+};
+const packageUpgradeChangelogRiskItemSchema =
+  changelogRiskItemBaseSchema.extend(changelogRiskDetailFields);
 const packageUpgradeChangelogRiskCoverageSchema = z.object({
   versionsClassified: z.number().int(),
   versionsNotAssessed: z.number().int(),
@@ -2402,17 +2477,6 @@ fragment PackageUpgradeDependencyChangeGroupFields on PackageUpgradeDependencyCh
 // Zod schema + query for packageChangelog
 // --------------------------------------------------------------------
 
-const changelogPackageInfoSchema = z
-  .object({
-    name: z.string().nullable().optional(),
-    registry: z.string().nullable().optional(),
-    fromVersion: z.string().nullable().optional(),
-    toVersion: z.string().nullable().optional(),
-    limit: z.number().int().nullable().optional(),
-  })
-  .nullable()
-  .optional();
-
 const changelogEntryDetailSchema = z.object({
   version: z.string().nullable().optional(),
   normalizedVersion: z.string().nullable().optional(),
@@ -2421,12 +2485,70 @@ const changelogEntryDetailSchema = z.object({
   publishedAt: z.string().nullable().optional(),
 });
 
+const changelogStatementClassificationSchema = z.object({
+  tier: z.enum(["MUST_ACT", "SHOULD_KNOW", "NO_IMPACT", "UNCLASSIFIED"]),
+  ambiguous: z.boolean(),
+  kind: changelogRiskItemBaseSchema.shape.kind,
+  tierConfidence: z.number().min(0).max(1).nullable().optional(),
+  kindConfidence: z.number().min(0).max(1).nullable().optional(),
+  model: z.string().optional(),
+  formulation: z.string().optional(),
+});
+const changelogStatementContextSchema = z.object({
+  heading: z.string().nullable(),
+  text: z.string(),
+  textTruncated: z.boolean(),
+  fullText: z.string().optional(),
+});
+const changelogStatementSchema = z.object({
+  version: z.string(),
+  position: z.number().int().nonnegative(),
+  sourceIndex: z.number().int().nonnegative(),
+  sourcePosition: z.number().int().nonnegative().optional(),
+  heading: z.string().nullable(),
+  source: z.string().nullable(),
+  url: z.string().nullable(),
+  text: z.string(),
+  textTruncated: z.boolean(),
+  fullText: z.string().optional(),
+  context: changelogStatementContextSchema.nullable(),
+  classification: changelogStatementClassificationSchema.nullable(),
+});
+const changelogStatementCoverageSchema = z.object({
+  version: z.string(),
+  status: z.enum([
+    "CLASSIFIED",
+    "NOT_ASSESSED",
+    "WITHOUT_NOTES",
+    "UNPARSEABLE",
+  ]),
+  statementsTotal: z.number().int().nonnegative(),
+  statementsAssessed: z.number().int().nonnegative().optional(),
+  statementsNotAssessed: z.number().int().nonnegative().optional(),
+  statementsNoImpact: z.number().int().nonnegative().optional(),
+  statementsUnclassified: z.number().int().nonnegative().optional(),
+});
+const changelogStatementPageSchema = z.object({
+  items: z.array(changelogStatementSchema),
+  coverage: z.array(changelogStatementCoverageSchema),
+  totalCount: z.number().int().nonnegative(),
+  matchingCount: z.number().int().nonnegative(),
+  remainingCount: z.number().int().nonnegative(),
+  nextOffset: z.number().int().nonnegative().nullable(),
+  hasMore: z.boolean(),
+});
+type ChangelogStatementPage = z.infer<typeof changelogStatementPageSchema>;
 const changelogReportResponseSchema = z.object({
-  package: changelogPackageInfoSchema,
   source: z.string().nullable().optional(),
   entries: z.array(changelogEntryDetailSchema).nullable().optional(),
+  statements: changelogStatementPageSchema.optional(),
 });
-
+const exactChangelogDetailSchema = z.object({
+  detailSource: z.string().nullable().optional(),
+  hasChangelog: z.boolean().optional(),
+  entry: changelogEntryDetailSchema.nullable().optional(),
+  statements: changelogStatementPageSchema.optional(),
+});
 const changelogGraphQLResponseSchema = z.object({
   data: z
     .object({
@@ -2436,13 +2558,6 @@ const changelogGraphQLResponseSchema = z.object({
     .optional(),
   errors: z.array(graphQLErrorSchema).optional(),
 });
-
-const exactChangelogDetailSchema = z.object({
-  detailSource: z.string().nullable().optional(),
-  hasChangelog: z.boolean(),
-  entry: changelogEntryDetailSchema.nullable().optional(),
-});
-
 const exactChangelogGraphQLResponseSchema = z.object({
   data: z
     .object({
@@ -2450,7 +2565,7 @@ const exactChangelogGraphQLResponseSchema = z.object({
         .object({
           selectedVersion: z
             .object({
-              resolvedVersion: z.string(),
+              resolvedVersion: z.string().optional(),
               changelog: exactChangelogDetailSchema.nullable().optional(),
             })
             .nullable()
@@ -2464,63 +2579,157 @@ const exactChangelogGraphQLResponseSchema = z.object({
   errors: z.array(graphQLErrorSchema).optional(),
 });
 
-const PACKAGE_CHANGELOG_QUERY = `
-query PackageChangelog(
-  $registry: Registry!
-  $name: String!
-  $fromVersion: String
-  $toVersion: String
-  $limit: Int
-  $includeBodies: Boolean! = true
-) {
-  packageChangelog(
-    registry: $registry
-    name: $name
-    fromVersion: $fromVersion
-    toVersion: $toVersion
-    limit: $limit
+/** Build only the projection consumed by the selected host view and page. */
+function packageChangelogQuery(
+  params: PackageChangelogParams,
+  offset: number,
+): string {
+  const statementView = (params.view ?? "statements") === "statements";
+  const json = params.includeJsonFields === true;
+  const firstPage = offset === 0;
+  const entry = `${params.version === undefined ? "version" : ""} ${json ? "normalizedVersion" : ""} htmlUrl publishedAt ${params.view === "verbatim" ? "body" : ""}`;
+  const statements = statementView
+    ? `statements(first: 100, offset: $offset, tiers: $tiers) {
+    totalCount matchingCount remainingCount nextOffset hasMore
+    coverage {
+      version status statementsTotal
+      ${params.statementTiers?.length ? "statementsAssessed statementsNotAssessed statementsNoImpact statementsUnclassified" : ""}
+    }
+    items {
+      version position sourceIndex heading source url text textTruncated
+      ${json ? "sourcePosition fullText" : ""}
+      context { heading text textTruncated ${json ? "fullText" : ""} }
+      classification { tier ambiguous kind ${json ? "tierConfidence kindConfidence model formulation" : ""} }
+    }
+  }`
+    : "";
+  const pageVars = statementView
+    ? "$offset: Int! $tiers: [ChangelogStatementTier!]"
+    : "";
+  if (params.version !== undefined)
+    return `query PackageChangelogExact(
+    $registry: Registry! $name: String! $version: String ${pageVars}
   ) {
-    package {
-      name
-      registry
-      fromVersion
-      toVersion
-      limit
+    packageInfo(registry: $registry, name: $name, version: $version) { selectedVersion {
+      ${firstPage ? "resolvedVersion" : ""}
+      changelog { ${firstPage ? `${json ? "detailSource" : ""} ${json || !statementView ? "hasChangelog" : ""} entry { ${entry} }` : ""} ${statements} }
+    } }
+  }`;
+  return `query PackageChangelog(
+    $registry: Registry! $name: String! $fromVersion: String $toVersion: String $limit: Int ${pageVars}
+  ) {
+    packageChangelog(registry: $registry, name: $name, fromVersion: $fromVersion, toVersion: $toVersion, limit: $limit) {
+      ${firstPage ? `${json ? "source" : ""} entries { ${entry} }` : ""} ${statements}
     }
-    source
-    entries {
-      version
-      normalizedVersion
-      body @include(if: $includeBodies)
-      htmlUrl
-      publishedAt
-    }
-  }
-}`;
+  }`;
+}
 
-const PACKAGE_CHANGELOG_EXACT_QUERY = `
-query PackageChangelogExact(
-  $registry: Registry!
-  $name: String!
-  $version: String
-  $includeBodies: Boolean! = true
-) {
-  packageInfo(registry: $registry, name: $name, version: $version) {
-    selectedVersion {
-      resolvedVersion
-      changelog {
-        detailSource
-        hasChangelog
-        entry {
-          normalizedVersion
-          body @include(if: $includeBodies)
-          htmlUrl
-          publishedAt
-        }
-      }
+function normaliseChangelogStatement(
+  item: ChangelogStatementPage["items"][number],
+): ChangelogStatement {
+  // The shared null stripper deliberately omits optional evidence, but a missing
+  // classification must remain distinguishable from a no-impact answer.
+  return {
+    ...(stripNullProperties(item) as Omit<
+      ChangelogStatement,
+      "classification"
+    >),
+    classification:
+      item.classification === null
+        ? null
+        : stripNullProperties(item.classification),
+  } as ChangelogStatement;
+}
+
+/** Collect current evidence, without treating arriving labels as parse changes. */
+function collectChangelogStatements(
+  pages: ChangelogStatementPage[],
+  filtered: boolean,
+): ChangelogStatements {
+  const first = pages[0];
+  if (!first)
+    throw new MalformedPackageIntelligenceResponseError(
+      "Missing selected changelog statements.",
+    );
+  const coverage = first.coverage;
+  const items: ChangelogStatement[] = [];
+  const positions = new Map<string, number>();
+  let lastVersionIndex = -1;
+  for (const page of pages) {
+    for (const item of page.items) {
+      const index = coverage.findIndex((c) => c.version === item.version);
+      const previous = positions.get(item.version) ?? -1;
+      if (
+        index < lastVersionIndex ||
+        index < 0 ||
+        item.position <= previous ||
+        (!filtered && item.position !== previous + 1)
+      )
+        throw new MalformedPackageIntelligenceResponseError(
+          "Invalid changelog statement ordering or duplicate positions.",
+        );
+      lastVersionIndex = index;
+      positions.set(item.version, item.position);
+      items.push(normaliseChangelogStatement(item));
     }
   }
-}`;
+  if (
+    items.length !== first.matchingCount ||
+    coverage.reduce((sum, c) => sum + c.statementsTotal, 0) !==
+      first.totalCount ||
+    (!filtered && first.matchingCount !== first.totalCount)
+  )
+    throw new MalformedPackageIntelligenceResponseError(
+      "Inconsistent changelog statement counts.",
+    );
+  const finalCoverage: ChangelogStatementCoverage[] = coverage.map((c) => {
+    if (filtered) {
+      if (
+        c.statementsAssessed === undefined ||
+        c.statementsNotAssessed === undefined ||
+        c.statementsNoImpact === undefined ||
+        c.statementsUnclassified === undefined ||
+        c.statementsAssessed + c.statementsNotAssessed !== c.statementsTotal
+      )
+        throw new MalformedPackageIntelligenceResponseError(
+          "Missing or inconsistent selected changelog coverage counts.",
+        );
+      return c as ChangelogStatementCoverage;
+    }
+    const releaseItems = items.filter((item) => item.version === c.version);
+    if (releaseItems.length !== c.statementsTotal)
+      throw new MalformedPackageIntelligenceResponseError(
+        "Incomplete changelog release statements.",
+      );
+    const assessed = releaseItems.filter(
+      (item) => item.classification !== null,
+    ).length;
+    return {
+      version: c.version,
+      statementsTotal: c.statementsTotal,
+      status:
+        c.statementsTotal === 0
+          ? c.status
+          : assessed === c.statementsTotal
+            ? "CLASSIFIED"
+            : "NOT_ASSESSED",
+      statementsAssessed: assessed,
+      statementsNotAssessed: c.statementsTotal - assessed,
+      statementsNoImpact: releaseItems.filter(
+        (item) => item.classification?.tier === "NO_IMPACT",
+      ).length,
+      statementsUnclassified: releaseItems.filter(
+        (item) => item.classification?.tier === "UNCLASSIFIED",
+      ).length,
+    };
+  });
+  return {
+    items,
+    totalCount: first.totalCount,
+    matchingCount: first.matchingCount,
+    coverage: finalCoverage,
+  };
+}
 
 function normaliseChangelogSource(
   raw: string | null | undefined,
@@ -3874,29 +4083,124 @@ export class PackageIntelligenceServiceImpl
     token: string,
     params: PackageChangelogParams,
   ): Promise<ChangelogReport> {
-    if (params.version !== undefined) {
-      return this.executeExactPackageChangelog(token, params);
+    const pages: ChangelogStatementPage[] = [];
+    let nextOffset: number | null = 0;
+    let report: ChangelogReport | undefined;
+    while (nextOffset !== null) {
+      const offset: number = nextOffset;
+      const page = await this.fetchPackageChangelogPage(token, params, offset);
+      if (offset === 0) report = page.report;
+      if ((params.view ?? "statements") !== "statements") break;
+      const statements = page.statements;
+      if (!statements)
+        throw new MalformedPackageIntelligenceResponseError(
+          "Missing selected changelog statements.",
+        );
+      if (
+        params.includeJsonFields &&
+        statements.items.some(
+          (item) =>
+            item.fullText === undefined ||
+            item.sourcePosition === undefined ||
+            (item.context && item.context.fullText === undefined) ||
+            (item.classification &&
+              (item.classification.model === undefined ||
+                item.classification.formulation === undefined ||
+                item.classification.tierConfidence === undefined ||
+                item.classification.kindConfidence === undefined)),
+        )
+      )
+        throw new MalformedPackageIntelligenceResponseError(
+          "Missing selected changelog statement evidence fields.",
+        );
+      const next = offset + statements.items.length;
+      if (
+        statements.items.length > 100 ||
+        statements.remainingCount !== statements.matchingCount - next ||
+        statements.hasMore !== statements.remainingCount > 0 ||
+        (statements.hasMore
+          ? statements.nextOffset !== next || next <= offset
+          : statements.nextOffset !== null)
+      )
+        throw new MalformedPackageIntelligenceResponseError(
+          "Invalid changelog statement page progress.",
+        );
+      pages.push(statements);
+      // Validate comparable evidence before making another request. Final counts
+      // and ordering are checked by collection once all pages have arrived.
+      if (pages.length > 1) {
+        const first = pages[0];
+        const signature = (p: ChangelogStatementPage): string =>
+          JSON.stringify(
+            params.statementTiers?.length
+              ? p.coverage
+              : p.coverage.map((c) => [
+                  c.version,
+                  c.statementsTotal,
+                  c.statementsTotal === 0 ? c.status : null,
+                ]),
+          );
+        if (
+          first &&
+          (first.totalCount !== statements.totalCount ||
+            first.matchingCount !== statements.matchingCount ||
+            signature(first) !== signature(statements))
+        )
+          throw new PackageIntelligenceBackendError(
+            "Changelog evidence changed during retrieval; classification may still be in progress. Rerun to retrieve the current view.",
+            undefined,
+            undefined,
+            true,
+          );
+      }
+      if (!statements.hasMore) break;
+      nextOffset = statements.nextOffset;
     }
-    return this.executeTimelinePackageChangelog(token, params);
+    if (!report)
+      throw new MalformedPackageIntelligenceResponseError(
+        "Empty changelog response.",
+      );
+    if ((params.view ?? "statements") === "statements") {
+      report.statements = collectChangelogStatements(
+        pages,
+        Boolean(params.statementTiers?.length),
+      );
+      const versions = report.entries.map((entry) => entry.version);
+      if (
+        JSON.stringify(versions) !==
+        JSON.stringify(report.statements.coverage.map((c) => c.version))
+      )
+        throw new MalformedPackageIntelligenceResponseError(
+          "Changelog coverage does not match the selected releases.",
+        );
+    }
+    return report;
   }
 
-  private async executeTimelinePackageChangelog(
+  private async fetchPackageChangelogPage(
     token: string,
     params: PackageChangelogParams,
-  ): Promise<ChangelogReport> {
+    offset: number,
+  ): Promise<{ report: ChangelogReport; statements?: ChangelogStatementPage }> {
+    const exact = params.version !== undefined;
+    const statementView = (params.view ?? "statements") === "statements";
     let response: PkgseerGraphqlResponse;
     try {
       response = await postPkgseerGraphql({
         endpointUrl: this.endpointUrl,
         token,
-        query: PACKAGE_CHANGELOG_QUERY,
+        query: packageChangelogQuery(params, offset),
         variables: {
           registry: params.registry,
           name: params.packageName,
-          fromVersion: params.fromVersion,
-          toVersion: params.toVersion,
-          limit: params.limit,
-          includeBodies: params.includeBodies !== false,
+          ...(exact
+            ? { version: params.version }
+            : {
+                fromVersion: params.fromVersion,
+                toVersion: params.toVersion,
+                limit: params.limit,
+              }),
+          ...(statementView ? { offset, tiers: params.statementTiers } : {}),
         },
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
@@ -3904,160 +4208,85 @@ export class PackageIntelligenceServiceImpl
         diagnostics: this.runtime.diagnostics,
       });
     } catch (cause) {
-      if (cause instanceof PkgseerTransportError) {
+      if (cause instanceof PkgseerTransportError)
         throw this.createTransportError(cause);
-      }
       throw cause;
     }
-
-    if (response.status < 200 || response.status >= 300) {
+    if (response.status < 200 || response.status >= 300)
       throw this.createHttpError(response);
-    }
-
-    const parsed = changelogGraphQLResponseSchema.safeParse(
-      response.parsedBody,
-    );
-    if (!parsed.success) {
+    const parsed = (
+      exact
+        ? exactChangelogGraphQLResponseSchema
+        : changelogGraphQLResponseSchema
+    ).safeParse(response.parsedBody);
+    if (!parsed.success)
       throw new MalformedPackageIntelligenceResponseError(
         "Malformed response from the package-intelligence service.",
       );
-    }
-
-    if (parsed.data.errors && parsed.data.errors.length > 0) {
+    if (parsed.data.errors?.length)
       throw promoteGenericVersionNotFound(
         this.createGraphQLError(parsed.data.errors),
         params,
       );
-    }
-
-    const data = parsed.data.data?.packageChangelog;
-    if (!data) {
-      throw new MalformedPackageIntelligenceResponseError(
-        "Empty response from the package-intelligence service.",
-      );
-    }
-
-    return this.normaliseTimelineChangelogReport(data);
-  }
-
-  private async executeExactPackageChangelog(
-    token: string,
-    params: PackageChangelogParams,
-  ): Promise<ChangelogReport> {
-    let response: PkgseerGraphqlResponse;
-    try {
-      response = await postPkgseerGraphql({
-        endpointUrl: this.endpointUrl,
-        token,
-        query: PACKAGE_CHANGELOG_EXACT_QUERY,
-        variables: {
-          registry: params.registry,
-          name: params.packageName,
-          version: params.version,
-          includeBodies: params.includeBodies !== false,
+    const data = parsed.data.data;
+    if (exact) {
+      const selected =
+        data && "packageInfo" in data
+          ? data.packageInfo?.selectedVersion
+          : undefined;
+      if (
+        !selected?.changelog ||
+        (offset === 0 &&
+          (selected.resolvedVersion === undefined ||
+            ((params.includeJsonFields || !statementView) &&
+              selected.changelog.hasChangelog === undefined)))
+      )
+        throw new MalformedPackageIntelligenceResponseError(
+          "Empty selected-release changelog response.",
+        );
+      const c = selected.changelog;
+      return {
+        statements: c.statements,
+        report: {
+          source: normaliseChangelogSource(c.detailSource),
+          entries:
+            offset === 0
+              ? [
+                  {
+                    version: selected.resolvedVersion,
+                    normalizedVersion: c.entry?.normalizedVersion ?? undefined,
+                    htmlUrl: c.entry?.htmlUrl ?? undefined,
+                    publishedAt: c.entry?.publishedAt ?? undefined,
+                    body:
+                      params.view === "verbatim"
+                        ? (c.entry?.body ?? undefined)
+                        : undefined,
+                    hasChangelog: c.hasChangelog,
+                  },
+                ]
+              : [],
         },
-        fetchFn: this.fetchFn,
-        clientHeaders: this.runtime.clientHeaders,
-        userAgent: this.runtime.userAgent,
-        diagnostics: this.runtime.diagnostics,
-      });
-    } catch (cause) {
-      if (cause instanceof PkgseerTransportError) {
-        throw this.createTransportError(cause);
-      }
-      throw cause;
+      };
     }
-
-    if (response.status < 200 || response.status >= 300) {
-      throw this.createHttpError(response);
-    }
-
-    const parsed = exactChangelogGraphQLResponseSchema.safeParse(
-      response.parsedBody,
-    );
-    if (!parsed.success) {
+    const changelog =
+      data && "packageChangelog" in data ? data.packageChangelog : undefined;
+    if (!changelog || (offset === 0 && changelog.entries === undefined))
       throw new MalformedPackageIntelligenceResponseError(
-        "Malformed response from the package-intelligence service.",
+        "Empty changelog response.",
       );
-    }
-
-    if (parsed.data.errors && parsed.data.errors.length > 0) {
-      throw promoteGenericVersionNotFound(
-        this.createGraphQLError(parsed.data.errors),
-        params,
-      );
-    }
-
-    const selected = parsed.data.data?.packageInfo?.selectedVersion;
-    if (!selected) {
-      throw new MalformedPackageIntelligenceResponseError(
-        "Empty response from the package-intelligence service.",
-      );
-    }
-
-    return this.normaliseExactChangelogReport(selected, params);
-  }
-
-  private normaliseTimelineChangelogReport(
-    data: z.infer<typeof changelogReportResponseSchema>,
-  ): ChangelogReport {
-    const source = normaliseChangelogSource(data.source);
-    const rawEntries = data.entries ?? [];
-    const entries: ChangelogEntryDetail[] = rawEntries.map((entry) => ({
-      version: entry.version ?? undefined,
-      normalizedVersion: entry.normalizedVersion ?? undefined,
-      body: entry.body ?? undefined,
-      htmlUrl: entry.htmlUrl ?? undefined,
-      publishedAt: entry.publishedAt ?? undefined,
-    }));
-
-    const packageInfo: ChangelogPackageInfo | undefined = data.package
-      ? {
-          name: data.package.name ?? undefined,
-          registry: data.package.registry ?? undefined,
-          fromVersion: data.package.fromVersion ?? undefined,
-          toVersion: data.package.toVersion ?? undefined,
-          limit: data.package.limit ?? undefined,
-        }
-      : undefined;
-
     return {
-      package: packageInfo,
-      source,
-      entries,
-    };
-  }
-
-  private normaliseExactChangelogReport(
-    selected: {
-      resolvedVersion: string;
-      changelog?: {
-        detailSource?: string | null;
-        hasChangelog: boolean;
-        entry?: z.infer<typeof changelogEntryDetailSchema> | null;
-      } | null;
-    },
-    params: PackageChangelogParams,
-  ): ChangelogReport {
-    const changelog = selected.changelog ?? undefined;
-    const entry = changelog?.entry ?? undefined;
-    const hasChangelog = changelog?.hasChangelog ?? false;
-    return {
-      package: {
-        name: params.packageName,
-        registry: toPkgseerRegistryLowercase(params.registry),
+      statements: changelog.statements,
+      report: {
+        source: normaliseChangelogSource(changelog.source),
+        entries: (changelog.entries ?? []).map((entry) => ({
+          version: entry.version ?? undefined,
+          normalizedVersion: entry.normalizedVersion ?? undefined,
+          htmlUrl: entry.htmlUrl ?? undefined,
+          publishedAt: entry.publishedAt ?? undefined,
+          body:
+            params.view === "verbatim" ? (entry.body ?? undefined) : undefined,
+        })),
       },
-      source: normaliseChangelogSource(changelog?.detailSource),
-      entries: [
-        {
-          version: selected.resolvedVersion,
-          normalizedVersion: entry?.normalizedVersion ?? undefined,
-          body: entry?.body ?? undefined,
-          htmlUrl: entry?.htmlUrl ?? undefined,
-          publishedAt: entry?.publishedAt ?? undefined,
-          hasChangelog,
-        },
-      ],
     };
   }
 

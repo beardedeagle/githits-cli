@@ -4,13 +4,15 @@ import {
   toPkgseerRegistryLowercase,
 } from "@githits/core-internal";
 import { z } from "zod";
-import { buildPackageChangelogParams } from "../shared/package-changelog-request.js";
+import {
+  buildPackageChangelogParams,
+  resolvePackageChangelogView,
+} from "../shared/package-changelog-request.js";
 import {
   buildPackageChangelogSuccessPayload,
   formatPackageChangelogTerminal,
 } from "../shared/package-changelog-response.js";
 import { mapPackageIntelligenceError } from "../shared/package-intelligence-error-map.js";
-import { InvalidPackageSpecError } from "../shared/package-spec.js";
 import { PKG_CHANGELOG_GUARDRAIL } from "./guardrails.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
 import {
@@ -25,8 +27,10 @@ export interface PackageChangelogArgs {
   limit?: number;
   omit_bodies?: boolean;
   verbose?: boolean;
+  verbatim?: boolean;
   body_lines?: number;
   format?: "text" | "json";
+  changes?: string;
 }
 
 /**
@@ -45,29 +49,41 @@ const schema: ZodRawShape = {
     .describe(
       "Latest-mode and upper-cap (`@..to`) count (1-50, default 10). Do not pass with exact `@version` or lower-bound range targets (`@from..to`, `@from..`).",
     ),
+  changes: z
+    .string()
+    .optional()
+    .describe(
+      "Statements: actionable (MUST_ACT, including uncertain), important (actionable + SHOULD_KNOW), or all (default, including no impact identified, too-long and unassessed statements). Filters before pagination. Coverage includes every selected release. Ignored outside the default statement view.",
+    ),
   omit_bodies: z
     .boolean()
     .optional()
     .describe(
-      "Omit each entry body (default false). Use for version/date/URL timelines; large notes drop 10 KB+ per entry. Text verbose:true overrides omission.",
+      "Show only the version/date/URL timeline, skipping parsing and classification. Cannot combine with verbatim:true or verbose:true.",
+    ),
+  verbatim: z
+    .boolean()
+    .optional()
+    .describe(
+      "Show full original notes instead of parsed statements, including bodies in JSON. Skips classification. Cannot combine with omit_bodies:true.",
     ),
   verbose: z
     .boolean()
     .optional()
     .describe(
-      "Text output only. Show full bodies, overriding body_lines and omit_bodies:true.",
+      "Deprecated alias for verbatim:true, in text and JSON. Overrides body_lines; cannot combine with omit_bodies:true.",
     ),
   body_lines: z
     .number()
     .optional()
     .describe(
-      "Text output only. Number of body lines to preview per entry (1-50, default 10). Ignored for format=json, omit_bodies:true, and verbose:true.",
+      "Deprecated text-only original-note preview request and line cap (1-50). Ignored for format=json, omit_bodies:true, verbatim:true and verbose:true. Omit for the default statement view.",
     ),
   format: z
     .enum(["text", "json"])
     .default("text")
     .describe(
-      "Omit `format` to use token-efficient text when the model reads the result or chooses follow-up tools. Set `json` only when code consumes the raw response instead of the model, or a required field is absent from text. JSON includes full markdown bodies.",
+      "Omit `format` to use token-efficient text when the model reads the result or chooses follow-up tools. Set `json` only when code consumes the raw response instead of the model, or a required field is absent from text. JSON includes full statement text and per-item provenance by default; verbatim:true includes original markdown bodies.",
     ),
 };
 
@@ -78,7 +94,7 @@ export const DESCRIPTION_BASE: string =
   "`limit` applies only to latest and upper-cap targets. " +
   "A selected release without notes succeeds with `hasChangelog: false`. " +
   "Empty latest or range selections succeed with no entries. " +
-  "Text previews 10 body lines; use `body_lines` or `verbose:true` for more.";
+  "Default text shows all parsed statements with available agent classifications, including no-impact and unassessed statements, in source order. `changes` filters statements; all matching pages are retrieved. `verbatim:true` shows original full notes instead; `verbose` is its deprecated alias and `body_lines` requests a legacy original-note preview. `omit_bodies:true` shows only the timeline. Original-note and timeline views skip classification and ignore `changes`.";
 
 export const DESCRIPTION: string = `${DESCRIPTION_BASE}\n\n${PKG_CHANGELOG_GUARDRAIL}`;
 
@@ -93,24 +109,31 @@ export function createPackageChangelogTool(
     handler: async (args, context) => {
       try {
         const textFormat = isTextFormat(args.format);
-        const includeBodies =
-          args.omit_bodies !== true || (textFormat && args.verbose === true);
-        const bodyPreviewLines = textFormat
-          ? validateTextOptions(args)
-          : undefined;
-        const { params, mode, explicitFilterFields } =
+        const { view, bodyPreviewLines } = resolvePackageChangelogView({
+          omitBodies: args.omit_bodies,
+          verbatim: args.verbatim,
+          verbose: args.verbose,
+          bodyLines: args.body_lines,
+          json: !textFormat,
+        });
+        const { params, mode, explicitFilterFields, changes } =
           buildPackageChangelogParams({
             target: args.target,
             limit: args.limit,
-            includeBodies,
+            view,
+            changes: args.changes,
           });
-        const report = await service.packageChangelog(params);
+        const report = await service.packageChangelog({
+          ...params,
+          includeJsonFields: !textFormat,
+        });
         const payload = buildPackageChangelogSuccessPayload(report, {
           registry: toPkgseerRegistryLowercase(params.registry),
           name: params.packageName,
           mode,
+          changes,
           explicitFilterFields,
-          includeBodies,
+          view,
           fromVersion: params.fromVersion,
           toVersion: params.toVersion,
           limit: params.limit,
@@ -120,10 +143,9 @@ export function createPackageChangelogTool(
           return textResult(
             formatPackageChangelogTerminal(payload, {
               useColors: false,
-              verbose: args.verbose ?? false,
               bodyPreviewLines,
-              fullBodyHint:
-                'pass verbose=true, body_lines=<n>, or format="json" for full bodies',
+              fullStatementHint: 'pass format="json" for full text',
+              fullBodyHint: "pass verbatim=true for full original notes",
             }).trimEnd(),
           );
         }
@@ -135,21 +157,6 @@ export function createPackageChangelogTool(
       }
     },
   };
-}
-
-function validateTextOptions(args: PackageChangelogArgs): number | undefined {
-  if (args.verbose === true || args.omit_bodies === true) return undefined;
-  if (args.body_lines === undefined) return undefined;
-  if (
-    !Number.isInteger(args.body_lines) ||
-    args.body_lines < 1 ||
-    args.body_lines > 50
-  ) {
-    throw new InvalidPackageSpecError(
-      `body_lines must be an integer between 1 and 50. Got ${args.body_lines}.`,
-    );
-  }
-  return args.body_lines;
 }
 
 function isTextFormat(format: PackageChangelogArgs["format"]): boolean {

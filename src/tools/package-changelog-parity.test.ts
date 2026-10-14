@@ -72,9 +72,12 @@ async function cliJson(
 }
 
 interface McpArgs {
+  changes?: string;
   target: string;
   limit?: number;
   omit_bodies?: boolean;
+  verbatim?: boolean;
+  verbose?: boolean;
 }
 
 async function mcpJson(
@@ -209,7 +212,7 @@ describe("package_changelog parity", () => {
     }
   });
 
-  it("PARITY-JSON-KEYS: default includes bodies on both surfaces", async () => {
+  it("PARITY-JSON-KEYS: default omits bodies on both surfaces", async () => {
     const fn = mock(() => Promise.resolve(defaultChangelogReport));
     const cli = await cliJson(
       "npm:express",
@@ -225,7 +228,7 @@ describe("package_changelog parity", () => {
     const envelope = cli as {
       entries: { items: Array<{ body?: string }> };
     };
-    expect(envelope.entries.items[0]?.body).toBe("## Patch\n- fixed a thing");
+    expect(envelope.entries.items[0]?.body).toBeUndefined();
   });
 
   it("PARITY-JSON-KEYS: empty entries lossless on both surfaces", async () => {
@@ -396,5 +399,94 @@ describe("package_changelog parity", () => {
       error: expect.stringContaining("latest-mode"),
       retryable: false,
     });
+  });
+});
+
+describe("changelog statement and view parity", () => {
+  for (const target of [
+    "npm:express",
+    "npm:express@5.2.1",
+    "npm:express@5.0.0..5.2.1",
+  ]) {
+    for (const changes of ["actionable", "important", "all"]) {
+      it(`${target} ${changes}: JSON evidence and wire request match`, async () => {
+        const fn = mock(() => Promise.resolve(defaultChangelogReport));
+        const cli = await cliJson(
+          target,
+          { changes },
+          cliDeps({
+            packageIntelligenceService: createMockPackageIntelligenceService({
+              packageChangelog: fn,
+            }),
+          }),
+        );
+        const mcp = await mcpJson({ target, changes }, fn);
+        expect(cli).toEqual(mcp.json);
+        expect(cli).not.toHaveProperty("entries.items.0.body");
+        expect(cli).toHaveProperty("statements.items.0.fullText");
+        const calls = fn.mock.calls as unknown as Array<
+          [Record<string, unknown>]
+        >;
+        expect(calls[0]?.[0]).toEqual(calls[1]?.[0]);
+        expect(calls[0]?.[0]?.statementTiers).toEqual(
+          changes === "actionable"
+            ? ["MUST_ACT"]
+            : changes === "important"
+              ? ["MUST_ACT", "SHOULD_KNOW"]
+              : undefined,
+        );
+        expect(calls[0]?.[0]?.includeJsonFields).toBe(true);
+      });
+    }
+  }
+  for (const alias of ["verbatim", "verbose"] as const) {
+    it(`original-note JSON via ${alias} matches, with changes ignored`, async () => {
+      const cli = await cliJson("npm:express", {
+        [alias]: true,
+        changes: "ignored",
+      });
+      const mcp = await mcpJson({
+        target: "npm:express",
+        [alias]: true,
+        changes: "ignored",
+      });
+      expect(cli).toEqual(mcp.json);
+      expect(cli).toHaveProperty("entries.items.0.body");
+      expect(cli).not.toHaveProperty("statements");
+      expect(cli).not.toHaveProperty("filter.changes");
+    });
+    it(`${alias} conflicts with timeline identically`, async () => {
+      const cli = await cliJson("npm:express", { [alias]: true, body: false });
+      const mcp = await mcpJson({
+        target: "npm:express",
+        [alias]: true,
+        omit_bodies: true,
+      });
+      expect(cli).toEqual(mcp.json);
+      expect(cli).toHaveProperty("code", "INVALID_ARGUMENT");
+    });
+  }
+  it("shares the same complete statement text", async () => {
+    const writes: string[] = [];
+    const writeSpy = spyOn(process.stdout, "write").mockImplementation(((
+      chunk: string | Uint8Array,
+    ) => {
+      writes.push(
+        typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk),
+      );
+      return true;
+    }) as typeof process.stdout.write);
+    try {
+      await pkgChangelogAction("npm:express", {}, cliDeps());
+    } finally {
+      writeSpy.mockRestore();
+    }
+    const tool = createParityMcpTool("pkg_changelog", {
+      packageIntelligenceService: createMockPackageIntelligenceService(),
+    });
+    const result = await tool.handler({ target: "npm:express" }, {});
+    expect(result.content[0]?.text).toBe(
+      Bun.stripANSI(writes.join("")).trimEnd(),
+    );
   });
 });

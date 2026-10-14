@@ -1380,8 +1380,8 @@ function smokeResponse(
       return textResult("express vulnerabilities");
     case "pkg_changelog":
       return textResult(
-        args.body_lines === 3 && args.verbose !== true
-          ? 'truncated; pass verbose=true, body_lines=<n>, or format="json"'
+        args.body_lines === 3 && args.verbose !== true && args.verbatim !== true
+          ? "truncated; pass verbatim=true"
           : "compact changelog timeline",
       );
     case "pkg_upgrade_review":
@@ -1545,15 +1545,20 @@ function smokeJsonResponse(
         },
       });
     case "pkg_changelog":
+      if (args.omit_bodies === true) return jsonResult({ entries: {} });
       if (args.target === "npm:express@5.2.1") {
         return jsonResult({
           mode: "exact",
+          statements: { items: [], coverage: [] },
           entries: {
             items: [{ version: "5.2.1", hasChangelog: true }],
           },
         });
       }
-      return jsonResult({ entries: {} });
+      return jsonResult({
+        entries: { items: [] },
+        statements: { items: [], coverage: [] },
+      });
     case "pkg_upgrade_review":
       return jsonResult({
         summary: {},

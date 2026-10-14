@@ -272,3 +272,67 @@ describe("buildPackageChangelogParams — limit validation", () => {
     expect(high.params.limit).toBe(50);
   });
 });
+
+describe("classified statement views", () => {
+  for (const target of [
+    "npm:express",
+    "npm:express@5.2.1",
+    "npm:express@5.0.0..5.2.1",
+  ]) {
+    for (const [changes, expected] of [
+      ["actionable", ["MUST_ACT"]],
+      ["important", ["MUST_ACT", "SHOULD_KNOW"]],
+      ["all", undefined],
+    ] as const) {
+      it(`maps ${changes} to backend tiers for ${target}`, () => {
+        const result = buildPackageChangelogParams({ target, changes });
+        expect(result.params.statementTiers).toEqual(
+          expected ? [...expected] : undefined,
+        );
+        expect(result.changes).toBe(changes);
+        expect(result.explicitFilterFields.has("changes")).toBe(true);
+      });
+    }
+  }
+  it("defaults empty agent strings to all without an explicit filter echo", () => {
+    for (const changes of [undefined, "", "  "]) {
+      const result = buildPackageChangelogParams({
+        target: "npm:express",
+        changes,
+      });
+      expect(result.changes).toBe("all");
+      expect(result.params.statementTiers).toBeUndefined();
+      expect(result.explicitFilterFields.has("changes")).toBe(false);
+    }
+  });
+  it("ignores the changes knob entirely for timeline-only requests", () => {
+    const result = buildPackageChangelogParams({
+      target: "npm:express",
+      view: "timeline",
+      changes: "unknown",
+    });
+    expect(result.changes).toBeUndefined();
+    expect(result.params.statementTiers).toBeUndefined();
+    expect(result.explicitFilterFields.has("changes")).toBe(false);
+  });
+  it("rejects unknown active views locally", () => {
+    expect(() =>
+      buildPackageChangelogParams({ target: "npm:express", changes: "safe" }),
+    ).toThrow("changes must be actionable");
+  });
+});
+
+describe("view resolution", () => {
+  it("ignores changes for both raw notes and timeline", () => {
+    for (const view of ["verbatim", "timeline"] as const) {
+      const result = buildPackageChangelogParams({
+        target: "npm:express",
+        view,
+        changes: "ignored",
+      });
+      expect(result.changes).toBeUndefined();
+      expect(result.params.statementTiers).toBeUndefined();
+      expect(result.explicitFilterFields.has("changes")).toBe(false);
+    }
+  });
+});

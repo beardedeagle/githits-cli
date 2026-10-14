@@ -10,6 +10,7 @@ import {
   InvalidPackageSpecError,
   type MappedError,
   requireAuth,
+  resolvePackageChangelogView,
   shouldUseColors,
 } from "@githits/mcp/internal";
 import type { Command } from "commander";
@@ -25,11 +26,13 @@ export interface PkgChangelogCommandOptions {
   to?: string;
   limit?: string;
   verbose?: boolean;
+  verbatim?: boolean;
   noBody?: boolean;
   // Commander's `--no-body` flag is surfaced as `body: false` in
-  // options; we map it to `includeBodies` in the builder.
+  // options; shared view resolution maps it to timeline mode.
   body?: boolean;
   json?: boolean;
+  changes?: string;
 }
 
 export interface PkgChangelogCommandDependencies {
@@ -64,30 +67,35 @@ export async function pkgChangelogAction(
     }
 
     const limit = resolveLimit(options);
-    const includeBodies = options.body !== false;
-    if (!includeBodies && options.verbose) {
-      throw new InvalidPackageSpecError(
-        "--no-body drops the bodies that --verbose uncaps — pass only one of the two flags.",
-      );
-    }
-
-    const { params, mode, explicitFilterFields } = buildPackageChangelogParams({
-      target: spec,
-      fromVersion: options.from,
-      toVersion: options.to,
-      limit,
-      includeBodies,
+    const { view } = resolvePackageChangelogView({
+      omitBodies: options.body === false || options.noBody === true,
+      verbatim: options.verbatim,
+      verbose: options.verbose,
+      json: options.json,
     });
 
-    const report =
-      await deps.packageIntelligenceService.packageChangelog(params);
+    const { params, mode, explicitFilterFields, changes } =
+      buildPackageChangelogParams({
+        target: spec,
+        fromVersion: options.from,
+        toVersion: options.to,
+        limit,
+        view,
+        changes: options.changes,
+      });
+
+    const report = await deps.packageIntelligenceService.packageChangelog({
+      ...params,
+      includeJsonFields: options.json === true,
+    });
 
     const payload = buildPackageChangelogSuccessPayload(report, {
       registry: toPkgseerRegistryLowercase(params.registry),
       name: params.packageName,
       mode,
+      changes,
       explicitFilterFields,
-      includeBodies,
+      view,
       fromVersion: params.fromVersion,
       toVersion: params.toVersion,
       limit: params.limit,
@@ -100,8 +108,8 @@ export async function pkgChangelogAction(
     }
 
     const output = formatPackageChangelogTerminal(payload, {
-      verbose: options.verbose ?? false,
       useColors: shouldUseColors(),
+      terminalWidth: process.stdout.columns,
     });
     process.stdout.write(output);
   } catch (error) {
@@ -172,13 +180,14 @@ function formatChangelogTerminalError(mapped: MappedError): string {
 }
 
 const PKG_CHANGELOG_DESCRIPTION = `Find release notes and changelog history for a package.
-By default shows up to ten latest-mode entries with the first 10
-lines of each entry's body. Pin a version for one selected release,
+By default shows all parsed release-note statements, with available agent
+classifications and nearby sources. Pin a version for one selected release,
 or use @from..to for releases after from through to (from excluded,
-to included). --from/--to remain as
-package range flags on a bare spec. --limit changes the latest-mode
-count (1-50). --verbose uncaps the body preview; --no-body drops
-bodies entirely.
+to included). --from/--to remain package range flags. --limit changes
+latest-mode entry count (1-50). --changes actionable|important|all limits
+statements; all is the default. --verbatim shows full original notes instead;
+--verbose is a deprecated alias. --no-body shows a version/date/URL timeline.
+JSON includes full statement evidence; --verbatim --json includes original bodies.
 
 Package spec: <registry>:<name>[@<version> | @<from>..<to>]. Package-only;
 repository and site targets are rejected. Supported registries:
@@ -202,13 +211,18 @@ export function registerPkgChangelogCommand(pkgCommand: Command): Command {
       "--limit <n>",
       "Latest-mode or upper-cap entry count (1-50, default 10)",
     )
+    .option("-v, --verbose", "Deprecated alias for --verbatim")
     .option(
-      "-v, --verbose",
-      "Uncap the markdown body preview (default cap: 10 lines per entry)",
+      "--verbatim",
+      "Show original full notes instead of parsed statements",
     )
     .option(
       "--no-body",
-      "Drop body fields from entries (affects terminal + JSON)",
+      "Show only the version/date/URL timeline; skip parsing and classification",
+    )
+    .option(
+      "--changes <view>",
+      "Statements: actionable, important (actionable + should know), all (default); ignored with --verbatim and --no-body",
     )
     .option("--json", "Emit the JSON envelope")
     .action(async (spec: string, options: PkgChangelogCommandOptions) => {

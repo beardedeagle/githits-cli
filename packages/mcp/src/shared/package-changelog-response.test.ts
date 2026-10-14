@@ -36,7 +36,7 @@ const baseOptions = {
   name: "express",
   mode: "latest" as const,
   explicitFilterFields: new Set<ExplicitFilterField>(),
-  includeBodies: true,
+  view: "verbatim" as const,
 };
 
 describe("buildPackageChangelogSuccessPayload — envelope shape", () => {
@@ -144,10 +144,10 @@ describe("buildPackageChangelogSuccessPayload — version null handling", () => 
 });
 
 describe("buildPackageChangelogSuccessPayload — body omission lever", () => {
-  it("drops body fields from every entry when includeBodies is false", () => {
+  it("drops body fields from every timeline entry", () => {
     const envelope = buildPackageChangelogSuccessPayload(baseReport, {
       ...baseOptions,
-      includeBodies: false,
+      view: "timeline",
     });
     for (const entry of envelope.entries.items) {
       expect(entry.body).toBeUndefined();
@@ -260,327 +260,298 @@ describe("buildPackageChangelogSuccessPayload — empty entries", () => {
   });
 });
 
-describe("formatPackageChangelogTerminal", () => {
-  it("renders a summary header + one-line entries by default", () => {
-    const envelope = buildPackageChangelogSuccessPayload(
-      baseReport,
-      baseOptions,
-    );
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).toContain("express | npm");
-    expect(output).toContain("source: GitHub Releases");
-    expect(output).toContain("2 entries");
-    expect(output).toContain("5.2.1");
-    expect(output).toContain("2026-01-15");
-    expect(output).toContain("/releases/tag/5.2.1");
-    // Fixture bodies are well under the 10-line cap, so they render
-    // in full without a truncation footer.
-    expect(output).toContain("## Patch");
-    expect(output).toContain("- fixed a thing");
-    expect(output).not.toContain("use --verbose");
-  });
-
-  it("labels no-source package entries as package versions", () => {
-    const report: ChangelogReport = { ...baseReport, source: undefined };
-    const envelope = buildPackageChangelogSuccessPayload(report, baseOptions);
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).toContain("source: package versions");
-  });
-
-  it("caps the body at 10 lines by default with a truncation footer", () => {
-    const longBody = Array.from({ length: 25 }, (_, i) => `line ${i + 1}`).join(
-      "\n",
-    );
-    const report: ChangelogReport = {
-      ...baseReport,
-      entries: [
-        {
-          version: "1.0.0",
-          publishedAt: "2026-01-01T00:00:00Z",
-          htmlUrl: "https://example.com",
-          body: longBody,
-        },
-      ],
-    };
-    const envelope = buildPackageChangelogSuccessPayload(report, baseOptions);
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).toContain("line 1");
-    expect(output).toContain("line 10");
-    expect(output).not.toContain("line 11");
-    expect(output).toContain("+15 more lines");
-    expect(output).toContain("use --verbose for the full body");
-    expect(output).toContain(
-      "... (+15 more lines - use --verbose for the full body)",
-    );
-  });
-
-  it("uses caller-supplied body preview line cap", () => {
-    const longBody = Array.from({ length: 8 }, (_, i) => `line ${i + 1}`).join(
-      "\n",
-    );
-    const report: ChangelogReport = {
-      ...baseReport,
-      entries: [
-        {
-          version: "1.0.0",
-          publishedAt: "2026-01-01T00:00:00Z",
-          htmlUrl: "https://example.com",
-          body: longBody,
-        },
-      ],
-    };
-    const envelope = buildPackageChangelogSuccessPayload(report, baseOptions);
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-      bodyPreviewLines: 3,
-      fullBodyHint: "pass verbose=true",
-    });
-    expect(output).toContain("line 3");
-    expect(output).not.toContain("line 4");
-    expect(output).toContain("... (+5 more lines - pass verbose=true)");
-  });
-
-  it("lifts the body cap under --verbose and omits the truncation footer", () => {
-    const longBody = Array.from({ length: 25 }, (_, i) => `line ${i + 1}`).join(
-      "\n",
-    );
-    const report: ChangelogReport = {
-      ...baseReport,
-      entries: [
-        {
-          version: "1.0.0",
-          publishedAt: "2026-01-01T00:00:00Z",
-          htmlUrl: "https://example.com",
-          body: longBody,
-        },
-      ],
-    };
-    const envelope = buildPackageChangelogSuccessPayload(report, baseOptions);
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: true,
-      useColors: false,
-    });
-    expect(output).toContain("line 1");
-    expect(output).toContain("line 25");
-    expect(output).not.toContain("use --verbose");
-    expect(output).not.toContain("more line");
-  });
-
-  it("uses singular wording in the truncation footer when exactly one line is hidden", () => {
-    const elevenLines = Array.from(
-      { length: 11 },
-      (_, i) => `line ${i + 1}`,
-    ).join("\n");
-    const report: ChangelogReport = {
-      ...baseReport,
-      entries: [
-        {
-          version: "1.0.0",
-          publishedAt: "2026-01-01T00:00:00Z",
-          htmlUrl: "https://example.com",
-          body: elevenLines,
-        },
-      ],
-    };
-    const envelope = buildPackageChangelogSuccessPayload(report, baseOptions);
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).toContain("+1 more line ");
-    expect(output).not.toContain("+1 more lines");
-  });
-
-  it("renders '(unversioned)' for entries with no version", () => {
-    const report: ChangelogReport = {
-      ...baseReport,
-      entries: [
-        {
-          version: undefined,
-          publishedAt: "2026-01-01T00:00:00Z",
-          htmlUrl: "https://example.com",
-          body: "raw",
-        },
-      ],
-    };
-    const envelope = buildPackageChangelogSuccessPayload(report, baseOptions);
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).toContain("(unversioned)");
-  });
-
-  it("renders a dash for missing publishedAt", () => {
-    const report: ChangelogReport = {
-      ...baseReport,
-      entries: [
-        {
-          version: "1.0.0",
-          publishedAt: undefined,
-          htmlUrl: "https://example.com",
-        },
-      ],
-    };
-    const envelope = buildPackageChangelogSuccessPayload(report, baseOptions);
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).toContain("-");
-  });
-
-  it("renders 'No entries in this range.' on zero-entry success", () => {
-    const report: ChangelogReport = { ...baseReport, entries: [] };
-    const envelope = buildPackageChangelogSuccessPayload(report, baseOptions);
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).toContain("No entries in this range.");
-  });
-
-  it("labels range mode with its exclusive lower bound in the summary", () => {
-    const envelope = buildPackageChangelogSuccessPayload(baseReport, {
-      ...baseOptions,
-      mode: "range",
-      fromVersion: "4.0.0",
-      toVersion: "5.0.0",
-      explicitFilterFields: new Set(["fromVersion", "toVersion"]),
-    });
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).toContain(
-      "range (4.0.0, 5.0.0] (start excluded; end included)",
-    );
-  });
-
-  it("renders printable ASCII punctuation", () => {
-    const longBody = Array.from({ length: 12 }, (_, i) => `line ${i + 1}`).join(
-      "\n",
-    );
-    const report: ChangelogReport = {
-      ...baseReport,
-      entries: [
-        {
-          version: "1.0.0",
-          publishedAt: undefined,
-          htmlUrl: "https://example.com",
-          body: longBody,
-        },
-      ],
-    };
-    const envelope = buildPackageChangelogSuccessPayload(report, {
-      ...baseOptions,
-      mode: "range",
-      fromVersion: "1.0.0",
-      toVersion: "2.0.0",
-      explicitFilterFields: new Set(["fromVersion", "toVersion"]),
-    });
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).not.toMatch(/[·…—–→]/);
-  });
-
-  it("labels latest mode with 'latest up to X' when toVersion is set", () => {
-    const envelope = buildPackageChangelogSuccessPayload(baseReport, {
-      ...baseOptions,
-      toVersion: "5.2.1",
-      explicitFilterFields: new Set(["toVersion"]),
-    });
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
-      useColors: false,
-    });
-    expect(output).toContain("latest up to 5.2.1");
-  });
-
-  it("renders '(empty release notes)' sentinel for an empty-string body under --verbose", () => {
-    const report: ChangelogReport = {
-      ...baseReport,
-      entries: [
-        {
-          version: "1.0.0",
-          publishedAt: "2026-01-01T00:00:00Z",
-          htmlUrl: "https://example.com",
-          body: "",
-        },
-      ],
-    };
-    const envelope = buildPackageChangelogSuccessPayload(report, baseOptions);
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: true,
-      useColors: false,
-    });
-    expect(output).toContain("(empty release notes)");
-  });
-
-  it("says release notes are unavailable for exact no-notes results", () => {
-    const report: ChangelogReport = {
-      ...baseReport,
-      source: "package_version",
-      entries: [
-        {
+describe("complete statement evidence view", () => {
+  function evidence(): ChangelogReport {
+    return {
+      ...structuredClone(baseReport),
+      statements: {
+        totalCount: 5,
+        matchingCount: 5,
+        items: [
+          "MUST_ACT",
+          "SHOULD_KNOW",
+          "NO_IMPACT",
+          "UNCLASSIFIED",
+          null,
+        ].map((tier, position) => ({
           version: "5.2.1",
-          hasChangelog: false,
-        },
-      ],
+          position,
+          sourceIndex: position < 3 ? 0 : 1,
+          sourcePosition: position,
+          heading: "Patch",
+          source: position < 3 ? "CHANGELOG_FILE" : "RELEASES",
+          url:
+            position < 3
+              ? "https://example.com/history#L1"
+              : "https://example.com/releases/5.2.1",
+          text: `* Quoted statement ${position}${position === 0 ? "\n  * nested wording\n\n  ```js\n  foo(  1)\n  ```" : ""}`,
+          fullText: "Full uncut statement",
+          textTruncated: position === 3,
+          ...(position === 3
+            ? {
+                context: {
+                  heading: "Earlier",
+                  text: "Earlier quote",
+                  textTruncated: false,
+                  fullText: "Earlier uncut quote",
+                },
+              }
+            : {}),
+          classification:
+            tier === null
+              ? null
+              : {
+                  tier: tier as "MUST_ACT",
+                  ambiguous: position < 2,
+                  tierConfidence: 0.95,
+                  kind:
+                    position === 0 ? "CHANGES_BEHAVIOR_OR_DEFAULT" : undefined,
+                  model: "jev",
+                  formulation: position < 3 ? "s-hier-v5" : "s-hier-v3",
+                },
+        })),
+        coverage: [
+          {
+            version: "5.2.1",
+            status: "NOT_ASSESSED",
+            statementsTotal: 5,
+            statementsAssessed: 4,
+            statementsNotAssessed: 1,
+            statementsNoImpact: 1,
+            statementsUnclassified: 1,
+          },
+        ],
+      },
     };
-    const envelope = buildPackageChangelogSuccessPayload(report, {
+  }
+  function payload(report = evidence(), changes?: "actionable" | "important") {
+    return buildPackageChangelogSuccessPayload(report, {
       ...baseOptions,
-      mode: "exact",
-      version: "5.2.1",
-      explicitFilterFields: new Set(["version"]),
+      view: "statements",
+      changes,
+      explicitFilterFields: new Set(changes ? ["changes"] : []),
     });
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
+  }
+  it("renders all parsed units once, source URLs nearby, without raw-note duplication", () => {
+    const text = formatPackageChangelogTerminal(payload(), {
       useColors: false,
+      terminalWidth: 200,
     });
-    expect(output).toContain("exact 5.2.1");
-    expect(output).toContain("Release notes are unavailable.");
+    expect(text).not.toContain("## Patch");
+    expect(text).not.toContain("Sources");
+    expect(text.split("https://example.com/history#L1")).toHaveLength(2);
+    expect(text.indexOf("https://example.com/history#L1")).toBeLessThan(
+      text.indexOf("Quoted statement 0"),
+    );
+    expect(text).toContain("! requires action | kind tags: should know");
+    expect(text).toContain("* [!behavior] (uncertain) Quoted statement 0");
+    expect(text).toContain("* [should know] (uncertain) Quoted statement 1");
+    expect(text).toContain("* Quoted statement 2");
+    expect(text).toContain("[too long to classify - read it]");
+    expect(text).toContain("[not assessed]");
+    expect(text).not.toContain("[no impact identified]");
+    expect(text).not.toContain("[requires action");
+    expect(text).not.toContain("* i ");
+    expect(text.match(/\(uncertain\)/g)).toHaveLength(2);
+    expect(text).toContain("nested wording");
+    expect(text).toContain("foo(  1)");
+    expect(text).toContain("Earlier quote");
+    expect(text).toContain("Statement truncated");
+    expect(text).toContain("still in progress or failed");
+    expect(text).not.toContain("jev");
+    expect(text).not.toContain("Full uncut statement");
   });
-
-  it("labels exact text with the resolved release, not the requested selector", () => {
-    const report: ChangelogReport = {
-      ...baseReport,
-      source: "releases",
-      entries: [
-        {
-          version: "5.2.1",
-          normalizedVersion: "5.2.1",
-          publishedAt: "2026-01-15T12:00:00Z",
-          htmlUrl: "https://github.com/expressjs/express/releases/tag/5.2.1",
-          body: "## Patch",
-          hasChangelog: true,
-        },
-      ],
-    };
-    const envelope = buildPackageChangelogSuccessPayload(report, {
-      ...baseOptions,
-      mode: "exact",
-      version: "^5.0.0",
-      explicitFilterFields: new Set(["version"]),
-    });
-    const output = formatPackageChangelogTerminal(envelope, {
-      verbose: false,
+  it("leaves no-impact bullets untagged, preserving uncertainty and JSON evidence", () => {
+    const report = evidence();
+    const item = report.statements!.items[2]!;
+    item.classification!.kind = "NOTABLE_CHANGE";
+    item.classification!.ambiguous = true;
+    report.statements!.items = [item];
+    const text = formatPackageChangelogTerminal(payload(report), {
       useColors: false,
     });
-    expect(envelope.filter?.version).toBe("^5.0.0");
-    expect(output).toContain("exact 5.2.1");
-    expect(output).not.toContain("exact ^5.0.0");
+    expect(text).toContain("* (uncertain) Quoted statement 2");
+    expect(text).not.toContain("[no impact identified]");
+    expect(text).not.toContain("[notable change]");
+    expect(text).toContain(
+      "! requires action | kind tags: should know | plain: no impact identified",
+    );
+    expect(payload(report).statements?.items[0]?.classification).toMatchObject({
+      tier: "no_impact",
+      kind: "notable_change",
+      ambiguous: true,
+    });
+  });
+  it("keeps severity markers when the kind is absent, without inventing tags", () => {
+    const report = evidence();
+    report.statements!.items[0]!.classification!.kind = undefined;
+    report.statements!.items[0]!.classification!.ambiguous = false;
+    const text = formatPackageChangelogTerminal(payload(report), {
+      useColors: false,
+    });
+    expect(text).toContain("* [!] Quoted statement 0");
+    expect(text).toContain("* [should know] (uncertain) Quoted statement 1");
+    expect(text).not.toContain("[requires action]");
+    expect(text).toContain("[should know]");
+  });
+  it("colors confident action and should-know prefixes while keeping the same no-color meaning", () => {
+    const report = evidence();
+    report.statements!.items[0]!.classification!.ambiguous = false;
+    report.statements!.items[1]!.classification!.ambiguous = false;
+    report.statements!.items[1]!.classification!.kind =
+      "DEPRECATES_WITHOUT_REMOVAL";
+    const p = payload(report);
+    const plain = formatPackageChangelogTerminal(p, { useColors: false });
+    const colored = formatPackageChangelogTerminal(p, { useColors: true });
+    expect(colored).toContain("\x1b[31m[!behavior]");
+    expect(colored).toContain("\x1b[33m[deprecation]");
+    expect(plain).toContain("* [deprecation] Quoted statement 1");
+    expect(Bun.stripANSI(colored)).toBe(plain);
+  });
+  it("preserves structured evidence and null classification without mutating the service result", () => {
+    const report = evidence();
+    const p = payload(report);
+    expect(p.entries.items[0]?.body).toBeUndefined();
+    expect(p.statements?.count).toBe(5);
+    expect(p.statements?.items[0]?.classification).toMatchObject({
+      tier: "must_act",
+      kind: "changes_behavior_or_default",
+      ambiguous: true,
+      tierConfidence: 0.95,
+    });
+    expect(p.statements?.items[4]?.classification).toBeNull();
+    expect(p.statements?.items[3]?.context?.fullText).toBe(
+      "Earlier uncut quote",
+    );
+    expect(report.statements?.items[0]?.classification?.tier).toBe("MUST_ACT");
+    expect(p.statements?.coverage[0]?.status).toBe("not_assessed");
+  });
+  it.each(["actionable", "important"] as const)(
+    "reports filtered pending and oversize exclusions with zero matches: %s",
+    (changes) => {
+      const report = evidence();
+      report.statements!.items = [];
+      report.statements!.matchingCount = 0;
+      const text = formatPackageChangelogTerminal(payload(report, changes), {
+        useColors: false,
+      });
+      expect(text).toContain("0 matching statements of 5 parsed");
+      expect(text).toContain(
+        "excludes 1 not-assessed and 1 too-long-to-classify",
+      );
+      expect(text).toContain("No statements match this filter");
+      expect(text).toContain("Rerun");
+    },
+  );
+  it("shows missing/unparseable coverage with zero units, never implying safe", () => {
+    const report = evidence();
+    report.statements!.items = [];
+    report.statements!.totalCount = 0;
+    report.statements!.matchingCount = 0;
+    report.statements!.coverage = baseReport.entries.map((entry, index) => ({
+      version: entry.version!,
+      status: index === 0 ? "WITHOUT_NOTES" : "UNPARSEABLE",
+      statementsTotal: 0,
+      statementsAssessed: 0,
+      statementsNotAssessed: 0,
+      statementsNoImpact: 0,
+      statementsUnclassified: 0,
+    }));
+    const text = formatPackageChangelogTerminal(payload(report), {
+      useColors: false,
+    });
+    expect(text.replace(/\s+/g, " ")).toContain("1 without notes");
+    expect(text).toContain("1 without parsed statements");
+    expect(text).toContain("No release notes available");
+    expect(text).toContain("Notes contain no parsed statements");
+    expect(text).toContain("not evidence of no risk");
+  });
+  it("sanitizes every untrusted text field while leaving JSON evidence alone", () => {
+    const report = evidence();
+    report.entries[0]!.version = "5.2.1\x1b[31m";
+    report.statements!.items.forEach((item) => {
+      item.version = report.entries[0]!.version!;
+      item.text += "\x1b[31mInjected\x1b[0m";
+      item.heading = "Header\x1b[2J";
+      item.url += "\x1b]0;evil\x07";
+    });
+    const p = payload(report);
+    const text = formatPackageChangelogTerminal(p, {
+      useColors: false,
+      terminalWidth: 72,
+    });
+    expect(text).not.toContain("\x1b");
+    expect(text).toContain("Injected");
+    expect(p.statements?.items[0]?.text).toContain("\x1b");
+  });
+  it("wraps Express-style four-space continuations and nested bullets while preserving indented code", () => {
+    const report = evidence();
+    report.statements!.items[0]!.text = `- Fixed HTTP header conflict
+    Fixed the behavior of res.send() ${"with explicit response headers ".repeat(15)}
+    * IMPORTANT: ${"this default changes existing usage ".repeat(8)}
+
+      example(  1, ${"argument, ".repeat(10)});`;
+    const text = formatPackageChangelogTerminal(payload(report), {
+      useColors: false,
+      terminalWidth: 72,
+    });
+    expect(text).toContain("Fixed the behavior of res.send()");
+    expect(text).toContain("* IMPORTANT:");
+    expect(text).toContain(`example(  1, ${"argument, ".repeat(10)});`);
+    for (const line of text.split("\n")) {
+      if (!line.includes("example("))
+        expect(line.length).toBeLessThanOrEqual(72);
+    }
+    expect(text).toContain("Context for next statement - Earlier");
+  });
+  it("preserves backend Unicode while formatter punctuation stays ASCII", () => {
+    const report = evidence();
+    report.statements!.items[0]!.text = "* α — 保留 …";
+    const text = formatPackageChangelogTerminal(payload(report), {
+      useColors: false,
+    });
+    expect(text).toContain("α — 保留 …");
+    expect(text).toContain("[!behavior]");
+  });
+  it("wraps prose to caller width without truncating ordinary statements", () => {
+    const report = evidence();
+    report.statements!.items[0]!.text = `${"word ".repeat(110)}last word`;
+    const text = formatPackageChangelogTerminal(payload(report), {
+      useColors: false,
+      terminalWidth: 72,
+    });
+    expect(text).toContain("last word");
+    for (const line of text.split("\n"))
+      expect(line.length).toBeLessThanOrEqual(72);
+  });
+  it("uses color only as an aid, and mutes uncertain labels", () => {
+    const plain = formatPackageChangelogTerminal(payload(), {
+      useColors: false,
+    });
+    const colored = formatPackageChangelogTerminal(payload(), {
+      useColors: true,
+    });
+    expect(Bun.stripANSI(colored)).toBe(plain);
+    expect(colored).toContain("\x1b[2m[!behavior]");
+  });
+  it("original-note view shows all lines unless the deprecated explicit cap is present", () => {
+    const report = {
+      ...baseReport,
+      entries: [{ version: "1", body: "first\nsecond\nlast" }],
+    };
+    const p = buildPackageChangelogSuccessPayload(report, {
+      ...baseOptions,
+      view: "verbatim",
+    });
+    expect(formatPackageChangelogTerminal(p, { useColors: false })).toContain(
+      "last",
+    );
+    expect(
+      formatPackageChangelogTerminal(p, {
+        useColors: false,
+        bodyPreviewLines: 1,
+      }),
+    ).toContain("+2 more lines - use --verbatim");
+    expect(p.statements).toBeUndefined();
   });
 });

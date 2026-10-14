@@ -2445,13 +2445,15 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
 
     const result = await service.packageChangelog({
       registry: "NPM",
+      view: "verbatim",
+      includeJsonFields: true,
       packageName: "express",
     });
     expect(result.source).toBeUndefined();
     expect(result.entries).toEqual([]);
   });
 
-  it("sends includeBodies and omits unused metadata from changelog query", async () => {
+  it("selects timeline fields and omits unused metadata", async () => {
     let capturedBody: string | undefined;
     const fetchFn = mock((_url: string, init?: RequestInit) => {
       capturedBody = init?.body as string;
@@ -2483,12 +2485,12 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
     await service.packageChangelog({
       registry: "NPM",
       packageName: "express",
-      includeBodies: false,
+      view: "timeline",
     });
 
     const parsed = JSON.parse(capturedBody ?? "{}");
     expect(parsed.query).toContain("query PackageChangelog(");
-    expect(parsed.query).toContain("body @include(if: $includeBodies)");
+    expect(parsed.query).not.toContain("statements(");
     expect(parsed.query).not.toContain("metadata");
     expect(parsed.query).not.toContain("repoUrl");
     expect(parsed.query).not.toContain("gitRef");
@@ -2496,7 +2498,6 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
     expect(parsed.variables).toEqual({
       registry: "NPM",
       name: "express",
-      includeBodies: false,
     });
   });
 
@@ -2530,6 +2531,8 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
 
     const result = await service.packageChangelog({
       registry: "NPM",
+      view: "verbatim",
+      includeJsonFields: true,
       packageName: "react",
     });
 
@@ -2567,6 +2570,8 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
 
     const result = await service.packageChangelog({
       registry: "NPM",
+      view: "verbatim",
+      includeJsonFields: true,
       packageName: "react",
     });
 
@@ -2609,6 +2614,8 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
 
     const result = await service.packageChangelog({
       registry: "NPM",
+      view: "verbatim",
+      includeJsonFields: true,
       packageName: "express",
       version: "^5.0.0",
     });
@@ -2619,7 +2626,7 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
     expect(parsed.query).toContain("resolvedVersion");
     expect(parsed.query).toContain("detailSource");
     expect(parsed.query).toContain("hasChangelog");
-    expect(parsed.query).toContain("body @include(if: $includeBodies)");
+    expect(parsed.query).not.toContain("statements(");
     expect(parsed.query).not.toContain("requestedVersion");
     expect(parsed.query).not.toContain("packageChangelog(");
     expect(parsed.query).not.toContain("repoUrl");
@@ -2628,7 +2635,6 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
       registry: "NPM",
       name: "express",
       version: "^5.0.0",
-      includeBodies: true,
     });
     expect(result.source).toBe("releases");
     expect(result.entries).toEqual([
@@ -2679,14 +2685,13 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
       registry: "NPM",
       packageName: "express",
       version: "5.2.1",
-      includeBodies: false,
+      view: "timeline",
     });
     const parsed = JSON.parse(capturedBody ?? "{}");
     expect(parsed.variables).toEqual({
       registry: "NPM",
       name: "express",
       version: "5.2.1",
-      includeBodies: false,
     });
     expect(result.source).toBe("package_version");
     expect(result.entries[0]).toMatchObject({
@@ -2723,11 +2728,12 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
 
     const result = await service.packageChangelog({
       registry: "NPM",
+      view: "verbatim",
+      includeJsonFields: true,
       packageName: "tiny-empty",
       version: "0.0.1",
     });
     expect(result.source).toBeUndefined();
-    expect(result.package?.registry).toBe("npm");
     expect(result.entries).toEqual([
       {
         version: "0.0.1",
@@ -2750,6 +2756,8 @@ describe("PackageIntelligenceServiceImpl — packageChangelog", () => {
     try {
       await service.packageChangelog({
         registry: "NPM",
+        view: "verbatim",
+        includeJsonFields: true,
         packageName: "express",
         version: "99.99.99",
       });
@@ -3434,6 +3442,36 @@ describe("PackageIntelligenceServiceImpl — packageUpgradeReview", () => {
       expect(result.reviews[0]!.changelog.riskItems[0]!.fullText).toBe(
         includeChangelogFullText === true ? fullText : undefined,
       );
+    });
+  }
+
+  for (const field of ["model", "formulation"] as const) {
+    it(`retains strict upgrade-review ${field} validation`, async () => {
+      const body = structuredClone(upgradeReviewBody);
+      const item =
+        body.data.packageUpgradeReview.reviews[0]!.changelog.riskItems[0]!;
+      Reflect.deleteProperty(item, field);
+      const fetchFn = mock(() => Promise.resolve(jsonResponse(body)));
+      const service = new PackageIntelligenceServiceImpl(
+        ENDPOINT,
+        createMockTokenProvider(),
+        asFetchFn(fetchFn),
+      );
+      await expect(
+        service.packageUpgradeReview({
+          packages: [
+            {
+              registry: "NPM",
+              name: "express",
+              currentVersion: "4.0.0",
+              targetVersion: "5.0.0",
+            },
+          ],
+          includeTransitiveSecurity: false,
+          includeDependencyIssues: false,
+          changelogLimit: 1,
+        }),
+      ).rejects.toThrow(MalformedPackageIntelligenceResponseError);
     });
   }
 

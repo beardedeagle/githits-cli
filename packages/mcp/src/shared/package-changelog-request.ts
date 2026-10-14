@@ -14,7 +14,10 @@
  *   intent.
  */
 
-import type { PackageChangelogParams } from "@githits/core-internal";
+import type {
+  PackageChangelogParams,
+  PackageChangelogView,
+} from "@githits/core-internal";
 import { toPkgseerRegistry } from "@githits/core-internal";
 import { parsePackageChangelogTarget } from "./package-changelog-target.js";
 import { InvalidPackageSpecError } from "./package-spec.js";
@@ -29,8 +32,9 @@ export interface PackageChangelogRequestInput {
   toVersion?: string;
   /** Latest-mode entry count cap. Rejected for exact and lower-bound range targets. */
   limit?: number;
-  /** Include raw markdown bodies in entries. Defaults to true. */
-  includeBodies?: boolean;
+  view?: PackageChangelogView;
+  /** Cumulative statement filter; ignored outside statement mode. */
+  changes?: string;
 }
 
 /** Fields whose *explicit* presence the envelope echoes under `filter.*`. */
@@ -38,12 +42,16 @@ export type ExplicitFilterField =
   | "fromVersion"
   | "toVersion"
   | "limit"
-  | "version";
+  | "version"
+  | "changes";
+
+export type ChangelogChangesView = "actionable" | "important" | "all";
 
 export type PackageChangelogRequestMode = "latest" | "exact" | "range";
 
 export interface PackageChangelogRequestBuildResult {
   params: PackageChangelogParams;
+  changes?: ChangelogChangesView;
   mode: PackageChangelogRequestMode;
   /**
    * Set of filter fields the caller explicitly supplied. The envelope
@@ -68,6 +76,17 @@ export function buildPackageChangelogParams(
   const flagFrom = normaliseBound(input.fromVersion, registry, "--from");
   const flagTo = normaliseBound(input.toVersion, registry, "--to");
   const limit = normaliseLimit(input.limit);
+  const view = input.view ?? "statements";
+  const changes =
+    view === "statements" ? normaliseChanges(input.changes) : undefined;
+  const statementTiers: PackageChangelogParams["statementTiers"] =
+    changes === "actionable"
+      ? ["MUST_ACT"]
+      : changes === "important"
+        ? ["MUST_ACT", "SHOULD_KNOW"]
+        : undefined;
+  const explicitChanges =
+    changes !== undefined && Boolean(input.changes?.trim());
 
   if (parsed.mode === "exact") {
     rejectExactConflicts(flagFrom, flagTo, limit);
@@ -79,13 +98,17 @@ export function buildPackageChangelogParams(
     }
     return {
       mode: "exact",
+      changes,
       params: {
         registry,
         packageName: parsed.name,
         version,
-        includeBodies: input.includeBodies,
+        view,
+        statementTiers,
       },
-      explicitFilterFields: new Set<ExplicitFilterField>(["version"]),
+      explicitFilterFields: new Set<ExplicitFilterField>(
+        explicitChanges ? ["version", "changes"] : ["version"],
+      ),
     };
   }
 
@@ -118,19 +141,22 @@ export function buildPackageChangelogParams(
   }
 
   const explicit = new Set<ExplicitFilterField>();
+  if (explicitChanges) explicit.add("changes");
   if (fromVersion !== undefined) explicit.add("fromVersion");
   if (toVersion !== undefined) explicit.add("toVersion");
   if (limit !== undefined) explicit.add("limit");
 
   return {
     mode,
+    changes,
     params: {
       registry,
       packageName: parsed.name,
       fromVersion,
       toVersion,
       limit,
-      includeBodies: input.includeBodies,
+      view,
+      statementTiers,
     },
     explicitFilterFields: explicit,
   };
@@ -152,7 +178,7 @@ function rejectExactConflicts(
 }
 
 function joinList(items: string[]): string {
-  if (items.length === 1) return items[0]!;
+  if (items.length === 1) return items.join("");
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 }
@@ -176,4 +202,49 @@ function normaliseLimit(raw: number | undefined): number | undefined {
     );
   }
   return raw;
+}
+
+/** Empty agent strings mean the default; omission mode does not validate this knob. */
+function normaliseChanges(raw: string | undefined): ChangelogChangesView {
+  const value = raw?.trim().toLowerCase() || "all";
+  if (value !== "actionable" && value !== "important" && value !== "all") {
+    throw new InvalidPackageSpecError(
+      "changes must be actionable, important (actionable + should know), or all.",
+    );
+  }
+  return value;
+}
+
+export interface PackageChangelogViewInput {
+  omitBodies?: boolean;
+  verbatim?: boolean;
+  verbose?: boolean;
+  bodyLines?: number;
+  json?: boolean;
+}
+
+/** Resolve the view once; explicit raw-note switches cannot coexist with timeline. */
+export function resolvePackageChangelogView(input: PackageChangelogViewInput): {
+  view: PackageChangelogView;
+  bodyPreviewLines?: number;
+} {
+  const fullNotes = input.verbatim === true || input.verbose === true;
+  if (input.omitBodies && fullNotes)
+    throw new InvalidPackageSpecError(
+      "--no-body / omit_bodies cannot be combined with --verbatim / verbatim or its --verbose / verbose alias.",
+    );
+  if (input.omitBodies) return { view: "timeline" };
+  if (fullNotes) return { view: "verbatim" };
+  if (!input.json && input.bodyLines !== undefined) {
+    if (
+      !Number.isInteger(input.bodyLines) ||
+      input.bodyLines < 1 ||
+      input.bodyLines > 50
+    )
+      throw new InvalidPackageSpecError(
+        `body_lines must be an integer between 1 and 50. Got ${input.bodyLines}.`,
+      );
+    return { view: "verbatim", bodyPreviewLines: input.bodyLines };
+  }
+  return { view: "statements" };
 }
