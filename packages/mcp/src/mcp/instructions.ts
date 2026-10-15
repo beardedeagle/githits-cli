@@ -146,7 +146,7 @@ const LOCAL_RESEARCH_GUIDANCE_START =
 // is in the public @githits/mcp graph, and the import kept local research text in
 // the hosted bundle. Tests keep the sentence identical to the shared constant.
 const LOCAL_RESEARCH_GUIDANCE_END =
-  ' Reuse a returned `thread_id` for follow-ups. Change project, version, or topic in the follow-up question. Returns a verified answer with its sources. Cite those sources directly; read one only when the answer lacks a detail you need. Sources default to MCP read calls; use `source_format:"url"` for original upstream URLs. Do not invent or rewrite sources.';
+  ' Reuse a returned `thread_id` for follow-ups. Change project, version, or topic in the follow-up question. Returns a verified answer that always includes its sources, so ask the question directly without requesting citations, an overview or a source-cited answer. Cite those sources directly; read one only when the answer lacks a detail you need. Sources default to MCP read calls; use `source_format:"url"` for original upstream URLs. Do not invent or rewrite sources.';
 
 /**
  * Compose local-only experimental guidance without changing the public

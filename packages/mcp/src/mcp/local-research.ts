@@ -52,7 +52,7 @@ const schema: ZodRawShape = {
     .string()
     .min(1)
     .describe(
-      "One research question to answer from indexed public evidence. Do not include credentials, personal data, private code, or proprietary content.",
+      "One research question to answer from indexed public evidence, asked directly; sources are always included. Do not include credentials, personal data, private code, or proprietary content.",
     ),
   source_format: z
     .enum(["mcp", "url"])
