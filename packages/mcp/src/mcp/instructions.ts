@@ -63,8 +63,9 @@ unverified paths.
 
 ## Targets
 
-- Packages: \`registry:name@version\`; Swift \`swift:github.com/<owner>/<repo>\`,
-  Zig \`zig:gh/<owner>/<repo>\`. A package target covers its package subpath,
+- Packages: \`<registry>:<name>@version\` such as \`npm:express\` or
+  \`pypi:requests@2.32.3\` (never the literal \`registry:\`); Swift
+  \`swift:github.com/<owner>/<repo>\`, Zig \`zig:gh/<owner>/<repo>\`. A package target covers its package subpath,
   including in monorepos.
 - Repositories: \`github:owner/repo@ref\`, \`codeberg:\`, \`gitlab:\`, or a
   supported full URL, for whole repositories or sibling packages. Never infer
