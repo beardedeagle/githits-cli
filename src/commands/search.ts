@@ -26,6 +26,7 @@ import {
   type UnifiedSearchErrorPayload,
   type UnifiedSearchTextOptions,
   withIndexingRetryAction,
+  withVersionRefRecovery,
 } from "@githits/mcp/internal";
 import { type Command, Option } from "commander";
 import { recordCliErrorClassification } from "../shared/cli-error-diagnostics.js";
@@ -376,11 +377,11 @@ function handleSearchError(
   const basePayload = applyCliTermsRemediation(
     buildUnifiedSearchErrorPayload(error),
   );
-  const mapped = withIndexingRetryAction(
-    toMappedError(basePayload),
-    "search",
-    "cli",
-    { maxWaitMs: MAX_DISCOVERY_WAIT_TIMEOUT_MS },
+  const mapped = withVersionRefRecovery(
+    withIndexingRetryAction(toMappedError(basePayload), "search", "cli", {
+      maxWaitMs: MAX_DISCOVERY_WAIT_TIMEOUT_MS,
+    }),
+    { syntax: "cli", argv: process.argv.slice(2) },
   );
   const payload = {
     ...basePayload,

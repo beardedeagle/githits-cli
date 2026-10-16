@@ -9,9 +9,16 @@ import {
 import { indexingWaitMs } from "./indexing-wait.js";
 import type { MappedError } from "./mapped-error.js";
 import { sanitizeTerminalText, wrapTerminalProse } from "./terminal-text.js";
+import {
+  type VersionRefActionContext,
+  versionRefFailureText,
+  versionRefSuggestions,
+  withVersionRefRecovery,
+} from "./version-ref-recovery.js";
 
 export interface MappedErrorTextOptions {
   width?: number;
+  recovery?: VersionRefActionContext;
   indexingTarget?: string;
   indexingOutcome?: string;
 }
@@ -55,7 +62,54 @@ export function formatMappedErrorText(
   mapped: MappedError,
   options: MappedErrorTextOptions = {},
 ): string {
+  if (options.recovery)
+    mapped = withVersionRefRecovery(mapped, options.recovery);
   const details = mapped.details ?? {};
+  if (mapped.code === "VERSION_NOT_FOUND" || mapped.code === "REF_NOT_FOUND") {
+    const identity = versionRefFailureText(mapped);
+    const suggestions = versionRefSuggestions(mapped);
+    const lines = [identity ?? mapped.message];
+    if (
+      identity &&
+      suggestions.length &&
+      (suggestions.length > 1 || !details.action)
+    )
+      lines.push(
+        `Did you mean ${recoveryList(suggestions, details.publishedVersionsTruncated)}?`,
+      );
+    else if (
+      (details.side || details.stage) &&
+      !/did you mean/i.test(mapped.message) &&
+      !(suggestions.length === 1 && details.action)
+    ) {
+      if (
+        mapped.code === "VERSION_NOT_FOUND" &&
+        details.availableVersions?.length
+      )
+        lines.push(
+          `Available versions/refs: ${recoveryList(details.availableVersions.map((entry) => (entry.version ? `${entry.version} (ref: ${entry.ref})` : entry.ref)))}`,
+        );
+      else if (suggestions.length)
+        lines.push(
+          `${mapped.code === "REF_NOT_FOUND" ? "Available refs" : "Published versions"}: ${recoveryList(suggestions, details.publishedVersionsTruncated)}`,
+        );
+    }
+    if (details.refKinds?.length)
+      lines.push(`Matching ref types: ${details.refKinds.join(", ")}`);
+    if (details.side) lines.push(`Comparison side: ${details.side}`);
+    if (details.stage) lines.push(`Stage: ${details.stage}`);
+    if (details.limitKind) lines.push(`Limit: ${details.limitKind}`);
+    if (details.codeDiffResolution)
+      lines.push(
+        `Compared commits: ${details.codeDiffResolution.from.commitSha} -> ${details.codeDiffResolution.to.commitSha}`,
+      );
+    const output = lines.flatMap((line) =>
+      wrapTerminalProse(line, options.width ?? 80),
+    );
+    if (details.action)
+      output.push("", ...details.action.split("\n").map(sanitizeTerminalText));
+    return output.join("\n");
+  }
   const target = options.indexingTarget ?? details.package ?? details.repoUrl;
   const preparingDocumentation = target?.startsWith("site:") === true;
   const lines: string[] = [
@@ -188,4 +242,17 @@ export function formatMappedErrorText(
 /** Preserve existing retry advice instead of appending a second instruction. */
 export function hasRetryGuidance(message: string): boolean {
   return /\b(?:retry|try again)\b/i.test(message);
+}
+
+/** Bound human alternatives without dropping JSON facts or producer truncation. */
+function recoveryList(values: string[], truncated = false): string {
+  const omitted = Math.max(0, values.length - 5);
+  const suffix = truncated
+    ? omitted
+      ? ` (+${omitted}+ more)`
+      : " (+more)"
+    : omitted
+      ? ` (+${omitted} more)`
+      : "";
+  return values.slice(0, 5).join(", ") + suffix;
 }

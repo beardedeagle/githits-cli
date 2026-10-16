@@ -95,6 +95,7 @@ export * from "./shared/unified-search-response.js";
 export * from "./shared/unified-search-status-text.js";
 export * from "./shared/unified-search-target.js";
 export * from "./shared/unified-search-text.js";
+export * from "./shared/version-ref-recovery.js";
 export {
   type CodeDiffMcpArgs,
   createCodeDiffTool,

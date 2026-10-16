@@ -178,6 +178,7 @@ export function createListTool(
           context,
           args.format,
           {
+            recovery: { syntax: "mcp", tool: "list", args },
             indexingTarget: args.target,
             indexingOutcome: args.target.startsWith("site:")
               ? "No pages available yet."

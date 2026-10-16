@@ -186,6 +186,7 @@ export function createReadTool(
             context,
             args.format,
             {
+              recovery: { syntax: "mcp", tool: "read", args },
               indexingTarget: args.target,
               indexingOutcome: "This content is not available yet.",
             },

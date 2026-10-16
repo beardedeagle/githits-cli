@@ -1369,6 +1369,38 @@ function smokeResponse(
   args: Record<string, unknown>,
 ): McpSmokeToolResult {
   if (
+    (name === "pkg_deps" &&
+      args.target === "go:github.com/docker/docker@v20.10.0") ||
+    (name === "list" &&
+      args.target === "github:expressjs/express@v99.99.99-nope")
+  ) {
+    const code = name === "pkg_deps" ? "VERSION_NOT_FOUND" : "REF_NOT_FOUND";
+    const details =
+      name === "pkg_deps"
+        ? { availablePackageVersions: ["v20.10.0+incompatible"] }
+        : { suggestedRefs: [{ ref: "v5.3.0" }] };
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text:
+            args.format === "json"
+              ? JSON.stringify({
+                  error: "Missing revision.",
+                  code,
+                  retryable: false,
+                  details: {
+                    ...details,
+                    action: `Retry ${name} with target="corrected".`,
+                  },
+                })
+              : `Missing revision. Retry ${name} with target="corrected".`,
+        },
+      ],
+    };
+  }
+  if (
     name === "pkg_changelog" &&
     typeof args.target === "string" &&
     (args.target.startsWith("github:") || args.target.startsWith("site:"))

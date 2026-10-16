@@ -4,7 +4,6 @@ import {
   buildPackageVulnerabilitiesSuccessPayload,
   formatPackageVulnerabilitiesTerminal,
   InvalidPackageSpecError,
-  type MappedError,
   parsePackageSpec,
   requireAuth,
   shouldUseColors,
@@ -110,51 +109,8 @@ function handlePkgVulnsCommandError(error: unknown, json: boolean): never {
     process.exit(1);
   }
 
-  console.error(formatVulnsTerminalError(mapped));
+  console.error(formatMappedErrorForTerminal(mapped));
   process.exit(1);
-}
-
-/**
- * Format the terminal error line. Most codes fall through to the
- * bare mapped message (matches the `pkg info` handler pattern);
- * `VERSION_NOT_FOUND` gets an extra detail line echoing what the
- * user asked for and, when available, the versions the backend does
- * know about — this is the one case where the bare message
- * ("No matching version found") omits crucial context.
- */
-function formatVulnsTerminalError(mapped: MappedError): string {
-  if (mapped.code === "UPDATE_REQUIRED") {
-    return formatMappedErrorForTerminal(mapped);
-  }
-  if (mapped.code !== "VERSION_NOT_FOUND") {
-    return formatMappedErrorForTerminal(mapped);
-  }
-  const detail = mapped.details ?? {};
-  const pkg = typeof detail.package === "string" ? detail.package : undefined;
-  const requested =
-    typeof detail.requestedVersion === "string"
-      ? detail.requestedVersion
-      : undefined;
-  const lines = [mapped.message];
-  if (pkg && requested) {
-    lines.push(`  package:   ${pkg}`);
-    lines.push(`  requested: ${requested}`);
-  } else if (requested) {
-    lines.push(`  requested: ${requested}`);
-  }
-  const rawAvailable = Array.isArray(detail.availableVersions)
-    ? detail.availableVersions
-    : undefined;
-  const available = rawAvailable
-    ?.map((entry) => (typeof entry?.version === "string" ? entry.version : ""))
-    .filter((v): v is string => v.length > 0);
-  if (available && available.length > 0) {
-    const sample = available.slice(0, 5).join(", ");
-    const more = available.length - 5;
-    const suffix = more > 0 ? `, ... (+${more} more)` : "";
-    lines.push(`  available: ${sample}${suffix}`);
-  }
-  return lines.join("\n");
 }
 
 const PKG_VULNS_DESCRIPTION = `Show known vulnerabilities for a package. Lists CVE / OSV advisories

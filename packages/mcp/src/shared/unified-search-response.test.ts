@@ -3314,20 +3314,22 @@ describe("buildUnifiedSearchErrorPayload", () => {
     });
   });
 
-  it("includes REF_NOT_FOUND ref suggestions in message and details", () => {
+  it("preserves REF_NOT_FOUND prose and structured suggestions", () => {
     const payload = buildUnifiedSearchErrorPayload(
       new CodeNavigationRefNotFoundError(
         "Repository ref cannot be resolved for github:openai/codex@1.2.3.",
-        "https://github.com/openai/codex",
-        "1.2.3",
-        [{ ref: "main" }],
-        [{ ref: "codex@1.2.3" }, { ref: "v1.2.3" }],
+        {
+          code: "REF_NOT_FOUND",
+          repoUrl: "https://github.com/openai/codex",
+          requestedRef: "1.2.3",
+          availableRefs: [{ ref: "main" }],
+          suggestedRefs: [{ ref: "codex@1.2.3" }, { ref: "v1.2.3" }],
+        },
       ),
     );
 
     expect(payload).toEqual({
-      error:
-        "Repository ref cannot be resolved for github:openai/codex@1.2.3. Did you mean codex@1.2.3, v1.2.3?",
+      error: "Repository ref cannot be resolved for github:openai/codex@1.2.3.",
       code: "REF_NOT_FOUND",
       retryable: false,
       details: {

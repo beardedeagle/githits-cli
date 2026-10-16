@@ -930,9 +930,9 @@ describe("ReadServiceImpl", () => {
       throw new Error("expected version error");
     } catch (error) {
       expect(error).toBeInstanceOf(CodeNavigationVersionNotFoundError);
-      expect((error as CodeNavigationVersionNotFoundError).latestIndexed).toBe(
-        "5.2.1",
-      );
+      expect(
+        (error as CodeNavigationVersionNotFoundError).recovery.latestIndexed,
+      ).toBe("5.2.1");
     }
     try {
       await service.read({ target: "github:owner/repo@release/v1#symbol" });

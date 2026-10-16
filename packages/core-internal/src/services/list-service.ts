@@ -36,6 +36,10 @@ import {
   withServiceDiagnostics,
 } from "./runtime-diagnostics.js";
 import type { TokenProvider } from "./token-provider.js";
+import {
+  parseVersionRefRecovery,
+  type VersionRefRecovery,
+} from "./version-ref-recovery.js";
 
 export type ListFileIntent =
   | "PRODUCTION"
@@ -218,6 +222,7 @@ export class ListGraphQLError extends Error {
     public readonly indexingMetadata:
       | ListIndexingErrorMetadata
       | undefined = undefined,
+    public readonly recovery: VersionRefRecovery | undefined = undefined,
   ) {
     super(message);
     this.name = "ListGraphQLError";
@@ -733,5 +738,6 @@ function createListGraphQLError(
           ? extensions.package
           : undefined,
     },
+    parseVersionRefRecovery(extensions),
   );
 }

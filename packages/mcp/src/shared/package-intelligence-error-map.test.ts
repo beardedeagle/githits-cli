@@ -85,10 +85,10 @@ describe("mapPackageIntelligenceError", () => {
     expect(mapped.message).toBe("Version not found");
     expect(mapped.details?.package).toBe("npm:express");
     expect(mapped.details?.requestedVersion).toBe("99.0.0");
-    expect(mapped.details?.availableVersions).toEqual([
-      { version: "4.18.2", ref: "4.18.2" },
-      { version: "4.18.1", ref: "4.18.1" },
-      { version: "4.17.4", ref: "4.17.4" },
+    expect(mapped.details?.availablePackageVersions).toEqual([
+      "4.18.2",
+      "4.18.1",
+      "4.17.4",
     ]);
   });
 

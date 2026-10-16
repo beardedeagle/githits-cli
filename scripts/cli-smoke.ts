@@ -1639,6 +1639,51 @@ async function runResolveLiveSmoke(env: Record<string, string>): Promise<void> {
 }
 
 async function runLiveSmoke(env: Record<string, string>): Promise<void> {
+  for (const probe of [
+    {
+      argv: ["pkg", "deps", "go:github.com/docker/docker@v20.10.0"],
+      code: "VERSION_NOT_FOUND",
+      fact: "availablePackageVersions",
+      operand: "go:github.com/docker/docker@",
+    },
+    {
+      argv: ["list", "github:expressjs/express@v99.99.99-nope"],
+      code: "REF_NOT_FOUND",
+      fact: "suggestedRefs",
+      operand: "github:expressjs/express@",
+    },
+  ]) {
+    const text = await runCliWithEnv(probe.argv, env);
+    assert(
+      text.exitCode !== 0,
+      "recovery probe must fail for the original target",
+    );
+    assert(
+      text.stderr.includes("Try: githits") &&
+        text.stderr.includes(probe.operand),
+      "recovery probe missing native retry command",
+    );
+    const json = await runCliWithEnv([...probe.argv, "--json"], env);
+    const envelope = assertCleanErrorEnvelope(
+      json.stderr,
+      "version/ref recovery JSON",
+    );
+    assert(
+      envelope.code === probe.code,
+      "recovery probe lost backend error code",
+    );
+    const details = (envelope as { details?: Record<string, unknown> }).details;
+    const alternatives = details?.[probe.fact];
+    assert(
+      Array.isArray(alternatives) && alternatives.length > 0,
+      "recovery probe dropped structured alternatives",
+    );
+    assert(
+      typeof details?.action === "string" &&
+        details.action.startsWith(`Try: githits `),
+      "recovery probe JSON missing native action",
+    );
+  }
   await runResolveLiveSmoke(env);
   const scopedDiffArgs = [
     "code",

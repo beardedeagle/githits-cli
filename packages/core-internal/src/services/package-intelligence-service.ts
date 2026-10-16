@@ -50,6 +50,10 @@ import {
   withServiceDiagnostics,
 } from "./runtime-diagnostics.js";
 import type { TokenProvider } from "./token-provider.js";
+import {
+  parseVersionRefRecovery,
+  type VersionRefRecovery,
+} from "./version-ref-recovery.js";
 
 export interface PackageSummaryParams {
   registry: PkgseerRegistry;
@@ -928,6 +932,7 @@ export class PackageIntelligenceBackendError extends Error {
     public readonly status?: number,
     public readonly graphqlCode?: string,
     public readonly retryable?: boolean,
+    public readonly recovery: VersionRefRecovery | undefined = undefined,
   ) {
     super(message);
     this.name = "PackageIntelligenceBackendError";
@@ -996,6 +1001,7 @@ export class PackageIntelligenceVersionNotFoundError extends Error {
     public readonly packageName: string | undefined,
     public readonly requestedVersion: string | undefined,
     public readonly availableVersions: string[] | undefined,
+    public readonly recovery: VersionRefRecovery | undefined = undefined,
   ) {
     super(message);
     this.name = "PackageIntelligenceVersionNotFoundError";
@@ -4847,18 +4853,24 @@ export function createPackageIntelligenceGraphQLError(
     case "PACKAGE_NOT_FOUND":
       return new PackageIntelligenceTargetNotFoundError(message);
 
-    case "VERSION_NOT_FOUND":
+    case "VERSION_NOT_FOUND": {
+      const recovery = parseVersionRefRecovery(extensions);
       return new PackageIntelligenceVersionNotFoundError(
         message,
-        typeof extensions?.package === "string"
-          ? extensions.package
-          : undefined,
-        typeof extensions?.requested_version === "string"
-          ? extensions.requested_version
-          : undefined,
-        parseVersionList(
-          extensions?.available_versions ?? extensions?.availableVersions,
-        ),
+        recovery?.package,
+        recovery?.requestedVersion,
+        recovery?.availablePackageVersions,
+        recovery,
+      );
+    }
+
+    case "REF_NOT_FOUND":
+      return new PackageIntelligenceBackendError(
+        message,
+        undefined,
+        code,
+        retryable,
+        parseVersionRefRecovery(extensions),
       );
 
     case "UNSUPPORTED_REGISTRY":
@@ -4931,22 +4943,4 @@ function getPrimaryExtensions(
     }
   }
   return undefined;
-}
-
-/**
- * Parse a possibly-present list of version strings from an `extensions`
- * value. Accepts a raw array of strings or returns undefined for
- * missing/malformed data. Narrower than the code-nav
- * `availableVersions` parser because vulnerability data has no ref
- * concept — plain version strings suffice.
- */
-function parseVersionList(raw: unknown): string[] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  const versions: string[] = [];
-  for (const item of raw) {
-    if (typeof item === "string" && item.length > 0) {
-      versions.push(item);
-    }
-  }
-  return versions.length > 0 ? versions : undefined;
 }

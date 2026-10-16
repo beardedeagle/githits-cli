@@ -293,13 +293,16 @@ describe("mapCodeNavigationError", () => {
   it("classifies CodeNavigationVersionNotFoundError as VERSION_NOT_FOUND with structured details", () => {
     const err = new CodeNavigationVersionNotFoundError(
       'No version of npm/express matches "4". Available versions: 5.2.1, 5.1.0. Try: express@5.2.1.',
-      "npm/express",
-      "4",
-      "5.2.1",
-      [
-        { version: "5.2.1", ref: "v5.2.1" },
-        { version: "5.1.0", ref: "v5.1.0" },
-      ],
+      {
+        code: "VERSION_NOT_FOUND",
+        package: "npm/express",
+        requestedVersion: "4",
+        latestIndexed: "5.2.1",
+        availableVersions: [
+          { version: "5.2.1", ref: "v5.2.1" },
+          { version: "5.1.0", ref: "v5.1.0" },
+        ],
+      },
     );
     expect(mapCodeNavigationError(err)).toEqual({
       code: "VERSION_NOT_FOUND",
@@ -321,15 +324,18 @@ describe("mapCodeNavigationError", () => {
   it("classifies CodeNavigationRefNotFoundError as REF_NOT_FOUND with suggestions", () => {
     const err = new CodeNavigationRefNotFoundError(
       "Repository ref cannot be resolved for github:openai/codex@1.2.3.",
-      "https://github.com/openai/codex",
-      "1.2.3",
-      [{ ref: "main" }],
-      [{ ref: "codex@1.2.3" }, { ref: "v1.2.3" }],
+      {
+        code: "REF_NOT_FOUND",
+        repoUrl: "https://github.com/openai/codex",
+        requestedRef: "1.2.3",
+        availableRefs: [{ ref: "main" }],
+        suggestedRefs: [{ ref: "codex@1.2.3" }, { ref: "v1.2.3" }],
+      },
     );
     expect(mapCodeNavigationError(err)).toEqual({
       code: "REF_NOT_FOUND",
       message:
-        "Repository ref cannot be resolved for github:openai/codex@1.2.3. Did you mean codex@1.2.3, v1.2.3?",
+        "Repository ref cannot be resolved for github:openai/codex@1.2.3.",
       retryable: false,
       details: {
         repoUrl: "https://github.com/openai/codex",
@@ -343,10 +349,7 @@ describe("mapCodeNavigationError", () => {
   it("does not treat indexed refs as REF_NOT_FOUND suggestions", () => {
     const err = new CodeNavigationRefNotFoundError(
       "Repository ref cannot be resolved.",
-      undefined,
-      undefined,
-      [{ ref: "main" }],
-      undefined,
+      { code: "REF_NOT_FOUND", availableRefs: [{ ref: "main" }] },
     );
 
     expect(mapCodeNavigationError(err)).toEqual({
@@ -360,10 +363,7 @@ describe("mapCodeNavigationError", () => {
   it("does not duplicate backend REF_NOT_FOUND suggestions", () => {
     const err = new CodeNavigationRefNotFoundError(
       "Repository ref cannot be resolved. Did you mean v1.2.3?",
-      undefined,
-      undefined,
-      undefined,
-      [{ ref: "v1.2.3" }],
+      { code: "REF_NOT_FOUND", suggestedRefs: [{ ref: "v1.2.3" }] },
     );
     expect(mapCodeNavigationError(err).message).toBe(
       "Repository ref cannot be resolved. Did you mean v1.2.3?",

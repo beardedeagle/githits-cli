@@ -115,6 +115,7 @@ export function createCodeDiffTool(
           mapCodeNavigationError(error),
           context,
           args.format,
+          { recovery: { syntax: "mcp", tool: "code_diff", args } },
         );
       }
     },

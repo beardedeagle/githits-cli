@@ -12,6 +12,7 @@ import {
   AuthenticationError,
   CodeNavigationIndexingError,
   CodeNavigationTargetNotFoundError,
+  createCodeNavigationGraphQLError,
   createCodeNavigationHttpError,
   TermsAcceptanceRequiredError,
 } from "@githits/core-internal";
@@ -225,6 +226,64 @@ describe("searchAction", () => {
       }
     },
   );
+
+  it("includes a native recovery action and backend facts in JSON search errors", async () => {
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    const exitSpy = spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit");
+    });
+    const previousArgv = process.argv;
+    process.argv = [
+      "bun",
+      "src/cli.ts",
+      "--no-color",
+      "search",
+      "router",
+      "--in",
+      "npm:express@99",
+      "--json",
+    ];
+    try {
+      await expect(
+        searchAction(
+          "router",
+          { in: ["npm:express@99"], json: true },
+          createDeps({
+            codeNavigationService: createMockCodeNavigationService({
+              search: mock(() =>
+                Promise.reject(
+                  createCodeNavigationGraphQLError([
+                    {
+                      message: "Backend prose.",
+                      extensions: {
+                        code: "VERSION_NOT_FOUND",
+                        package: "npm:express",
+                        requested_version: "99",
+                        available_package_versions: ["5.3.0"],
+                      },
+                    },
+                  ]),
+                ),
+              ),
+            }),
+          }),
+        ),
+      ).rejects.toThrow("process.exit");
+      expect(JSON.parse(String(errorSpy.mock.calls[0]?.[0]))).toMatchObject({
+        code: "VERSION_NOT_FOUND",
+        error: "Backend prose.",
+        details: {
+          availablePackageVersions: ["5.3.0"],
+          action:
+            "Try: githits --no-color search router --in npm:express@5.3.0 --json",
+        },
+      });
+    } finally {
+      process.argv = previousArgv;
+      errorSpy.mockRestore();
+      exitSpy.mockRestore();
+    }
+  });
 
   it("preserves CLI terms remediation in JSON search errors", async () => {
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});

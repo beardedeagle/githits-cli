@@ -392,8 +392,8 @@ describe("formatCodeDiffError", () => {
       },
     });
 
-    expect(output).toContain("side: from");
-    expect(output).toContain("stage: resolution");
+    expect(output).toContain("Comparison side: from");
+    expect(output).toContain("Stage: resolution");
     expect(output).toContain("2.0.0, 1.0.0 (+more)");
   });
 
@@ -403,6 +403,7 @@ describe("formatCodeDiffError", () => {
       message: "Ref was not found.",
       retryable: false,
       details: {
+        side: "to",
         availableRefs: Array.from({ length: 10 }, (_, index) => ({
           ref: `ref-${index}`,
         })),
@@ -410,7 +411,7 @@ describe("formatCodeDiffError", () => {
     });
 
     expect(output).toContain("ref-0, ref-1");
-    expect(output).toContain("(+2 more)");
+    expect(output).toContain("(+5 more)");
   });
 
   it("renders available package versions with their proven refs", () => {
@@ -419,6 +420,7 @@ describe("formatCodeDiffError", () => {
       message: "Version was not found.",
       retryable: false,
       details: {
+        stage: "resolution",
         availableVersions: [
           { version: "2.1.1", ref: "2.1.1" },
           { version: "4.0.0", ref: "4.0.0" },
@@ -428,7 +430,7 @@ describe("formatCodeDiffError", () => {
     });
 
     expect(output).toContain(
-      "available versions: 2.1.1 (ref: 2.1.1), 4.0.0 (ref: 4.0.0), ref: 0123456789abcdef0123456789abcdef01234567",
+      "Available versions/refs: 2.1.1 (ref: 2.1.1), 4.0.0 (ref: 4.0.0),\n0123456789abcdef0123456789abcdef01234567",
     );
     expect(output).not.toContain(
       "0123456789abcdef0123456789abcdef01234567 (ref:",
@@ -441,6 +443,7 @@ describe("formatCodeDiffError", () => {
       message: "Version was not found.",
       retryable: false,
       details: {
+        side: "from",
         publishedVersions: Array.from(
           { length: 10 },
           (_, index) => `${index}.0.0`,
@@ -449,7 +452,7 @@ describe("formatCodeDiffError", () => {
       },
     });
 
-    expect(output).toContain("(+2+ more)");
+    expect(output).toContain("(+5+ more)");
   });
 });
 

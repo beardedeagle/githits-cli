@@ -692,7 +692,7 @@ describe("pkgVulnsAction", () => {
     exitSpy.mockRestore();
   });
 
-  it("enriches VERSION_NOT_FOUND terminal output with package + requested version", async () => {
+  it("preserves backend VERSION_NOT_FOUND prose without recovery suggestions", async () => {
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
     const exitSpy = spyOn(process, "exit").mockImplementation(() => {
       throw new Error("process.exit");
@@ -723,8 +723,6 @@ describe("pkgVulnsAction", () => {
 
     const msg = errorSpy.mock.calls[0]?.[0] as string;
     expect(msg).toContain("No matching version found");
-    expect(msg).toContain("package:   npm:lodash");
-    expect(msg).toContain("requested: 99.99.99");
     errorSpy.mockRestore();
     exitSpy.mockRestore();
   });
@@ -759,7 +757,9 @@ describe("pkgVulnsAction", () => {
     }
 
     const msg = errorSpy.mock.calls[0]?.[0] as string;
-    expect(msg).toContain("available: 4.18.2, 4.18.1, 4.18.0, 4.17.4, 4.17.3");
+    expect(msg).toContain(
+      "Did you mean 4.18.2, 4.18.1, 4.18.0, 4.17.4, 4.17.3",
+    );
     expect(msg).toContain("(+1 more)");
     errorSpy.mockRestore();
     exitSpy.mockRestore();

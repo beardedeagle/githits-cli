@@ -223,6 +223,8 @@ function resolveView(options: CodeDiffCommandOptions): CodeDiffView {
 
 /** Render bounded CodeDiff diagnostics without exposing raw GraphQL details. */
 export function formatCodeDiffError(mapped: MappedError): string {
+  if (mapped.code === "VERSION_NOT_FOUND" || mapped.code === "REF_NOT_FOUND")
+    return formatMappedErrorForTerminal(mapped);
   const safe = (value: string): string => sanitizeTerminalText(value);
   const safeBlock = (value: string): string =>
     value
