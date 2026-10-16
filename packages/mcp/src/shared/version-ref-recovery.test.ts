@@ -47,7 +47,7 @@ describe("native version/ref recovery", () => {
         },
       });
       expect(output).toContain(
-        "Package go:github.com/docker/docker has no version v20.10.0.",
+        "Version not found: go:github.com/docker/docker@v20.10.0.",
       );
       expect(output).toContain(
         `Try: githits pkg ${command} go:github.com/docker/docker@v20.10.0+incompatible --verbose`,
@@ -128,6 +128,30 @@ describe("native version/ref recovery", () => {
       }).details?.action,
     ).toBe(
       "Try: githits grep -iF router --path-prefix github:expressjs/express@bad github:expressjs/express@v5.3.0",
+    );
+  });
+  it("handles list short switches and keeps repository-mode file operands unchanged", () => {
+    const target = "github:expressjs/express@bad";
+    expect(
+      withVersionRefRecovery(ref, {
+        syntax: "cli",
+        argv: ["list", "-Rs", target, "lib/"],
+      }).details?.action,
+    ).toBe("Try: githits list -Rs github:expressjs/express@v5.3.0 lib/");
+    expect(
+      withVersionRefRecovery(ref, {
+        syntax: "cli",
+        argv: [
+          "read",
+          "--repo-url",
+          ref.details!.repoUrl!,
+          "--git-ref",
+          "bad",
+          target,
+        ],
+      }).details?.action,
+    ).toBe(
+      "Try: githits read --repo-url https://github.com/expressjs/express --git-ref v5.3.0 github:expressjs/express@bad",
     );
   });
   it("handles canonical Go normalization and preserves symbol suffixes", () => {

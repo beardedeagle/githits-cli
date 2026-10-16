@@ -19,7 +19,10 @@ Unknown future extension fields are ignored, as before.
 
 `formatMappedErrorText()` owns human wording for both surfaces. When the
 identity and suggestions are present, it replaces backend prose with a concise
-package/version or repository/ref sentence. It shows at most five alternatives
+package/version or repository/ref sentence. A version miss does not claim the
+registry lacks a published release: the same code also covers source-snapshot
+resolution failures. Code-diff ambiguity retains its original explanation and
+never selects an arbitrary ref. It shows at most five alternatives
 plus the omitted count, once, taking producer ordering as authoritative. The
 first candidate supplies the recovery action. With one suggestion and an
 action, the value appears only in the action. Incomplete recovery shapes retain

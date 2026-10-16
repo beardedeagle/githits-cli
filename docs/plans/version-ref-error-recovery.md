@@ -69,7 +69,7 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
 
 ## Observed completion evidence
 
-- 5,871 unit tests passed; focused recovery, service propagation and actual-tool
+- 5,874 unit tests passed; focused recovery, service propagation and actual-tool
   boundary tests pass. Typecheck, build, changed-file lint, plugin checks and
   public-package validation pass.
 - Normal smoke invocations hit an unavailable isolated system keychain.
@@ -78,7 +78,7 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
   all four planned errors in text and JSON; authenticated smoke definitions now
   assert Go registry-version and repository-ref recovery.
 - Output character counts (CLI / MCP): npm deps 164 -> 119 / 119 -> 119;
-  Go deps 185 -> 133 / 122 -> 141; ref read 440 -> 188 / 398 -> 186;
+  Go deps 185 -> 129 / 122 -> 137; ref read 440 -> 188 / 398 -> 186;
   ref list 361 -> 178 / 361 -> 186. Full text and judgments are in
   docs/implementation/version-ref-error-recovery-evidence.md.
 - Codex targeted descriptor-only eval succeeded with 10 logical MCP calls,
@@ -86,9 +86,8 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
   violations. Claude could not start tool use because its isolated session was
   not logged in. No quality grade is claimed.
 - A pre-existing packaged guide mismatch caused two baseline unit failures.
-  The stable-guide lifecycle explicitly allows exact-parity corrections here;
-  the two-line repair has a separate release fragment. Generated assets did
-  not change.
+  Main independently fixed it in 004c82f. Merged main without rewriting history;
+  the final PR has no separate guide delta or duplicate repair fragment.
 - Nullable version associations belong to recovery records; success-result
   types stay unchanged. JSON contains facts; native action prose is text-only.
 - No implementation work is deferred. External review and plan deletion remain

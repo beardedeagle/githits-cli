@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 import {
+  CodeDiffError,
   createCodeNavigationGraphQLError,
   createPackageIntelligenceGraphQLError,
   GrepGraphQLError,
@@ -173,4 +174,31 @@ describe("version/ref recovery at actual MCP boundaries", () => {
       expect(json.details.suggestedRefs).toEqual(refExt.suggested_refs);
     },
   );
+});
+
+it("does not turn code-diff ambiguity into a nonexistent-ref claim or arbitrary retry", async () => {
+  const tool = createParityMcpTool<Record<string, unknown>>("code_diff", {
+    codeNavigationService: createMockCodeNavigationService({
+      codeDiff: mock(() =>
+        Promise.reject(
+          new CodeDiffError("The ref matches both a branch and a tag.", {
+            code: "AMBIGUOUS_REF",
+            repoUrl: refExt.repo_url,
+            gitRef: "release",
+            refKinds: ["BRANCH", "TAG"],
+            availableRefs: [{ ref: "other" }],
+          }),
+        ),
+      ),
+    }),
+  });
+  const text = (
+    await tool.handler(
+      { target: "github:expressjs/express", from: "v4", to: "release" },
+      {},
+    )
+  ).content[0]!.text;
+  expect(text).toContain("The ref matches both a branch and a tag.");
+  expect(text).not.toContain("has no ref");
+  expect(text).not.toContain("Retry code_diff");
 });

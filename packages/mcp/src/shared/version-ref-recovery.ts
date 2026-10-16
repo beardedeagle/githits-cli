@@ -19,7 +19,7 @@ export function mapVersionRefRecovery(
 /** Choose the producer's first suggestion without confusing registry versions and Git refs. */
 export function versionRefSuggestions(mapped: MappedError): string[] {
   const d = mapped.details;
-  if (!d) return [];
+  if (!d || (mapped.code === "REF_NOT_FOUND" && d.refKinds?.length)) return [];
   if (mapped.code === "VERSION_NOT_FOUND") {
     return d.availablePackageVersions?.length
       ? d.availablePackageVersions
@@ -51,7 +51,7 @@ export function versionRefFailureText(mapped: MappedError): string | undefined {
   const d = mapped.details;
   if (!d || !versionRefSuggestions(mapped).length) return undefined;
   if (mapped.code === "VERSION_NOT_FOUND" && d.package && d.requestedVersion)
-    return `Package ${d.package} has no version ${d.requestedVersion}.`;
+    return `Version not found: ${d.package}@${d.requestedVersion}.`;
   if (
     mapped.code === "REF_NOT_FOUND" &&
     d.repoUrl &&
@@ -155,6 +155,12 @@ const CLI_SWITCHES = new Set([
   "--no-transitive-security",
   "--dependency-issues",
   "--recursive",
+  "-R",
+  "--silent",
+  "--exclude-docs",
+  "--exclude-tests",
+  "--hidden",
+  "--regex",
   "--name-status",
   "--name-only",
   "--stat",
@@ -174,6 +180,7 @@ function positionalIndices(argv: readonly string[], start: number): number[] {
       if (
         !arg.includes("=") &&
         !CLI_SWITCHES.has(arg) &&
+        !(argv[0] === "list" && /^-[Rs]+$/.test(arg)) &&
         !/^-[iFv]+$/.test(arg) &&
         !/^-[ABC]\d+$/.test(arg)
       )
@@ -195,6 +202,9 @@ function cliAction(
     argv,
     argv[0] === "pkg" || argv[0] === "code" ? 2 : 1,
   );
+  const repoMode = argv.some(
+    (arg) => arg === "--repo-url" || arg.startsWith("--repo-url="),
+  );
   for (let i = 0; i < next.length; i++) {
     const original = next[i] ?? "";
     const operand =
@@ -207,9 +217,10 @@ function cliAction(
             : argv[0] === "search"
               ? argv[i - 1] === "--in"
               : false;
-    let replacement = operand
-      ? replaceTarget(original, mapped, suggestion)
-      : original;
+    let replacement =
+      operand && !repoMode
+        ? replaceTarget(original, mapped, suggestion)
+        : original;
     if (original.startsWith("--in=") || original.startsWith("--package=")) {
       const equals = original.indexOf("=");
       replacement = `${original.slice(0, equals + 1)}${replaceTarget(original.slice(equals + 1), mapped, suggestion)}`;
