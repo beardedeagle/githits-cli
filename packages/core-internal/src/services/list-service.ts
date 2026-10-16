@@ -222,7 +222,7 @@ export class ListGraphQLError extends Error {
     public readonly indexingMetadata:
       | ListIndexingErrorMetadata
       | undefined = undefined,
-    public readonly recovery?: VersionRefRecovery,
+    public readonly recovery: VersionRefRecovery | undefined = undefined,
   ) {
     super(message);
     this.name = "ListGraphQLError";

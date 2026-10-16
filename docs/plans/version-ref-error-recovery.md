@@ -92,3 +92,9 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
   types stay unchanged. JSON contains facts; native action prose is text-only.
 - No implementation work is deferred. External review and plan deletion remain
   the coordinator-owned final steps; keep the plan until review is clean.
+
+- Initial PR CI rejected three optional constructor fields during MCP declaration
+  generation (TS9025), despite local package validation passing. Explicit
+  VersionRefRecovery | undefined defaults match existing constructor patterns;
+  the MCP declaration build, publish dry-run package validation and 144 focused
+  tests pass after that correction.

@@ -932,7 +932,7 @@ export class PackageIntelligenceBackendError extends Error {
     public readonly status?: number,
     public readonly graphqlCode?: string,
     public readonly retryable?: boolean,
-    public readonly recovery?: VersionRefRecovery,
+    public readonly recovery: VersionRefRecovery | undefined = undefined,
   ) {
     super(message);
     this.name = "PackageIntelligenceBackendError";
@@ -1001,7 +1001,7 @@ export class PackageIntelligenceVersionNotFoundError extends Error {
     public readonly packageName: string | undefined,
     public readonly requestedVersion: string | undefined,
     public readonly availableVersions: string[] | undefined,
-    public readonly recovery?: VersionRefRecovery,
+    public readonly recovery: VersionRefRecovery | undefined = undefined,
   ) {
     super(message);
     this.name = "PackageIntelligenceVersionNotFoundError";
