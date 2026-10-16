@@ -1,5 +1,26 @@
 # Open backlog
 
+## Validation error recovery after PkgSeer phases 3-4
+
+Deferred from the completed version/ref recovery work in PR #485. Start after
+PkgSeer public-error-catalog phases 3-4 ship and their actual validation shapes
+are verified. The current client behavior is documented in
+[version and ref error recovery](../implementation/version-ref-error-recovery.md).
+
+Outcome: consume structured `VALIDATION_ERROR` facts, including `input_path` and
+`reason`, and give CLI users and MCP callers recovery guidance in their own flag
+or argument names. Preserve complete decoded facts in JSON and pass backend
+prose through for unknown reasons or incomplete shapes; do not scrape messages.
+
+Ownership: core services decode the backend contract; shared presentation and
+CLI/MCP boundaries own user wording and native syntax.
+
+Acceptance: verify the shipped producer contract and real responses, then add
+parser, formatter and actual-surface tests for known reasons, malformed/missing
+fields, unknown reasons, CLI/MCP JSON preservation and native guidance. Run the
+affected CLI/MCP smoke suites and targeted agent evals. Grep `target_issues` and
+indexing recovery remain separate contracts.
+
 ## Optimize overall tool routing and investigation instructions
 
 User deferred this follow-up until after unified MCP grep adoption on
