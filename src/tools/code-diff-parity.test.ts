@@ -262,58 +262,81 @@ describe("code_diff parity", () => {
   });
 
   it("PARITY-ERROR-ENVELOPE: version alternatives retain backend order and refs", async () => {
-    const availableVersions = [
-      { version: "2.1.1", ref: "2.1.1" },
-      { version: "4.0.0", ref: "4.0.0" },
-      { ref: "0123456789abcdef0123456789abcdef01234567" },
-    ];
-    const error = new CodeDiffError(
-      "The published package version has no resolvable source ref",
-      {
-        code: "VERSION_NOT_FOUND",
-        retryable: false,
-        side: "from",
-        availableVersions,
-      },
-    );
-    const cli = await cliJson(
+    const previousArgv = process.argv;
+    process.argv = [
+      "bun",
+      "src/cli.ts",
+      "code",
+      "diff",
       "npm:express",
       "3.21.2..4.15.5",
-      undefined,
-      { nameStatus: true },
-      cliDeps({
+      "--name-status",
+      "--json",
+    ];
+    try {
+      const availableVersions = [
+        { version: "2.1.1", ref: "2.1.1" },
+        { version: "4.0.0", ref: "4.0.0" },
+        { ref: "0123456789abcdef0123456789abcdef01234567" },
+      ];
+      const error = new CodeDiffError(
+        "The published package version has no resolvable source ref",
+        {
+          code: "VERSION_NOT_FOUND",
+          retryable: false,
+          side: "from",
+          availableVersions,
+        },
+      );
+      const cli = await cliJson(
+        "npm:express",
+        "3.21.2..4.15.5",
+        undefined,
+        { nameStatus: true },
+        cliDeps({
+          codeNavigationService: createMockCodeNavigationService({
+            codeDiff: mock(() => Promise.reject(error)),
+          }),
+        }),
+      );
+      const mcpTool = createParityMcpTool("code_diff", {
         codeNavigationService: createMockCodeNavigationService({
           codeDiff: mock(() => Promise.reject(error)),
         }),
-      }),
-    );
-    const mcpTool = createParityMcpTool("code_diff", {
-      codeNavigationService: createMockCodeNavigationService({
-        codeDiff: mock(() => Promise.reject(error)),
-      }),
-    });
-    const mcpResult = await mcpTool.handler(
-      {
-        target: "npm:express",
-        from: "3.21.2",
-        to: "4.15.5",
-        view: "name-status",
-        format: "json",
-      },
-      {},
-    );
-    const mcp = JSON.parse(mcpResult.content[0]?.text ?? "{}");
+      });
+      const mcpResult = await mcpTool.handler(
+        {
+          target: "npm:express",
+          from: "3.21.2",
+          to: "4.15.5",
+          view: "name-status",
+          format: "json",
+        },
+        {},
+      );
+      const mcp = JSON.parse(mcpResult.content[0]?.text ?? "{}");
 
-    expect(mcpResult.isError).toBe(true);
-    expect(mcp.details.action).toBe('Retry code_diff with from="2.1.1".');
-    const { action: _action, ...facts } = mcp.details;
-    expect(cli).toEqual({ ...mcp, details: facts });
-    expect(cli).toEqual({
-      error: "The published package version has no resolvable source ref",
-      code: "VERSION_NOT_FOUND",
-      retryable: false,
-      details: { side: "from", availableVersions },
-    });
+      expect(mcpResult.isError).toBe(true);
+      expect(mcp.details.action).toBe('Retry code_diff with from="2.1.1".');
+      const cliEnvelope = cli as typeof mcp;
+      expect(cliEnvelope.details.action).toBe(
+        "Try: githits code diff npm:express 2.1.1..4.15.5 --name-status --json",
+      );
+      const { action: _mcpAction, ...mcpFacts } = mcp.details;
+      const { action: _cliAction, ...cliFacts } = cliEnvelope.details;
+      expect({ ...cliEnvelope, details: cliFacts }).toEqual({
+        ...mcp,
+        details: mcpFacts,
+      });
+      expect({ ...cliEnvelope, details: cliFacts }).toEqual({
+        error: "The published package version has no resolvable source ref",
+        code: "VERSION_NOT_FOUND",
+        retryable: false,
+        details: { side: "from", availableVersions },
+      });
+    } finally {
+      process.argv = previousArgv;
+    }
   });
 
   it("PARITY-ERROR-ENVELOPE: invalid view/budget shares classification and envelope shape", async () => {

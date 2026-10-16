@@ -22,7 +22,11 @@ export function versionRefSuggestions(mapped: MappedError): string[] {
   if (!d || (mapped.code === "REF_NOT_FOUND" && d.refKinds?.length)) return [];
   if (mapped.code === "VERSION_NOT_FOUND") {
     // Snapshot misses may suggest tags rather than a different registry version.
-    if (d.repoUrl && d.suggestedRefs?.length && !d.availablePackageVersions)
+    if (
+      d.repoUrl &&
+      d.suggestedRefs?.length &&
+      !d.availablePackageVersions?.length
+    )
       return [];
     return d.availablePackageVersions?.length
       ? d.availablePackageVersions

@@ -1006,7 +1006,6 @@ export class CodeNavigationIndexingError extends Error {
 }
 
 export interface CodeNavigationErrorMetadata {
-  recovery?: VersionRefRecovery;
   hint?: string;
   filePath?: string;
   exclusionReason?: string;
@@ -4130,13 +4129,13 @@ export function createCodeNavigationGraphQLError(
 
     case "VERSION_NOT_FOUND":
       return new CodeNavigationVersionNotFoundError(message, {
-        ...errorMetadata?.recovery,
+        ...parseVersionRefRecovery(extensions),
         code: "VERSION_NOT_FOUND",
       });
 
     case "REF_NOT_FOUND":
       return new CodeNavigationRefNotFoundError(message, {
-        ...errorMetadata?.recovery,
+        ...parseVersionRefRecovery(extensions),
         code: "REF_NOT_FOUND",
       });
 
@@ -4358,8 +4357,6 @@ function parseGraphQLErrorMetadata(
   indexingEstimate: IndexingDurationEstimate | undefined,
 ): CodeNavigationErrorMetadata | undefined {
   const metadata: CodeNavigationErrorMetadata = {};
-  const recovery = parseVersionRefRecovery(extensions);
-  if (recovery) metadata.recovery = recovery;
   if (typeof extensions?.hint === "string") metadata.hint = extensions.hint;
   const filePath = extensions?.file_path ?? extensions?.filePath;
   if (typeof filePath === "string") metadata.filePath = filePath;

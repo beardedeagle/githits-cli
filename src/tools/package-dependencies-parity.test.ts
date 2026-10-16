@@ -732,46 +732,67 @@ describe("package_dependencies parity", () => {
   });
 
   it("PARITY-ERROR-ENVELOPE: VERSION_NOT_FOUND shares facts with native actions", async () => {
-    const error = new PackageIntelligenceVersionNotFoundError(
-      "Version 99.0.0 not found",
-      "npm:express",
-      "99.0.0",
-      ["5.2.1", "5.2.0"],
-    );
-    const fn = mock(() => Promise.reject(error));
-    const cli = await cliJson(
+    const previousArgv = process.argv;
+    process.argv = [
+      "bun",
+      "src/cli.ts",
+      "pkg",
+      "deps",
       "npm:express@99.0.0",
-      {},
-      cliDeps({
-        packageIntelligenceService: createMockPackageIntelligenceService({
-          packageDependencies: fn as never,
+      "--json",
+    ];
+    try {
+      const error = new PackageIntelligenceVersionNotFoundError(
+        "Version 99.0.0 not found",
+        "npm:express",
+        "99.0.0",
+        ["5.2.1", "5.2.0"],
+      );
+      const fn = mock(() => Promise.reject(error));
+      const cli = await cliJson(
+        "npm:express@99.0.0",
+        {},
+        cliDeps({
+          packageIntelligenceService: createMockPackageIntelligenceService({
+            packageDependencies: fn as never,
+          }),
         }),
-      }),
-    );
-    const { json } = await mcpJson(
-      {
-        target: "npm:express@99.0.0",
-      },
-      fn as never,
-    );
-    const envelope = json as {
-      details: { action: string; [key: string]: unknown };
-      [key: string]: unknown;
-    };
-    expect(envelope.details.action).toBe(
-      'Retry pkg_deps with target="npm:express@5.2.1".',
-    );
-    const { action: _action, ...facts } = envelope.details;
-    expect(cli).toEqual({ ...envelope, details: facts });
-    expect(cli).toMatchObject({
-      code: "VERSION_NOT_FOUND",
-      retryable: false,
-      details: {
-        package: "npm:express",
-        requestedVersion: "99.0.0",
-        availablePackageVersions: ["5.2.1", "5.2.0"],
-      },
-    });
+      );
+      const { json } = await mcpJson(
+        {
+          target: "npm:express@99.0.0",
+        },
+        fn as never,
+      );
+      const envelope = json as {
+        details: { action: string; [key: string]: unknown };
+        [key: string]: unknown;
+      };
+      expect(envelope.details.action).toBe(
+        'Retry pkg_deps with target="npm:express@5.2.1".',
+      );
+      const cliEnvelope = cli as typeof envelope;
+      expect(cliEnvelope.details.action).toBe(
+        "Try: githits pkg deps npm:express@5.2.1 --json",
+      );
+      const { action: _mcpAction, ...mcpFacts } = envelope.details;
+      const { action: _cliAction, ...cliFacts } = cliEnvelope.details;
+      expect({ ...cliEnvelope, details: cliFacts }).toEqual({
+        ...envelope,
+        details: mcpFacts,
+      });
+      expect(cli).toMatchObject({
+        code: "VERSION_NOT_FOUND",
+        retryable: false,
+        details: {
+          package: "npm:express",
+          requestedVersion: "99.0.0",
+          availablePackageVersions: ["5.2.1", "5.2.0"],
+        },
+      });
+    } finally {
+      process.argv = previousArgv;
+    }
   });
 
   it("PARITY-ERROR-ENVELOPE: BACKEND_ERROR (TIMEOUT) CLI === MCP", async () => {

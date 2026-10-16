@@ -55,6 +55,16 @@ describe("native version/ref recovery", () => {
     expect(formatMappedErrorText(mapped, { recovery: context })).toBe(
       mapped.message,
     );
+    const emptyRegistry = {
+      ...mapped,
+      details: { ...mapped.details, availablePackageVersions: [] },
+    };
+    expect(
+      withVersionRefRecovery(emptyRegistry, context).details?.action,
+    ).toBeUndefined();
+    expect(formatMappedErrorText(emptyRegistry, { recovery: context })).toBe(
+      mapped.message,
+    );
     // Registry alternatives remain authoritative even when repository facts coexist.
     expect(
       withVersionRefRecovery(

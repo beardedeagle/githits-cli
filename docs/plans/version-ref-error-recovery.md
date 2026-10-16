@@ -1,6 +1,6 @@
 # Version and ref error recovery
 
-Status: coordinator round 1 fixes implemented and locally verified; re-review pending.
+Status: coordinator round 2 fixes implemented and locally verified; re-review pending.
 
 ## Outcome and scope
 
@@ -134,3 +134,26 @@ The targeted Codex eval succeeds in 44.6 seconds with seven logical MCP calls,
 a high-confidence neutral answer and no harness warnings. Its trace confirms
 both original misses and successful corrected requests; no quality grade is
 claimed. Coordinator re-review remains outstanding.
+
+## Coordinator review round 2
+
+All three accepted findings are verified and fixed:
+
+1. A repository-snapshot miss with availablePackageVersions: [] now follows the
+   same passthrough/no-action path as an absent registry inventory. The original
+   probe covers both shapes and still checks nonempty registry alternatives.
+2. Deps, vulns and code-diff parity tests set real CLI argv in try/finally,
+   assert both native actions, and compare the remaining complete error facts.
+3. Generic CodeNavigationErrorMetadata no longer carries recovery. The two
+   version/ref cases decode it directly from extensions into their typed errors.
+
+Round 2 verification: 199 focused tests and all 5,886 unit tests pass, along with
+both package builds, typecheck, changed-file lint, public-package validation and
+source CLI/MCP smokes using file-storage auth handling. The isolated live smoke
+cohorts explicitly skip for AUTH_REQUIRED. No work is deferred; coordinator
+re-review remains outstanding.
+
+The round 2 targeted Codex eval succeeded in 32.8 seconds with seven logical MCP
+calls, a high-confidence neutral answer and no harness warnings. Inspected calls
+and the final answer confirm original errors, native corrections and successful
+corrected requests. No quality grade is claimed.
