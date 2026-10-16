@@ -21,6 +21,7 @@ import {
   renderUnifiedSearchError,
   renderUnifiedSearchSuccess,
 } from "../shared/unified-search-text.js";
+import { withVersionRefRecovery } from "../shared/version-ref-recovery.js";
 import { SEARCH_GUARDRAIL } from "./guardrails.js";
 import {
   addLocalMcpAuthAction,
@@ -208,7 +209,7 @@ export function createSearchTool(
       } catch (error) {
         throwIfCallerCancellation(error, context?.signal);
         const basePayload = buildUnifiedSearchErrorPayload(error);
-        const mapped = withIndexingRetryAction(
+        const indexingMapped = withIndexingRetryAction(
           {
             code: basePayload.code as MappedError["code"],
             message: basePayload.error,
@@ -218,6 +219,11 @@ export function createSearchTool(
           "search",
           "mcp",
         );
+        const mapped = withVersionRefRecovery(indexingMapped, {
+          syntax: "mcp",
+          tool: "search",
+          args,
+        });
         const payload = addLocalMcpAuthAction(
           {
             ...basePayload,

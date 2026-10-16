@@ -4,7 +4,6 @@ import {
   buildPackageDependenciesSuccessPayload,
   formatPackageDependenciesTerminal,
   InvalidPackageSpecError,
-  type MappedError,
   parsePackageSpec,
   requireAuth,
   SUPPORTED_DEPS_REGISTRIES_LIST,
@@ -153,48 +152,8 @@ function handlePkgDepsCommandError(error: unknown, json: boolean): never {
     process.exit(1);
   }
 
-  console.error(formatDepsTerminalError(mapped));
+  console.error(formatMappedErrorForTerminal(mapped));
   process.exit(1);
-}
-
-/**
- * Mirrors `pkg vulns` — enriches VERSION_NOT_FOUND with the package
- * and requested version, plus an `available:` sample when the backend
- * provides one.
- */
-function formatDepsTerminalError(mapped: MappedError): string {
-  if (mapped.code === "UPDATE_REQUIRED") {
-    return formatMappedErrorForTerminal(mapped);
-  }
-  if (mapped.code !== "VERSION_NOT_FOUND") {
-    return formatMappedErrorForTerminal(mapped);
-  }
-  const detail = mapped.details ?? {};
-  const pkg = typeof detail.package === "string" ? detail.package : undefined;
-  const requested =
-    typeof detail.requestedVersion === "string"
-      ? detail.requestedVersion
-      : undefined;
-  const lines = [mapped.message];
-  if (pkg && requested) {
-    lines.push(`  package:   ${pkg}`);
-    lines.push(`  requested: ${requested}`);
-  } else if (requested) {
-    lines.push(`  requested: ${requested}`);
-  }
-  const rawAvailable = Array.isArray(detail.availableVersions)
-    ? detail.availableVersions
-    : undefined;
-  const available = rawAvailable
-    ?.map((entry) => (typeof entry?.version === "string" ? entry.version : ""))
-    .filter((v): v is string => v.length > 0);
-  if (available && available.length > 0) {
-    const sample = available.slice(0, 5).join(", ");
-    const more = available.length - 5;
-    const suffix = more > 0 ? `, … (+${more} more)` : "";
-    lines.push(`  available: ${sample}${suffix}`);
-  }
-  return lines.join("\n");
 }
 
 const PKG_DEPS_DESCRIPTION = `Analyze package dependencies. By default shows the flat list of

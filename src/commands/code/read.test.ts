@@ -751,7 +751,7 @@ describe("pkgReadAction", () => {
     }
   });
 
-  it("routes REF_NOT_FOUND with a repo/ref hint instead of path narrowing", async () => {
+  it("preserves context-free REF_NOT_FOUND prose without path narrowing", async () => {
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
     const exitSpy = spyOn(process, "exit").mockImplementation(() => {
       throw new Error("process.exit");
@@ -782,7 +782,9 @@ describe("pkgReadAction", () => {
 
     const output = errorSpy.mock.calls[0]?.[0] as string;
     expect(output).toContain("Git ref not found: HEAD");
-    expect(output).toContain("repository URL and git ref");
+    expect(output).toBe(
+      "Git ref not found: HEAD for repository https://github.com/acme/missing.",
+    );
     expect(output).not.toContain("Narrow the target");
     expect(output).not.toContain("githits list <target>");
     errorSpy.mockRestore();

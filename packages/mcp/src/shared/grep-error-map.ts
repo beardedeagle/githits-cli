@@ -6,6 +6,7 @@ import {
   GrepGraphQLError,
   GrepNetworkError,
   MalformedGrepResponseError,
+  parseVersionRefRecovery,
 } from "@githits/core-internal";
 import { buildUpdateRequiredError } from "./code-navigation-error-map.js";
 import { grepPreparationReason } from "./grep-preparation-text.js";
@@ -18,6 +19,7 @@ import type {
 import { AuthRequiredError } from "./require-auth.js";
 import { mapSessionIdError } from "./session-id-error-map.js";
 import { mapTermsAcceptanceError } from "./terms-acceptance-error-map.js";
+import { mapVersionRefRecovery } from "./version-ref-recovery.js";
 
 /** Classify failures without interpreting backend prose or retrying requests. */
 export function mapGrepError(error: unknown): MappedError {
@@ -75,6 +77,8 @@ export function mapGrepError(error: unknown): MappedError {
   }
   if (error instanceof GrepGraphQLError) {
     const ext = error.extensions;
+    const recovery = parseVersionRefRecovery(ext);
+    if (recovery) return mapVersionRefRecovery(error.message, recovery);
     const graphqlCode = typeof ext.code === "string" ? ext.code : undefined;
     const code: MappedErrorCode =
       graphqlCode === "GREP_TARGET_PREPARATION_REQUIRED"

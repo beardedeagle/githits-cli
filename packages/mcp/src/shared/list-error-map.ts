@@ -16,6 +16,7 @@ import type {
 import { AuthRequiredError } from "./require-auth.js";
 import { mapSessionIdError } from "./session-id-error-map.js";
 import { mapTermsAcceptanceError } from "./terms-acceptance-error-map.js";
+import { mapVersionRefRecovery } from "./version-ref-recovery.js";
 
 export interface ListErrorContext {
   /** True only when the normalized request carried a nonempty `after` cursor. */
@@ -27,6 +28,8 @@ export function mapListError(
   error: unknown,
   context?: ListErrorContext,
 ): MappedError {
+  if (error instanceof ListGraphQLError && error.recovery)
+    return mapVersionRefRecovery(error.message, error.recovery);
   const sessionError = mapSessionIdError(error);
   if (sessionError) return sessionError;
   const termsError = mapTermsAcceptanceError(error);

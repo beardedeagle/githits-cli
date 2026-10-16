@@ -27,6 +27,7 @@ import type {
 import { AuthRequiredError } from "./require-auth.js";
 import { mapSessionIdError } from "./session-id-error-map.js";
 import { mapTermsAcceptanceError } from "./terms-acceptance-error-map.js";
+import { mapVersionRefRecovery } from "./version-ref-recovery.js";
 
 export type {
   MappedError,
@@ -50,6 +51,12 @@ export function mapCodeNavigationError(error: unknown): MappedError {
 }
 
 function classify(error: unknown): MappedError {
+  if (
+    (error instanceof CodeNavigationVersionNotFoundError ||
+      error instanceof CodeNavigationRefNotFoundError) &&
+    error.metadata?.recovery
+  )
+    return mapVersionRefRecovery(error.message, error.metadata.recovery);
   const sessionError = mapSessionIdError(error);
   if (sessionError) return sessionError;
   const termsError = mapTermsAcceptanceError(error);

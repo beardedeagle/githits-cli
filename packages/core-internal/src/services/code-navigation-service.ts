@@ -44,6 +44,10 @@ import {
 } from "./read-target.js";
 import type { ServiceDiagnostics } from "./runtime-diagnostics.js";
 import type { TokenProvider } from "./token-provider.js";
+import {
+  parseVersionRefRecovery,
+  type VersionRefRecovery,
+} from "./version-ref-recovery.js";
 
 export type {
   DiscoveryIndexingEstimate,
@@ -1002,6 +1006,7 @@ export class CodeNavigationIndexingError extends Error {
 }
 
 export interface CodeNavigationErrorMetadata {
+  recovery?: VersionRefRecovery;
   hint?: string;
   filePath?: string;
   exclusionReason?: string;
@@ -4379,6 +4384,8 @@ function parseGraphQLErrorMetadata(
   indexingEstimate: IndexingDurationEstimate | undefined,
 ): CodeNavigationErrorMetadata | undefined {
   const metadata: CodeNavigationErrorMetadata = {};
+  const recovery = parseVersionRefRecovery(extensions);
+  if (recovery) metadata.recovery = recovery;
   if (typeof extensions?.hint === "string") metadata.hint = extensions.hint;
   const filePath = extensions?.file_path ?? extensions?.filePath;
   if (typeof filePath === "string") metadata.filePath = filePath;

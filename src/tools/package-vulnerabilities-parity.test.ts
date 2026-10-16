@@ -620,10 +620,7 @@ describe("package_vulnerabilities parity", () => {
       details: {
         package: "npm:express",
         requestedVersion: "99.0.0",
-        availableVersions: [
-          { version: "4.18.2", ref: "4.18.2" },
-          { version: "4.18.1", ref: "4.18.1" },
-        ],
+        availablePackageVersions: ["4.18.2", "4.18.1"],
       },
     });
   });

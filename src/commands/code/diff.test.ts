@@ -392,8 +392,8 @@ describe("formatCodeDiffError", () => {
       },
     });
 
-    expect(output).toContain("side: from");
-    expect(output).toContain("stage: resolution");
+    expect(output).toContain("Comparison side: from");
+    expect(output).toContain("Stage: resolution");
     expect(output).toContain("2.0.0, 1.0.0 (+more)");
   });
 
@@ -410,7 +410,7 @@ describe("formatCodeDiffError", () => {
     });
 
     expect(output).toContain("ref-0, ref-1");
-    expect(output).toContain("(+2 more)");
+    expect(output).toContain("(+5 more)");
   });
 
   it("renders available package versions with their proven refs", () => {
@@ -428,7 +428,7 @@ describe("formatCodeDiffError", () => {
     });
 
     expect(output).toContain(
-      "available versions: 2.1.1 (ref: 2.1.1), 4.0.0 (ref: 4.0.0), ref: 0123456789abcdef0123456789abcdef01234567",
+      "Available versions/refs: 2.1.1 (ref: 2.1.1), 4.0.0 (ref: 4.0.0),\n0123456789abcdef0123456789abcdef01234567",
     );
     expect(output).not.toContain(
       "0123456789abcdef0123456789abcdef01234567 (ref:",
@@ -449,7 +449,7 @@ describe("formatCodeDiffError", () => {
       },
     });
 
-    expect(output).toContain("(+2+ more)");
+    expect(output).toContain("(+5+ more)");
   });
 });
 

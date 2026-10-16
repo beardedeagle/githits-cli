@@ -4,6 +4,7 @@ import {
   formatMappedErrorText,
   type MappedErrorTextOptions,
 } from "../shared/mapped-error-text.js";
+import { withVersionRefRecovery } from "../shared/version-ref-recovery.js";
 import {
   errorResult,
   type ToolExecutionContext,
@@ -60,6 +61,8 @@ export function mcpMappedErrorResult(
   format?: "text" | "json",
   options?: MappedErrorTextOptions,
 ): ToolResult {
+  if (format !== "json" && options?.recovery)
+    mapped = withVersionRefRecovery(mapped, options.recovery);
   const payload = buildMcpErrorPayload(mapped, context);
   return errorResult(
     format === "json"

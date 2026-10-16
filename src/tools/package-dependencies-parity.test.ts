@@ -761,10 +761,7 @@ describe("package_dependencies parity", () => {
       details: {
         package: "npm:express",
         requestedVersion: "99.0.0",
-        availableVersions: [
-          { version: "5.2.1", ref: "5.2.1" },
-          { version: "5.2.0", ref: "5.2.0" },
-        ],
+        availablePackageVersions: ["5.2.1", "5.2.0"],
       },
     });
   });

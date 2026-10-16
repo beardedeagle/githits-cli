@@ -1,4 +1,8 @@
-import { hasRetryGuidance, type MappedError } from "@githits/mcp/internal";
+import {
+  formatMappedErrorText,
+  hasRetryGuidance,
+  type MappedError,
+} from "@githits/mcp/internal";
 
 const CLI_AUTH_ERROR_MESSAGE =
   "Authentication required. Run `githits login` to authenticate.";
@@ -18,6 +22,12 @@ interface CliErrorPayload {
 }
 
 export function formatMappedErrorForTerminal(mapped: MappedError): string {
+  if (mapped.code === "VERSION_NOT_FOUND" || mapped.code === "REF_NOT_FOUND") {
+    return formatMappedErrorText(mapped, {
+      width: process.stderr.columns,
+      recovery: { syntax: "cli", argv: process.argv.slice(2) },
+    });
+  }
   if (mapped.code === "TERMS_ACCEPTANCE_REQUIRED") {
     return CLI_TERMS_ERROR_MESSAGE;
   }

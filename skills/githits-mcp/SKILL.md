@@ -68,7 +68,8 @@ unverified paths.
 - Repositories: `github:owner/repo@ref`, `codeberg:`, `gitlab:`, or a
   supported full URL, for whole repositories or sibling packages. Never infer
   a provider.
-- Docs sites: `site:host[/path]`.
+- Docs sites: `site:host[/path]`. Research takes the project's package or
+  repository instead; it covers code and docs.
 - Omit the suffix for the latest package version or default branch. A ref may
   be a branch, tag, or commit and may contain later `@`; `#` selects a
   symbol or heading, never a revision.

@@ -878,6 +878,48 @@ export function assertMcpResolveText(resolveTextBody: string): void {
 }
 
 async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
+  for (const probe of [
+    {
+      tool: "pkg_deps",
+      target: "go:github.com/docker/docker@v20.10.0",
+      code: "VERSION_NOT_FOUND",
+      fact: "availablePackageVersions",
+    },
+    {
+      tool: "list",
+      target: "github:expressjs/express@v99.99.99-nope",
+      code: "REF_NOT_FOUND",
+      fact: "suggestedRefs",
+    },
+  ]) {
+    const result = await callTool(caller, probe.tool, { target: probe.target });
+    assert(
+      result.isError === true,
+      "recovery probe must fail for the original target",
+    );
+    const text = resultText(result, "version/ref recovery text");
+    assert(
+      text.includes(`Retry ${probe.tool} with target=`),
+      "recovery probe missing native argument correction",
+    );
+    const envelope = assertCleanErrorEnvelope(
+      await callTool(caller, probe.tool, {
+        target: probe.target,
+        format: "json",
+      }),
+      "version/ref recovery JSON",
+    );
+    assert(
+      envelope.code === probe.code,
+      "recovery probe lost backend error code",
+    );
+    const details = (envelope as { details?: Record<string, unknown> }).details;
+    const alternatives = details?.[probe.fact];
+    assert(
+      Array.isArray(alternatives) && alternatives.length > 0,
+      "recovery probe dropped structured alternatives",
+    );
+  }
   await runResolveSmoke(caller);
   const diffArgs = {
     target: "npm:express",

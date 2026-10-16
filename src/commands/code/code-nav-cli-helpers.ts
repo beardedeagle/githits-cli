@@ -143,9 +143,6 @@ export function formatFileErrorWithFilesHint(
   ) {
     return `${formatMappedErrorForTerminal(mapped)}\n  Use \`githits list <target>\` to list available paths.`;
   }
-  if (mapped.code === "REF_NOT_FOUND") {
-    return `${formatMappedErrorForTerminal(mapped)}\n  Check that the repository URL and git ref exist and are publicly accessible.`;
-  }
   if (looksLikeMissingNavpackMessage(mapped.message)) {
     return [
       "Source index for this target is temporarily unavailable.",

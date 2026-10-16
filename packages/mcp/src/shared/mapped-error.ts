@@ -1,12 +1,10 @@
 import type {
   AuthenticationErrorSource,
-  AvailableRef,
-  AvailableVersion,
   CodeDiffPackageInfo,
   CodeDiffRefResolution,
   DiscoveryIndexingEstimate,
   IndexingDurationEstimate,
-  SuggestedRef,
+  RecoveryRef,
   TargetResolution,
 } from "@githits/core-internal";
 
@@ -38,11 +36,16 @@ export type MappedErrorCode =
 export interface MappedErrorDetails {
   /** Bounded public unified-grep preparation issues, retaining backend keys. */
   targetIssues?: Record<string, unknown>[];
+  availablePackageVersions?: string[];
+  latestVersion?: string;
+  inputPath?: (string | number)[];
+  targetIndex?: number;
+  targetCount?: number;
   action?: string;
   hint?: string;
-  availableVersions?: AvailableVersion[];
-  availableRefs?: AvailableRef[];
-  suggestedRefs?: SuggestedRef[];
+  availableVersions?: RecoveryRef[];
+  availableRefs?: RecoveryRef[];
+  suggestedRefs?: RecoveryRef[];
   targetResolution?: TargetResolution;
   indexingRef?: string;
   indexingEstimate?: IndexingDurationEstimate;

@@ -30,6 +30,7 @@ import type {
 import { AuthRequiredError } from "./require-auth.js";
 import { mapSessionIdError } from "./session-id-error-map.js";
 import { mapTermsAcceptanceError } from "./terms-acceptance-error-map.js";
+import { mapVersionRefRecovery } from "./version-ref-recovery.js";
 
 // Re-export for caller convenience — callers of
 // `mapPackageIntelligenceError` use the same envelope type as code-nav
@@ -47,6 +48,12 @@ export function mapPackageIntelligenceError(error: unknown): MappedError {
 }
 
 function classify(error: unknown): MappedError {
+  if (
+    (error instanceof PackageIntelligenceVersionNotFoundError ||
+      error instanceof PackageIntelligenceBackendError) &&
+    error.recovery
+  )
+    return mapVersionRefRecovery(error.message, error.recovery);
   const sessionError = mapSessionIdError(error);
   if (sessionError) return sessionError;
   const termsError = mapTermsAcceptanceError(error);
@@ -76,14 +83,8 @@ function classify(error: unknown): MappedError {
       details.requestedVersion = error.requestedVersion;
     }
     if (error.availableVersions && error.availableVersions.length > 0) {
-      // `availableVersions` on this typed error is `string[]` —
-      // narrower than the code-nav precedent's `{version, ref}[]`
-      // because vulns registries have no ref concept. Match the
-      // shared envelope shape by mapping into `{version}` objects.
-      details.availableVersions = error.availableVersions.map((version) => ({
-        version,
-        ref: version,
-      }));
+      // Retain registry releases separately from indexed repository snapshots.
+      details.availablePackageVersions = error.availableVersions;
     }
     return {
       code: "VERSION_NOT_FOUND",

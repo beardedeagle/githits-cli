@@ -391,7 +391,7 @@ describe("pkgChangelogAction", () => {
     writeSpy.mockRestore();
   });
 
-  it("renders VERSION_NOT_FOUND with structured detail lines", async () => {
+  it("preserves VERSION_NOT_FOUND prose without recovery suggestions", async () => {
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
     const exitSpy = spyOn(process, "exit").mockImplementation(() => {
       throw new Error("process.exit");
@@ -422,8 +422,6 @@ describe("pkgChangelogAction", () => {
 
     const output = errorSpy.mock.calls[0]?.[0] as string;
     expect(output).toContain("No matching version found");
-    expect(output).toContain("package:   npm:express");
-    expect(output).toContain("requested: 99.0.0");
     errorSpy.mockRestore();
     exitSpy.mockRestore();
   });

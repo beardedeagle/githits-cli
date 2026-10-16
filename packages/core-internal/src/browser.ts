@@ -44,6 +44,7 @@ export type {
   ResolveTargetKind,
   ResolveTargetParams,
 } from "./services/resolve-target-service.js";
+export * from "./services/version-ref-recovery.js";
 export {
   DEFAULT_WAIT_TIMEOUT_MS,
   FetchTimeoutError,

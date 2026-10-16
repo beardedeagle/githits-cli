@@ -132,7 +132,9 @@ export function createPackageVulnerabilitiesTool(
       } catch (error) {
         throwIfCallerCancellation(error, context?.signal);
         const mapped = mapPackageIntelligenceError(error);
-        return mcpMappedErrorResult(mapped, context, args.format);
+        return mcpMappedErrorResult(mapped, context, args.format, {
+          recovery: { syntax: "mcp", tool: "pkg_vulns", args },
+        });
       }
     },
   };

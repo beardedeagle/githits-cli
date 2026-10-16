@@ -131,6 +131,7 @@ export function createResolveTargetTool(
           mapPackageIntelligenceError(error),
           context,
           args.format,
+          { recovery: { syntax: "mcp", tool: "resolve_target", args } },
         );
       }
     },

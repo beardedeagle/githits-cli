@@ -8,7 +8,6 @@ import {
   buildPackageChangelogSuccessPayload,
   formatPackageChangelogTerminal,
   InvalidPackageSpecError,
-  type MappedError,
   requireAuth,
   resolvePackageChangelogView,
   shouldUseColors,
@@ -136,47 +135,8 @@ function handlePkgChangelogCommandError(error: unknown, json: boolean): never {
     process.exit(1);
   }
 
-  console.error(formatChangelogTerminalError(mapped));
+  console.error(formatMappedErrorForTerminal(mapped));
   process.exit(1);
-}
-
-/**
- * Mirrors `pkg vulns` / `pkg deps` — enriches VERSION_NOT_FOUND with
- * the package and requested version.
- */
-function formatChangelogTerminalError(mapped: MappedError): string {
-  if (mapped.code === "UPDATE_REQUIRED") {
-    return formatMappedErrorForTerminal(mapped);
-  }
-  if (mapped.code !== "VERSION_NOT_FOUND") {
-    return formatMappedErrorForTerminal(mapped);
-  }
-  const detail = mapped.details ?? {};
-  const pkg = typeof detail.package === "string" ? detail.package : undefined;
-  const requested =
-    typeof detail.requestedVersion === "string"
-      ? detail.requestedVersion
-      : undefined;
-  const lines = [mapped.message];
-  if (pkg && requested) {
-    lines.push(`  package:   ${pkg}`);
-    lines.push(`  requested: ${requested}`);
-  } else if (requested) {
-    lines.push(`  requested: ${requested}`);
-  }
-  const rawAvailable = Array.isArray(detail.availableVersions)
-    ? detail.availableVersions
-    : undefined;
-  const available = rawAvailable
-    ?.map((entry) => (typeof entry?.version === "string" ? entry.version : ""))
-    .filter((v): v is string => v.length > 0);
-  if (available && available.length > 0) {
-    const sample = available.slice(0, 5).join(", ");
-    const more = available.length - 5;
-    const suffix = more > 0 ? `, ... (+${more} more)` : "";
-    lines.push(`  available: ${sample}${suffix}`);
-  }
-  return lines.join("\n");
 }
 
 const PKG_CHANGELOG_DESCRIPTION = `Find release notes and changelog history for a package.
