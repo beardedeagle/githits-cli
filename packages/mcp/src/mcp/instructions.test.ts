@@ -43,7 +43,7 @@ describe("buildMcpQuickStart", () => {
     const guide = normalized(buildMcpQuickStart());
 
     for (const phrase of [
-      "`registry:name@version`",
+      "`<registry>:<name>@version` such as `npm:express`",
       "`github:owner/repo@ref`",
       "`site:host[/path]`",
       "swift:github.com/<owner>/<repo>",
