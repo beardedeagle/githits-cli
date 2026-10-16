@@ -1,6 +1,5 @@
 import {
   AuthenticationError,
-  type AvailableRef,
   CLIENT_UPDATE_REQUIRED_REASON,
   ClientUpdateRequiredError,
   CodeDiffError,
@@ -52,11 +51,10 @@ export function mapCodeNavigationError(error: unknown): MappedError {
 
 function classify(error: unknown): MappedError {
   if (
-    (error instanceof CodeNavigationVersionNotFoundError ||
-      error instanceof CodeNavigationRefNotFoundError) &&
-    error.metadata?.recovery
+    error instanceof CodeNavigationVersionNotFoundError ||
+    error instanceof CodeNavigationRefNotFoundError
   )
-    return mapVersionRefRecovery(error.message, error.metadata.recovery);
+    return mapVersionRefRecovery(error.message, error.recovery);
   const sessionError = mapSessionIdError(error);
   if (sessionError) return sessionError;
   const termsError = mapTermsAcceptanceError(error);
@@ -66,24 +64,6 @@ function classify(error: unknown): MappedError {
   }
   if (error instanceof CodeDiffError) {
     return classifyCodeDiffError(error);
-  }
-  if (error instanceof CodeNavigationVersionNotFoundError) {
-    const details: MappedErrorDetails = {};
-    preserveBackendMetadata(details, error.metadata);
-    if (error.packageName) details.package = error.packageName;
-    if (error.requestedVersion) {
-      details.requestedVersion = error.requestedVersion;
-    }
-    if (error.latestIndexed) details.latestIndexed = error.latestIndexed;
-    if (error.availableVersions && error.availableVersions.length > 0) {
-      details.availableVersions = error.availableVersions;
-    }
-    return {
-      code: "VERSION_NOT_FOUND",
-      message: error.message,
-      retryable: false,
-      details: Object.keys(details).length > 0 ? details : undefined,
-    };
   }
   if (error instanceof CodeNavigationTargetNotFoundError) {
     const details: MappedErrorDetails = {};
@@ -96,24 +76,6 @@ function classify(error: unknown): MappedError {
     return {
       code: "NOT_FOUND",
       message: error.message,
-      retryable: false,
-      details: Object.keys(details).length > 0 ? details : undefined,
-    };
-  }
-  if (error instanceof CodeNavigationRefNotFoundError) {
-    const details: MappedErrorDetails = {};
-    preserveBackendMetadata(details, error.metadata);
-    if (error.repoUrl) details.repoUrl = error.repoUrl;
-    if (error.requestedRef) details.requestedRef = error.requestedRef;
-    if (error.availableRefs && error.availableRefs.length > 0) {
-      details.availableRefs = error.availableRefs;
-    }
-    if (error.suggestedRefs && error.suggestedRefs.length > 0) {
-      details.suggestedRefs = error.suggestedRefs;
-    }
-    return {
-      code: "REF_NOT_FOUND",
-      message: addRefSuggestions(error.message, error.suggestedRefs),
       retryable: false,
       details: Object.keys(details).length > 0 ? details : undefined,
     };
@@ -379,20 +341,6 @@ function preserveBackendMetadata(
   if (metadata.indexingEstimate) {
     details.indexingEstimate = metadata.indexingEstimate;
   }
-}
-
-function addRefSuggestions(
-  message: string,
-  refs: AvailableRef[] | undefined,
-): string {
-  if (!refs || refs.length === 0 || /did you mean/i.test(message)) {
-    return message;
-  }
-  const suggestions = refs
-    .slice(0, 5)
-    .map((entry) => entry.ref)
-    .join(", ");
-  return `${message} Did you mean ${suggestions}?`;
 }
 
 /**

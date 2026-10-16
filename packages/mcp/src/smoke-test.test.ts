@@ -1390,7 +1390,10 @@ function smokeResponse(
                   error: "Missing revision.",
                   code,
                   retryable: false,
-                  details,
+                  details: {
+                    ...details,
+                    action: `Retry ${name} with target="corrected".`,
+                  },
                 })
               : `Missing revision. Retry ${name} with target="corrected".`,
         },

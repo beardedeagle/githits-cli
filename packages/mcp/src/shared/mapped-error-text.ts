@@ -78,6 +78,7 @@ export function formatMappedErrorText(
         `Did you mean ${recoveryList(suggestions, details.publishedVersionsTruncated)}?`,
       );
     else if (
+      (details.side || details.stage) &&
       !/did you mean/i.test(mapped.message) &&
       !(suggestions.length === 1 && details.action)
     ) {

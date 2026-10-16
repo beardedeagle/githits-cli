@@ -161,6 +161,7 @@ describe("readable non-indexing recovery", () => {
       code: "VERSION_NOT_FOUND",
       message: "Version was not found.",
       details: {
+        side: "from",
         availableVersions: [{ version: "1.0.2", ref: "release-1" }],
         refKinds: ["BRANCH", "TAG"],
       },

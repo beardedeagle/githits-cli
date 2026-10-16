@@ -1089,13 +1089,7 @@ export class CodeNavigationFileNotFoundError extends Error {
 export class CodeNavigationVersionNotFoundError extends Error {
   constructor(
     message: string,
-    public readonly packageName: string | undefined,
-    public readonly requestedVersion: string | undefined,
-    public readonly latestIndexed: string | undefined,
-    public readonly availableVersions: AvailableVersion[] | undefined,
-    public readonly metadata:
-      | CodeNavigationErrorMetadata
-      | undefined = undefined,
+    public readonly recovery: VersionRefRecovery,
   ) {
     super(message);
     this.name = "CodeNavigationVersionNotFoundError";
@@ -1110,13 +1104,7 @@ export class CodeNavigationVersionNotFoundError extends Error {
 export class CodeNavigationRefNotFoundError extends Error {
   constructor(
     message: string,
-    public readonly repoUrl: string | undefined,
-    public readonly requestedRef: string | undefined,
-    public readonly availableRefs: AvailableRef[] | undefined,
-    public readonly suggestedRefs: SuggestedRef[] | undefined,
-    public readonly metadata:
-      | CodeNavigationErrorMetadata
-      | undefined = undefined,
+    public readonly recovery: VersionRefRecovery,
   ) {
     super(message);
     this.name = "CodeNavigationRefNotFoundError";
@@ -4141,30 +4129,16 @@ export function createCodeNavigationGraphQLError(
       return new CodeNavigationValidationError(message);
 
     case "VERSION_NOT_FOUND":
-      return new CodeNavigationVersionNotFoundError(
-        message,
-        typeof extensions?.package === "string"
-          ? extensions.package
-          : undefined,
-        typeof extensions?.requested_version === "string"
-          ? extensions.requested_version
-          : undefined,
-        typeof extensions?.latest_indexed === "string"
-          ? extensions.latest_indexed
-          : undefined,
-        parseAvailableVersions(extensions),
-        errorMetadata,
-      );
+      return new CodeNavigationVersionNotFoundError(message, {
+        ...errorMetadata?.recovery,
+        code: "VERSION_NOT_FOUND",
+      });
 
     case "REF_NOT_FOUND":
-      return new CodeNavigationRefNotFoundError(
-        message,
-        parseGraphQLRepoUrl(extensions),
-        parseGraphQLGitRef(extensions),
-        parseAvailableRefs(extensions),
-        parseSuggestedRefs(extensions),
-        errorMetadata,
-      );
+      return new CodeNavigationRefNotFoundError(message, {
+        ...errorMetadata?.recovery,
+        code: "REF_NOT_FOUND",
+      });
 
     case "NOT_FOUND":
     case "PACKAGE_NOT_FOUND":

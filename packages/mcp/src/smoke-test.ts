@@ -919,6 +919,11 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
       Array.isArray(alternatives) && alternatives.length > 0,
       "recovery probe dropped structured alternatives",
     );
+    assert(
+      typeof details?.action === "string" &&
+        details.action.startsWith(`Retry ${probe.tool} with target=`),
+      "recovery probe JSON missing native action",
+    );
   }
   await runResolveSmoke(caller);
   const diffArgs = {

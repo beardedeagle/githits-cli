@@ -8,7 +8,7 @@
 // Assertion policy:
 //   - Service-sourced success and error fixtures use `toEqual`: both
 //     surfaces route through the same classifier / envelope builder,
-//     so envelopes are byte-identical.
+//     so backend facts match; recovery actions use native surface syntax.
 //   - `INVALID_ARGUMENT` fixture uses `toMatchObject`: both surfaces
 //     parse the canonical compact target and run the shared builder,
 //     including the tool-local availability predicate. Same envelope
@@ -592,7 +592,7 @@ describe("package_vulnerabilities parity", () => {
     });
   });
 
-  it("PARITY-ERROR-ENVELOPE: VERSION_NOT_FOUND with structured details CLI === MCP", async () => {
+  it("PARITY-ERROR-ENVELOPE: VERSION_NOT_FOUND shares facts with native actions", async () => {
     const error = new PackageIntelligenceVersionNotFoundError(
       "Version 99.0.0 not found",
       "npm:express",
@@ -613,7 +613,15 @@ describe("package_vulnerabilities parity", () => {
       { target: "npm:express@99.0.0" },
       fn as never,
     );
-    expect(cli).toEqual(json);
+    const envelope = json as {
+      details: { action: string; [key: string]: unknown };
+      [key: string]: unknown;
+    };
+    expect(envelope.details.action).toBe(
+      'Retry pkg_vulns with target="npm:express@4.18.2".',
+    );
+    const { action: _action, ...facts } = envelope.details;
+    expect(cli).toEqual({ ...envelope, details: facts });
     expect(cli).toMatchObject({
       code: "VERSION_NOT_FOUND",
       retryable: false,

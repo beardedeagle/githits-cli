@@ -32,6 +32,172 @@ const ref: MappedError = {
 };
 
 describe("native version/ref recovery", () => {
+  it("preserves snapshot tag suggestions instead of selecting an older indexed version", () => {
+    const mapped: MappedError = {
+      code: "VERSION_NOT_FOUND",
+      message: "No source snapshot for npm:x@1.2.3. Try tag release-1.2.3.",
+      details: {
+        package: "npm:x",
+        requestedVersion: "1.2.3",
+        repoUrl: "https://github.com/owner/x",
+        suggestedRefs: [{ ref: "release-1.2.3" }],
+        availableVersions: [{ ref: "v1.0.0", version: "1.0.0" }],
+      },
+    };
+    const context = {
+      syntax: "mcp" as const,
+      tool: "read",
+      args: { target: "npm:x@1.2.3", path: "README.md" },
+    };
+    expect(
+      withVersionRefRecovery(mapped, context).details?.action,
+    ).toBeUndefined();
+    expect(formatMappedErrorText(mapped, { recovery: context })).toBe(
+      mapped.message,
+    );
+    // Registry alternatives remain authoritative even when repository facts coexist.
+    expect(
+      withVersionRefRecovery(
+        {
+          ...mapped,
+          details: { ...mapped.details, availablePackageVersions: ["1.2.4"] },
+        },
+        context,
+      ).details?.action,
+    ).toBe('Retry read with target="npm:x@1.2.4".');
+    const indexedOnly = {
+      ...mapped,
+      details: { ...mapped.details, suggestedRefs: [] },
+    };
+    expect(formatMappedErrorText(indexedOnly, { recovery: context })).toContain(
+      'Retry read with target="npm:x@1.0.0".',
+    );
+  });
+  it("does not append a second inventory to context-free backend prose", () => {
+    const message =
+      "No indexed version matches. Indexed versions: 1.0.0, 0.9.0.";
+    expect(
+      formatMappedErrorText({
+        code: "VERSION_NOT_FOUND",
+        message,
+        details: {
+          availableVersions: [
+            { ref: "v1.0.0", version: "1.0.0" },
+            { ref: "v0.9.0", version: "0.9.0" },
+          ],
+        },
+      }),
+    ).toBe(message);
+  });
+  it.each(["-s", "-iFsv"])(
+    "recognizes grep %s without consuming the pattern",
+    (flag) => {
+      expect(
+        withVersionRefRecovery(ref, {
+          syntax: "cli",
+          argv: ["grep", flag, "router", "github:expressjs/express@bad"],
+        }).details?.action,
+      ).toBe(
+        `Try: githits grep ${flag} router github:expressjs/express@v5.3.0`,
+      );
+    },
+  );
+  it.each([
+    {
+      argv: ["--no-color", "read", "github:expressjs/express@bad", "README.md"],
+    },
+    {
+      argv: ["read", "--no-color", "github:expressjs/express@bad", "README.md"],
+    },
+  ])("preserves root color switches in $argv", ({ argv }) => {
+    expect(
+      withVersionRefRecovery(ref, { syntax: "cli", argv }).details?.action,
+    ).toBe(`Try: githits ${argv.join(" ").replace("@bad", "@v5.3.0")}`);
+  });
+  it.each([
+    { flags: ["--from", "99", "--to", "5"] },
+    { flags: ["--from=99", "--to=5"] },
+  ])(
+    "recovers upgrade flags with an unversioned package and preserves severity values: %j",
+    ({ flags }) => {
+      const mapped: MappedError = {
+        code: "VERSION_NOT_FOUND",
+        message: "Missing version.",
+        details: {
+          package: "pypi:django",
+          requestedVersion: "99",
+          availablePackageVersions: ["5.2"],
+        },
+      };
+      const argv = [
+        "pkg",
+        "upgrade-review",
+        "-s",
+        "high",
+        "pypi:Django",
+        ...flags,
+      ];
+      expect(
+        withVersionRefRecovery(mapped, { syntax: "cli", argv }).details?.action,
+      ).toBe(`Try: githits ${argv.join(" ").replace("99", "5.2")}`);
+    },
+  );
+  it("matches canonical package casing in CLI targets and MCP upgrade rows", () => {
+    const mapped: MappedError = {
+      code: "VERSION_NOT_FOUND",
+      message: "Missing version.",
+      details: {
+        package: "pypi:django",
+        requestedVersion: "99",
+        availablePackageVersions: ["5.2"],
+      },
+    };
+    expect(
+      withVersionRefRecovery(mapped, {
+        syntax: "cli",
+        argv: ["pkg", "deps", "pypi:Django@99"],
+      }).details?.action,
+    ).toBe("Try: githits pkg deps pypi:django@5.2");
+    expect(
+      withVersionRefRecovery(mapped, {
+        syntax: "mcp",
+        tool: "pkg_upgrade_review",
+        args: {
+          registry: "pypi",
+          package_name: "Django",
+          current_version: "99",
+          target_version: "5",
+        },
+      }).details?.action,
+    ).toBe('Retry pkg_upgrade_review with current_version="5.2".');
+  });
+  it("includes native actions and complete backend facts in JSON on both surfaces", () => {
+    const cli = buildCliMappedErrorPayload(version, [
+      "pkg",
+      "deps",
+      "go:github.com/docker/docker@v20.10.0",
+      "--json",
+    ]);
+    const mcp = JSON.parse(
+      mcpMappedErrorResult(version, undefined, "json", {
+        recovery: {
+          syntax: "mcp",
+          tool: "pkg_deps",
+          args: { target: "go:github.com/docker/docker@v20.10.0" },
+        },
+      }).content[0]!.text,
+    );
+    expect(cli.details?.action).toBe(
+      "Try: githits pkg deps go:github.com/docker/docker@v20.10.0+incompatible --json",
+    );
+    expect(mcp.details.action).toBe(
+      'Retry pkg_deps with target="go:github.com/docker/docker@v20.10.0+incompatible".',
+    );
+    for (const envelope of [cli, mcp]) {
+      expect(envelope.error).toBe(version.message);
+      expect(envelope.details).toMatchObject(version.details!);
+    }
+  });
   it.each(["vulns", "deps", "changelog"])(
     "builds a runnable pkg %s command preserving controls",
     (command) => {

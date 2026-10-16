@@ -21,6 +21,9 @@ export function versionRefSuggestions(mapped: MappedError): string[] {
   const d = mapped.details;
   if (!d || (mapped.code === "REF_NOT_FOUND" && d.refKinds?.length)) return [];
   if (mapped.code === "VERSION_NOT_FOUND") {
+    // Snapshot misses may suggest tags rather than a different registry version.
+    if (d.repoUrl && d.suggestedRefs?.length && !d.availablePackageVersions)
+      return [];
     return d.availablePackageVersions?.length
       ? d.availablePackageVersions
       : d.availableVersions?.some((entry) => entry.version)
@@ -121,7 +124,7 @@ function replaceTarget(
   if (
     mapped.code === "VERSION_NOT_FOUND" &&
     d.package &&
-    base.startsWith(`${d.package}@`)
+    base.toLowerCase().startsWith(`${d.package.toLowerCase()}@`)
   ) {
     return `${d.package}@${replaceVersion(base.slice(d.package.length + 1), d, suggestion)}${fragment}`;
   }
@@ -143,6 +146,7 @@ const CLI_SWITCHES = new Set([
   "-v",
   "--verbose",
   "--json",
+  "--no-color",
   "-F",
   "--fixed-strings",
   "-i",
@@ -182,7 +186,7 @@ function positionalIndices(argv: readonly string[], start: number): number[] {
         !arg.includes("=") &&
         !CLI_SWITCHES.has(arg) &&
         !(argv[0] === "list" && /^-[Rs]+$/.test(arg)) &&
-        !/^-[iFv]+$/.test(arg) &&
+        !(argv[0] === "grep" && /^-[iFsv]+$/.test(arg)) &&
         !/^-[ABC]\d+$/.test(arg)
       )
         i++;
@@ -197,7 +201,19 @@ function cliAction(
   argv: readonly string[],
 ): string | undefined {
   const d = mapped.details ?? {};
+  // Commander accepts root-only --no-color before the subcommand too.
+  const commandStart = argv.findIndex((arg) => arg !== "--no-color");
+  const rootOptions = argv.slice(0, commandStart);
+  argv = argv.slice(commandStart);
   const next = [...argv];
+  const hasPackage = argv.some((arg) => {
+    const normalized = arg.trim().toLowerCase();
+    const pkg = d.package?.toLowerCase();
+    return (
+      pkg !== undefined &&
+      (normalized === pkg || normalized.startsWith(`${pkg}@`))
+    );
+  });
   let changed = false;
   const positions = positionalIndices(
     argv,
@@ -229,7 +245,7 @@ function cliAction(
     if (
       mapped.code === "VERSION_NOT_FOUND" &&
       (original.startsWith("--from=") || original.startsWith("--to=")) &&
-      argv.some((arg) => arg.startsWith(`${d.package}@`))
+      hasPackage
     ) {
       const equals = original.indexOf("=");
       replacement = `${original.slice(0, equals + 1)}${replaceVersion(original.slice(equals + 1), d, suggestion)}`;
@@ -253,7 +269,7 @@ function cliAction(
     if (
       mapped.code === "VERSION_NOT_FOUND" &&
       ["--from", "--to"].includes(previous ?? "") &&
-      argv.some((arg) => arg.startsWith(`${d.package}@`))
+      hasPackage
     )
       replacement = replaceVersion(original, d, suggestion);
     if (
@@ -279,7 +295,7 @@ function cliAction(
     /^[A-Za-z0-9_:@%+=,./-]+$/.test(value) && value.length > 0
       ? value
       : shellQuoteExact(value);
-  return `Try: githits ${next.map(quote).join(" ")}`;
+  return `Try: githits ${[...rootOptions, ...next].map(quote).join(" ")}`;
 }
 
 function mcpAction(
@@ -305,7 +321,10 @@ function mcpAction(
         } else if (target && typeof target === "object")
           visit(target as Record<string, unknown>, `${prefix}targets[${i}].`);
       });
-    if (`${row.registry}:${row.package_name}` === d.package) {
+    if (
+      `${row.registry}:${row.package_name}`.toLowerCase() ===
+      d.package?.toLowerCase()
+    ) {
       for (const key of ["current_version", "target_version"]) {
         if (
           typeof row[key] === "string" &&

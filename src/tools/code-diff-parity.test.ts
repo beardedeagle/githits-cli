@@ -305,7 +305,9 @@ describe("code_diff parity", () => {
     const mcp = JSON.parse(mcpResult.content[0]?.text ?? "{}");
 
     expect(mcpResult.isError).toBe(true);
-    expect(cli).toEqual(mcp);
+    expect(mcp.details.action).toBe('Retry code_diff with from="2.1.1".');
+    const { action: _action, ...facts } = mcp.details;
+    expect(cli).toEqual({ ...mcp, details: facts });
     expect(cli).toEqual({
       error: "The published package version has no resolvable source ref",
       code: "VERSION_NOT_FOUND",

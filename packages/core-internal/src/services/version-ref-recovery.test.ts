@@ -133,7 +133,7 @@ describe("service recovery propagation", () => {
     const nav = createCodeNavigationGraphQLError([
       { message: "verbatim", extensions: ext },
     ]);
-    expect(nav).toHaveProperty("metadata.recovery", expected);
+    expect(nav).toHaveProperty("recovery", expected);
     const service = new ListServiceImpl(
       "https://pkgseer.dev",
       createMockTokenProvider(),

@@ -403,6 +403,7 @@ describe("formatCodeDiffError", () => {
       message: "Ref was not found.",
       retryable: false,
       details: {
+        side: "to",
         availableRefs: Array.from({ length: 10 }, (_, index) => ({
           ref: `ref-${index}`,
         })),
@@ -419,6 +420,7 @@ describe("formatCodeDiffError", () => {
       message: "Version was not found.",
       retryable: false,
       details: {
+        stage: "resolution",
         availableVersions: [
           { version: "2.1.1", ref: "2.1.1" },
           { version: "4.0.0", ref: "4.0.0" },
@@ -441,6 +443,7 @@ describe("formatCodeDiffError", () => {
       message: "Version was not found.",
       retryable: false,
       details: {
+        side: "from",
         publishedVersions: Array.from(
           { length: 10 },
           (_, index) => `${index}.0.0`,

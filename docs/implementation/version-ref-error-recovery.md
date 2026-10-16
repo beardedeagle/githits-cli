@@ -15,13 +15,19 @@ of prose or truncate lists for presentation. Registry releases appear as
 `details.availablePackageVersions`, indexed snapshots as `availableVersions`,
 and ref corrections as `suggestedRefs`; `availableRefs`, `latestVersion`,
 `latestIndexed`, requested identity and input context remain separate facts.
-Unknown future extension fields are ignored, as before.
+When the invocation has a matching operand, both JSON envelopes also include
+`details.action` using CLI or MCP syntax. Unknown future extension fields are
+ignored, as before.
 
 `formatMappedErrorText()` owns human wording for both surfaces. When the
 identity and suggestions are present, it replaces backend prose with a concise
 package/version or repository/ref sentence. A version miss does not claim the
 registry lacks a published release: the same code also covers source-snapshot
-resolution failures. Code-diff ambiguity retains its original explanation and
+resolution failures. Repository-snapshot version misses with tag suggestions
+(`repoUrl` and nonempty `suggestedRefs`, without registry alternatives) retain
+backend prose and do not choose an older indexed version as a retry. Registry
+misses and snapshot misses with only indexed versions keep concise recovery.
+Code-diff ambiguity retains its original explanation and
 never selects an arbitrary ref. It shows at most five alternatives
 plus the omitted count, once, taking producer ordering as authoritative. The
 first candidate supplies the recovery action. With one suggestion and an
@@ -32,20 +38,18 @@ side, stage, limit, ref kinds and compared commits when supplied.
 CLI actions reuse the original invocation and replace the failed target or
 native version/ref operand, preserving paths, filters and output flags. Shell
 operands are quoted. MCP boundaries supply the actual tool and arguments;
-actions name the argument or array member to change. Actions are text only;
-JSON remains a surface-neutral facts envelope. Actions cannot be constructed
-when the original invocation has no matching operand.
+actions name the argument or array member to change. Text and JSON include the
+same native action; JSON also preserves the full backend message and lists.
+Actions cannot be constructed when the original invocation has no matching
+operand. Root color switches, grep short switches, unversioned upgrade-review
+package operands and canonical package casing are supported.
 
 `pkg info` remains latest-only. `resolve` still rejects canonical targets
 locally. These tools preserve unexpected structured errors without inventing
 new version parameters. Grep `target_issues`, validation, indexing and auth
 recovery follow their existing contracts.
 
-The four live evidence cases are npm Express `99.0.0` through deps, Go Docker
-`v20.10.0` through deps, and Express `v99.99.99-nope` through read and list.
-The npm deps producer currently supplies no alternatives, so its neutral message
-passes through. Go supplies `v20.10.0+incompatible`; ref corrections prefer
-`suggested_refs` over the separate indexed `available_refs` inventory. Tests
-cover service decoding, real tool boundaries, shared output, CLI operands,
-malformed fields, forward compatibility and complete CLI/MCP JSON facts. Both
-live smoke suites include Go version and repository ref recovery probes.
+Tests cover service decoding, real tool boundaries, shared output, CLI
+operands, malformed fields, forward compatibility and complete CLI/MCP JSON
+facts and actions. Both live smoke suites include Go version and repository
+ref recovery probes. Live production evidence belongs in the PR description.

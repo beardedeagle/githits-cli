@@ -1,12 +1,12 @@
 # Version and ref error recovery
 
-Status: implemented and verified; coordinator review pending (per task brief).
+Status: coordinator round 1 fixes implemented and locally verified; re-review pending.
 
 ## Outcome and scope
 
 VERSION_NOT_FOUND and REF_NOT_FOUND preserve typed backend recovery facts in
 CLI/MCP JSON, and render one concise identity/suggestion block plus a native
-next step in text. Cover package intelligence and code navigation consumers;
+next step in text and JSON. Cover package intelligence and code navigation consumers;
 check code-diff consistency. Validation, grep target_issues and indexing are
 out of scope. Unknown codes and incomplete recovery fields keep backend prose.
 
@@ -35,7 +35,8 @@ argv; MCP tools supply their real name and arguments. This avoids making service
 clients know command syntax and avoids threading every CLI option through error
 handlers. Existing DI, requests, and success formatting stay unchanged.
 
-JSON keeps backend prose and complete structured recovery lists. Text rewrites
+JSON keeps backend prose and complete structured recovery lists, plus the native
+action when the invocation has a matching operand. Text rewrites
 only when identity fields are complete, lists suggestions once, and selects the
 first producer suggestion. Missing fields and unknown codes fall back without
 inventing versions, refs, or retry commands. Quote shell operands and keep
@@ -69,7 +70,7 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
 
 ## Observed completion evidence
 
-- 5,875 unit tests passed; focused recovery, service propagation and actual-tool
+- 5,886 unit tests passed after round 1 fixes; focused recovery, service propagation and actual-tool
   boundary tests pass. Typecheck, build, changed-file lint, plugin checks and
   public-package validation pass.
 - Normal smoke invocations hit an unavailable isolated system keychain.
@@ -80,7 +81,7 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
 - Output character counts (CLI / MCP): npm deps 164 -> 119 / 119 -> 119;
   Go deps 185 -> 129 / 122 -> 137; ref read 440 -> 188 / 398 -> 186;
   ref list 361 -> 178 / 361 -> 186. Full text and judgments are in
-  docs/implementation/version-ref-error-recovery-evidence.md.
+  the PR #485 description.
 - Codex targeted descriptor-only eval succeeded with 10 logical MCP calls,
   79.4 seconds, high-confidence neutral final answer and zero validation
   violations. Claude could not start tool use because its isolated session was
@@ -89,7 +90,7 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
   Main independently fixed it in 004c82f. Merged main without rewriting history;
   the final PR has no separate guide delta or duplicate repair fragment.
 - Nullable version associations belong to recovery records; success-result
-  types stay unchanged. JSON contains facts; native action prose is text-only.
+  types stay unchanged. JSON contains complete backend facts and surface-native action prose.
 - No implementation work is deferred. External review and plan deletion remain
   the coordinator-owned final steps; keep the plan until review is clean.
 
@@ -103,3 +104,33 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
 - Recovery now normalizes surrounding target whitespace before replacing the
   suffix, matching request builders. Regression tests cover padded repository
   and package targets; the final local full suite passes 5,875 tests.
+
+## Coordinator review round 1
+
+All five findings are accepted and verified against code:
+
+1. Repository-snapshot misses with tag suggestions must pass backend prose
+   through, without selecting an older indexed version. Registry alternatives
+   and snapshot-only indexed alternatives retain recovery.
+2. Coordinator decision: JSON includes native actions on both surfaces, including
+   the CLI search error path. Backend facts and prose stay complete.
+3. Match the accepted CLI grammar: grep -s and combined switches, root --no-color,
+   unversioned upgrade-review operands and canonical package casing.
+4. Append an inventory to passthrough prose only for code-diff side/stage context.
+5. Remove legacy navigation recovery branches and duplicate error-constructor
+   fields. These private errors now carry one normalized recovery record.
+
+Regression tests cover each case. Permanent docs record the new behavior; live
+before/after evidence lives only in the PR description. The npm evidence records
+that reachable package surfaces currently provide suggestions only for Go;
+PkgSeer owns the backend fix and this client PR does not implement it.
+
+Round 1 verification: 5,886 unit tests pass, as do typecheck, both package builds,
+changed-file lint, plugin checks, public-package validation, source CLI/MCP
+smokes (file-storage auth handling), and built Node CLI/MCP smokes. Fresh
+production captures confirm native JSON actions on Go and repository-ref errors
+on both surfaces; all four text outputs and measured lengths are unchanged.
+The targeted Codex eval succeeds in 44.6 seconds with seven logical MCP calls,
+a high-confidence neutral answer and no harness warnings. Its trace confirms
+both original misses and successful corrected requests; no quality grade is
+claimed. Coordinator re-review remains outstanding.

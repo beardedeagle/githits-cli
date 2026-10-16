@@ -3488,10 +3488,9 @@ describe("CodeNavigationServiceImpl", () => {
       expect(error).toBeInstanceOf(CodeNavigationVersionNotFoundError);
       const typed = error as CodeNavigationVersionNotFoundError;
       expect(typed.message).toBe("Version 4 is not indexed.");
-      expect(typed.availableVersions).toEqual([
+      expect(typed.recovery.availableVersions).toEqual([
         { version: "5.2.1", ref: "v5.2.1" },
       ]);
-      expect(typed.metadata?.hint).toBe("Use an indexed version.");
     }
   });
 
@@ -3588,16 +3587,16 @@ describe("CodeNavigationServiceImpl", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(CodeNavigationRefNotFoundError);
       const typed = error as CodeNavigationRefNotFoundError;
-      expect(typed.repoUrl).toBe("https://github.com/openai/codex");
-      expect(typed.requestedRef).toBe("1.2.3");
-      expect(typed.availableRefs).toEqual([
-        { ref: "main", version: undefined },
-      ]);
-      expect(typed.suggestedRefs).toEqual([
-        { ref: "codex@1.2.3", version: undefined },
-        { ref: "v1.2.3", version: undefined },
-      ]);
-      expect(typed.metadata?.hint).toBe("Choose one of the indexed refs.");
+      expect(typed.recovery).toMatchObject({
+        code: "REF_NOT_FOUND",
+        repoUrl: "https://github.com/openai/codex",
+        requestedRef: "1.2.3",
+        availableRefs: [{ ref: "main", version: null }],
+        suggestedRefs: [
+          { ref: "codex@1.2.3", version: null },
+          { ref: "v1.2.3", version: null },
+        ],
+      });
     }
   });
 

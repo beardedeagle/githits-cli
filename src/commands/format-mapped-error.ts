@@ -2,6 +2,7 @@ import {
   formatMappedErrorText,
   hasRetryGuidance,
   type MappedError,
+  withVersionRefRecovery,
 } from "@githits/mcp/internal";
 
 const CLI_AUTH_ERROR_MESSAGE =
@@ -91,7 +92,9 @@ function authRemediation(mapped: MappedError): string {
 
 export function buildCliMappedErrorPayload(
   mapped: MappedError,
+  argv: readonly string[] = process.argv.slice(2),
 ): CliErrorPayload {
+  mapped = withVersionRefRecovery(mapped, { syntax: "cli", argv });
   const details =
     mapped.code === "TERMS_ACCEPTANCE_REQUIRED"
       ? { action: CLI_TERMS_ACTION, ...(mapped.details ?? {}) }

@@ -8,7 +8,7 @@
 // Assertion policy:
 //   - Service-sourced success and error fixtures use `toEqual`: both
 //     surfaces route through the same request builder and envelope
-//     shaper, so envelopes are byte-identical.
+//     shaper, so backend facts match; recovery actions use native surface syntax.
 //   - `INVALID_ARGUMENT` fixtures use `toMatchObject`: both surfaces
 //     parse the canonical compact target and run the shared builder
 //     in their handlers. Same envelope shape, potentially
@@ -731,7 +731,7 @@ describe("package_dependencies parity", () => {
     });
   });
 
-  it("PARITY-ERROR-ENVELOPE: VERSION_NOT_FOUND with structured details CLI === MCP", async () => {
+  it("PARITY-ERROR-ENVELOPE: VERSION_NOT_FOUND shares facts with native actions", async () => {
     const error = new PackageIntelligenceVersionNotFoundError(
       "Version 99.0.0 not found",
       "npm:express",
@@ -754,7 +754,15 @@ describe("package_dependencies parity", () => {
       },
       fn as never,
     );
-    expect(cli).toEqual(json);
+    const envelope = json as {
+      details: { action: string; [key: string]: unknown };
+      [key: string]: unknown;
+    };
+    expect(envelope.details.action).toBe(
+      'Retry pkg_deps with target="npm:express@5.2.1".',
+    );
+    const { action: _action, ...facts } = envelope.details;
+    expect(cli).toEqual({ ...envelope, details: facts });
     expect(cli).toMatchObject({
       code: "VERSION_NOT_FOUND",
       retryable: false,

@@ -1678,6 +1678,11 @@ async function runLiveSmoke(env: Record<string, string>): Promise<void> {
       Array.isArray(alternatives) && alternatives.length > 0,
       "recovery probe dropped structured alternatives",
     );
+    assert(
+      typeof details?.action === "string" &&
+        details.action.startsWith(`Try: githits `),
+      "recovery probe JSON missing native action",
+    );
   }
   await runResolveLiveSmoke(env);
   const scopedDiffArgs = [

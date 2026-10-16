@@ -89,7 +89,7 @@ describe("version/ref recovery at actual MCP boundaries", () => {
         ext.available_package_versions,
       );
       expect(json.details.latestVersion).toBe("5.3.0");
-      expect(json.details.action).toBeUndefined();
+      expect(json.details.action).toBe(`Retry ${tool} with ${field}.`);
     },
   );
   it.each(["pkg_info", "resolve_target"])(
@@ -172,6 +172,9 @@ describe("version/ref recovery at actual MCP boundaries", () => {
       expect(json.code).toBe("REF_NOT_FOUND");
       expect(json.details.availableRefs).toEqual(refExt.available_refs);
       expect(json.details.suggestedRefs).toEqual(refExt.suggested_refs);
+      expect(json.details.action).toBe(
+        `Retry ${tool} with ${tool === "grep" ? "targets[0].target" : "target"}="github:expressjs/express@v5.3.0".`,
+      );
     },
   );
 });

@@ -61,7 +61,7 @@ export function mcpMappedErrorResult(
   format?: "text" | "json",
   options?: MappedErrorTextOptions,
 ): ToolResult {
-  if (format !== "json" && options?.recovery)
+  if (options?.recovery)
     mapped = withVersionRefRecovery(mapped, options.recovery);
   const payload = buildMcpErrorPayload(mapped, context);
   return errorResult(
