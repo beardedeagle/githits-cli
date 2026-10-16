@@ -96,5 +96,6 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
 - Initial PR CI rejected three optional constructor fields during MCP declaration
   generation (TS9025), despite local package validation passing. Explicit
   VersionRefRecovery | undefined defaults match existing constructor patterns;
-  the MCP declaration build, publish dry-run package validation and 144 focused
-  tests pass after that correction.
+  the MCP declaration build, publish-validation command and 144 focused tests
+  pass after that correction. The command skipped npm's publish dry run because
+  @githits/mcp@0.30.0 is already published; artifact validation still ran.
