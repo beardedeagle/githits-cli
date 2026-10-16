@@ -154,6 +154,24 @@ describe("native version/ref recovery", () => {
       "Try: githits read --repo-url https://github.com/expressjs/express --git-ref v5.3.0 github:expressjs/express@bad",
     );
   });
+  it("uses the same accepted target whitespace normalization as request builders", () => {
+    expect(
+      withVersionRefRecovery(ref, {
+        syntax: "mcp",
+        tool: "list",
+        args: { target: "  github:expressjs/express@bad  " },
+      }).details?.action,
+    ).toBe('Retry list with target="github:expressjs/express@v5.3.0".');
+    expect(
+      withVersionRefRecovery(version, {
+        syntax: "mcp",
+        tool: "pkg_deps",
+        args: { target: "  go:github.com/docker/docker@v20.10.0  " },
+      }).details?.action,
+    ).toBe(
+      'Retry pkg_deps with target="go:github.com/docker/docker@v20.10.0+incompatible".',
+    );
+  });
   it("handles canonical Go normalization and preserves symbol suffixes", () => {
     const result = withVersionRefRecovery(version, {
       syntax: "mcp",

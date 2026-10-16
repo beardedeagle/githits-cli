@@ -69,7 +69,7 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
 
 ## Observed completion evidence
 
-- 5,874 unit tests passed; focused recovery, service propagation and actual-tool
+- 5,875 unit tests passed; focused recovery, service propagation and actual-tool
   boundary tests pass. Typecheck, build, changed-file lint, plugin checks and
   public-package validation pass.
 - Normal smoke invocations hit an unavailable isolated system keychain.
@@ -99,3 +99,7 @@ pkg vulns/deps/changelog version-error renderers as part of the shared formatter
   the MCP declaration build, publish-validation command and 144 focused tests
   pass after that correction. The command skipped npm's publish dry run because
   @githits/mcp@0.30.0 is already published; artifact validation still ran.
+
+- Recovery now normalizes surrounding target whitespace before replacing the
+  suffix, matching request builders. Regression tests cover padded repository
+  and package targets; the final local full suite passes 5,875 tests.

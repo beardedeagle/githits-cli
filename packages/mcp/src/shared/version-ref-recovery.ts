@@ -114,9 +114,10 @@ function replaceTarget(
   suggestion: string,
 ): string {
   const d = mapped.details ?? {};
-  const hash = value.indexOf("#");
-  const base = hash < 0 ? value : value.slice(0, hash);
-  const fragment = hash < 0 ? "" : value.slice(hash);
+  const normalized = value.trim();
+  const hash = normalized.indexOf("#");
+  const base = hash < 0 ? normalized : normalized.slice(0, hash);
+  const fragment = hash < 0 ? "" : normalized.slice(hash);
   if (
     mapped.code === "VERSION_NOT_FOUND" &&
     d.package &&

@@ -23,7 +23,7 @@ Both output modes keep the original backend message. The Go registry suggestion 
 
 ## Verification
 
-- `bun test`: 5,874 passed, zero failed.
+- `bun test`: 5,875 passed, zero failed.
 - TypeScript, changed-file lint, build, plugin generation/check and public-package validation passed.
 - `GITHITS_AUTH_STORAGE=file bun run smoke:cli` and `GITHITS_AUTH_STORAGE=file bun run smoke:mcp`: passed unauthenticated handling; isolated live cohorts skipped with AUTH_REQUIRED. The plain invocations first failed because the isolated system keychain was unavailable; no auth code was changed.
 - Direct authenticated production CLI/local MCP captures above exercised all four error cases in text and JSON. The live smoke definitions now include Go version and repository ref recovery assertions for authenticated runs.
