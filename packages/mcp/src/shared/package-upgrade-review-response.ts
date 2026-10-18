@@ -24,6 +24,7 @@ import { sanitizeTerminalText, wrapTerminalProse } from "./terminal-text.js";
 import {
   formatAssessmentUncertainty,
   formatVulnerabilityAssessmentReason,
+  isAssessmentStatusImplied,
 } from "./vulnerability-assessment.js";
 
 export type VersionDelta =
@@ -248,7 +249,7 @@ function normaliseBackendUpgradeReviewResponse(
         ? normaliseBackendDependencyChanges(review.dependencyChanges)
         : undefined,
       dependencyIssues: review.dependencyIssues,
-      unknowns: (review.unknownDetails ?? []).map((detail) => detail.message),
+      unknowns: review.unknowns,
       unknownDetails: review.unknownDetails,
     })),
   };
@@ -299,8 +300,13 @@ function normaliseBackendAdvisory(
   advisory: BackendPackageUpgradeReviewResponse["reviews"][number]["security"]["added"][number],
 ): UpgradeAdvisorySummary {
   return {
-    assessmentStatus: advisory.assessmentStatus,
-    assessmentReasons: advisory.assessmentReasons,
+    // Every upgrade list contains advisories affected on a comparison side.
+    assessmentStatus: isAssessmentStatusImplied(advisory.assessmentStatus, true)
+      ? undefined
+      : advisory.assessmentStatus,
+    assessmentReasons: advisory.assessmentReasons?.length
+      ? advisory.assessmentReasons
+      : undefined,
     id: advisory.id,
     aliases: advisory.aliases,
     summary: advisory.summary,
@@ -566,7 +572,7 @@ export function formatPackageUpgradeReviewTerminal(
         lines,
         formatDependencyIssuesSection(review.dependencyIssues, options),
       );
-    if (review.unknowns.length > 0 || review.unknownDetails?.length) {
+    if (review.unknownDetails?.length) {
       const unknownLines = [
         attentionSectionTitle("Unknown evidence", useColors),
       ];
@@ -579,10 +585,6 @@ export function formatPackageUpgradeReviewTerminal(
           width,
           "    ",
         );
-      }
-      for (const unknown of review.unknowns) {
-        if (!details.some((detail) => detail.message === unknown))
-          appendWrappedText(unknownLines, "  - ", unknown, width, "    ");
       }
       appendSection(lines, unknownLines);
     }
@@ -752,7 +754,7 @@ function formatVulnerabilitySection(
     const target = `${review.registry}:${review.name}@${summary.version}`;
     const explanation =
       unknown > 0
-        ? `${unknown} of ${summary.allCount} advisories not evaluable`
+        ? `${unknown} of ${summary.allCount} ${summary.allCount === 1 ? "advisory" : "advisories"} not evaluable`
         : uncertainty;
     const action =
       unknown > 0
@@ -855,7 +857,9 @@ function formatAdvisoryProse(advisory: UpgradeAdvisorySummary): string {
     advisory.assessmentStatus,
     true,
   );
-  if (uncertainty !== undefined) parts.push(safeRiskText(uncertainty));
+  // Diff rows have no concrete report on the producer; NOT_ASSESSED adds no evidence.
+  if (uncertainty !== undefined && advisory.assessmentStatus !== "NOT_ASSESSED")
+    parts.push(safeRiskText(uncertainty));
   if (advisory.assessmentReasons?.length)
     parts.push(
       safeRiskText(

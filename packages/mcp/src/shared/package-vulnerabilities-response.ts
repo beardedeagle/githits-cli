@@ -350,11 +350,18 @@ function buildTransitiveOccurrence(
   const lean: LeanTransitiveVulnerabilityOccurrence = {
     resolvedVersion: occurrence.version,
     affectsResolvedVersion: occurrence.affectsResolvedVersion,
-    assessmentStatus: occurrence.assessmentStatus,
     matchedAffectedVersionRanges:
       occurrence.matchedAffectedVersionRanges.slice(),
     fixVersionsAboveResolved: occurrence.fixVersionsAboveResolved.slice(),
   };
+
+  if (
+    !isAssessmentStatusImplied(
+      occurrence.assessmentStatus,
+      occurrence.affectsResolvedVersion,
+    )
+  )
+    lean.assessmentStatus = occurrence.assessmentStatus;
 
   if (advisory.osvId) lean.id = advisory.osvId;
   if (advisory.aliases && advisory.aliases.length > 0) {
@@ -1978,7 +1985,8 @@ function wrapFreeText(
   width: number,
   continuationPrefix = "  ",
 ): string[] {
-  const words = value.split(/\s+/).filter(Boolean);
+  // Keep the native follow-up flag and its value on one line.
+  const words = value.match(/--scope unknown|\S+/g) ?? [];
   if (words.length === 0) return [];
   const lines: string[] = [];
   let current = words[0] ?? "";

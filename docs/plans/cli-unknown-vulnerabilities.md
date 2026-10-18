@@ -136,3 +136,47 @@ three-package compact/verbose upgrade batch; put sizes and excerpts in the PR.
   deriving them in memory from details; unknowns is never separately fetched.
 - Review input `.review-r1.md` is local-only and must not be committed. This is
   a code-finding round, so the plan stays until coordinator re-review is clean.
+
+## Coordinator review round 2
+
+Direction remains sound; all four findings and both nits accepted. Verified the
+backend selects affected advisories for current/target and uses report-less
+advisory summaries for diff lists. Shared upgrade normalization owns lean JSON,
+not service parsing: omit implied AFFECTED and empty reasons on those rows;
+retain NOT_ASSESSED in JSON but omit its uninformative diff prose. Core alone
+derives compatibility unknowns; detailed text uses unknownDetails directly.
+Transitive occurrence JSON follows the direct implied-status rule. Scope flag
+and value remain together when wrapping reconciliation prose. Upgrade totals
+use singular advisory for allCount=1. Rename the release fragment to added and
+record actual text/JSON behavior. No new infrastructure or deferred findings.
+
+Regression tests and live before/after JSON sizes will verify these changes.
+Keep this plan for the next coordinator round; review inputs remain untracked.
+
+### Round 2 evidence
+
+- Focused formatter and actual CLI/MCP JSON parity tests: 175 pass, zero fail.
+  The first full run had 5938 passes and three failures: one stale service mock
+  (now supplies core-owned unknowns), a 200 ms subprocess startup race and a
+  five-second CLI subprocess timeout under host load above 180. Both subprocess
+  cases pass unchanged in isolation. Final-tree full-suite and CI results are
+  reported on PR #486; no deadlines or product code were changed for host load.
+- Typecheck, changed-file Biome and public-package build/validation pass.
+  Source smoke passes unauthenticated with live cohorts explicitly skipped;
+  both secret-free built smoke suites pass.
+- Authenticated built CLI/MCP upgrade JSON parity passes. The real three-package
+  batch drops from 71000 to 67278 JSON characters: exactly 52 implied statuses
+  and 94 empty reason arrays removed, with all other parsed evidence equal.
+  Compact text stays 3069 characters; verbose text drops 12399 -> 11448.
+- Transitive ALL live CLI/MCP evidence matches apart from per-request calculatedAt;
+  all 35 returned occurrences follow the implied-status omission rule. Complete
+  unknown-only package support remains outside scope. Direct capture sizes stay
+  equal to round 1; the CLI flag/value now wrap together.
+- Targeted upgrade descriptor eval completed five actual MCP calls in 72.6 s:
+  quick_start, upgrade review, two unknown-scope reports and code_diff. Final
+  answer gave 20 affected / 3 unknown / 8 non-affecting / 31 all on both sides
+  and fully addressed unknown follow-ups. It interpreted the workload's ambiguous
+  "diff" question as source code_diff, so that answer does not validate advisory
+  diff interpretation. Tool-calls/final/metrics inspected; no isolation artifact
+  emitted. Observed behavior only, no quality grade. Run:
+  `.agent-eval/runs/2026-10-18T09-20-27-970Z`.

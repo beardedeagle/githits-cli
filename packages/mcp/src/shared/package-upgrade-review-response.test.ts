@@ -212,7 +212,7 @@ function formatterReview(
   });
   return {
     ...review,
-    unknowns: (review.unknownDetails ?? []).map((detail) => detail.message),
+    unknowns: review.unknowns,
     registry: "npm",
     versionDelta: "minor",
     security: {
@@ -641,8 +641,13 @@ describe("package upgrade review response", () => {
               },
             ],
           },
-          unknowns: [
-            "This is a deliberately long evidence limitation that should wrap beneath its bullet while preserving the backend wording.",
+          unknownDetails: [
+            {
+              section: "SECURITY",
+              code: "incomplete",
+              message:
+                "This is a deliberately long evidence limitation that should wrap beneath its bullet while preserving the backend wording.",
+            },
           ],
         },
       ]),
@@ -1090,6 +1095,7 @@ describe("upgrade unknown vulnerability evidence", () => {
     row.unknownDetails = [
       { section: "SECURITY", code: "future_code", message, retryable: false },
     ];
+    row.unknowns = [message];
     Object.assign(row.security.target!, {
       assessmentStatus: "FUTURE_STATUS",
       unknownVulnerabilityCount: 3,
@@ -1202,5 +1208,108 @@ describe("reviewed upgrade uncertainty", () => {
     });
     expect(verbose.split(message)).toHaveLength(2);
     expect(verbose).not.toContain("    Unknown:");
+  });
+});
+
+describe("round 2 upgrade evidence", () => {
+  it("compacts affected advisory JSON on both comparison sides and diff lists", async () => {
+    const backend = structuredClone(backendResponse);
+    const row = backend.reviews[0]!;
+    const advisory = {
+      ...row.security.added[0]!,
+      assessmentStatus: "AFFECTED",
+      assessmentReasons: [],
+    };
+    row.security.current!.advisories = [advisory];
+    row.security.target!.advisories = [advisory];
+    for (const key of [
+      "added",
+      "removed",
+      "notAddressed",
+      "fixed",
+      "introduced",
+      "unchanged",
+    ] as const)
+      row.security[key] = [advisory];
+    // The normalizer passes the service-owned compatibility field through.
+    row.unknowns = ["owned by core"];
+    const request = buildPackageUpgradeReviewRequest({
+      registry: "npm",
+      packageName: "zod",
+      currentVersion: "4.3.6",
+      targetVersion: "4.4.3",
+    });
+    const result = await buildPackageUpgradeReview(
+      createMockPackageIntelligenceService({
+        packageUpgradeReview: mock(async () => backend),
+      }),
+      request.packages,
+      request.options,
+    );
+    const security = result.reviews[0]!.security;
+    const { assessmentStatus, assessmentReasons, ...expected } = {
+      ...advisory,
+      severityLabel: "high",
+    };
+    const lean = JSON.stringify(expected);
+    for (const actual of [
+      security.current!.advisories![0],
+      security.target!.advisories![0],
+      ...[
+        "added",
+        "removed",
+        "notAddressed",
+        "fixed",
+        "introduced",
+        "unchanged",
+      ].map((key) => security[key as "added"][0]),
+    ]) {
+      expect(JSON.stringify(actual)).toBe(lean);
+      expect(JSON.stringify(advisory).length - lean.length).toBe(
+        ',"assessmentStatus":"AFFECTED","assessmentReasons":[]'.length,
+      );
+    }
+    expect(result.reviews[0]!.unknowns).toEqual(["owned by core"]);
+  });
+  it("omits producer NOT_ASSESSED prose on still-present rows while retaining JSON evidence", async () => {
+    const backend = structuredClone(backendResponse);
+    backend.reviews[0]!.security.notAddressed = [
+      {
+        ...backend.reviews[0]!.security.added[0]!,
+        assessmentStatus: "NOT_ASSESSED",
+        assessmentReasons: [],
+      },
+    ];
+    const request = buildPackageUpgradeReviewRequest({
+      registry: "npm",
+      packageName: "zod",
+      currentVersion: "4.3.6",
+      targetVersion: "4.4.3",
+    });
+    const result = await buildPackageUpgradeReview(
+      createMockPackageIntelligenceService({
+        packageUpgradeReview: mock(async () => backend),
+      }),
+      request.packages,
+      request.options,
+    );
+    const text = formatPackageUpgradeReviewTerminal(result);
+    expect(text).toContain("Still present");
+    expect(text).toContain("GHSA-new");
+    expect(text).not.toContain("no concrete version assessed");
+    expect(result.reviews[0]!.security.notAddressed[0]!.assessmentStatus).toBe(
+      "NOT_ASSESSED",
+    );
+    expect(JSON.stringify(result)).not.toContain('"assessmentReasons":[]');
+  });
+  it("uses singular advisory for a corpus of one", () => {
+    const row = formatterReview();
+    Object.assign(row.security.target!, {
+      unknownVulnerabilityCount: 1,
+      allCount: 1,
+    });
+    expect(
+      formatPackageUpgradeReviewTerminal(formatterResponse([row])),
+    ).toContain("1 of 1 advisory not evaluable");
   });
 });

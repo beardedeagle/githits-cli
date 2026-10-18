@@ -368,10 +368,17 @@ so they appear once. Upgrade transitive security shows affected package summarie
 not the occurrence rows used by `pkg vulns --transitive --scope all`.
 
 The query selects `unknownDetails` as the single source of unknown prose. The
-response normalizer derives the public JSON `unknowns` array from detail messages,
-retaining its existing shape without fetching duplicate text. The public core
-client also preserves its legacy `unknowns` property in memory from those details. Details retain the
+core service derives its compatibility `unknowns` array from detail messages;
+the response normalizer passes it through without deriving or deduplicating it
+again. Detailed text renders `unknownDetails` alone. Details retain the
 backend section, arbitrary code, message and optional retryability. Text renders
 section/code/message generically, including future codes and version suggestions.
 Retryability is selected only for JSON; advisory assessment detail is omitted
 from compact batch queries.
+
+Advisory lists contain affected advisories from a comparison side, so JSON omits
+implied AFFECTED status and empty assessment-reason arrays on current/target and
+diff rows. Other statuses and nonempty reasons remain explicit. Diff text omits
+NOT_ASSESSED because the producer builds these rows without a concrete report;
+it does not establish uncertainty about their comparison-side affectedness. The
+raw status stays in JSON. Other non-implied statuses still appear in diff text.

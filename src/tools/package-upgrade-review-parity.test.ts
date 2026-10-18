@@ -267,6 +267,7 @@ describe("package_upgrade_review parity", () => {
               name: "zod",
               currentVersion: "4.3.6",
               targetVersion: "4.4.3",
+              unknowns: ["vulnerability check failed: backend timeout"],
               unknownDetails: [
                 {
                   section: "SECURITY",

@@ -2570,3 +2570,52 @@ it("retains a future cluster status rather than replacing it with a confirmed ne
   ]);
   expect(rows[0]?.assessmentStatus).toBe("FUTURE_STATUS");
 });
+
+describe("round 2 occurrence evidence", () => {
+  it.each([
+    ["AFFECTED", true, undefined],
+    ["NON_AFFECTING", false, undefined],
+    ["UNKNOWN", false, "UNKNOWN"],
+    ["FUTURE_STATUS", false, "FUTURE_STATUS"],
+    ["AFFECTED", false, "AFFECTED"],
+  ] as const)(
+    "preserves only non-implied occurrence status %s",
+    (status, affected, expected) => {
+      const report = transitiveVulnerabilityFixture();
+      report.transitive!.advisoryScope = "ALL";
+      for (const pkg of report.transitive!.packages)
+        for (const occurrence of pkg.occurrences)
+          Object.assign(occurrence, {
+            assessmentStatus: status,
+            affectsResolvedVersion: affected,
+          });
+      const payload = JSON.parse(
+        JSON.stringify(buildPackageVulnerabilitiesSuccessPayload(report)),
+      );
+      for (const pkg of payload.transitive.packages)
+        for (const occurrence of pkg.occurrences)
+          expect(occurrence.assessmentStatus).toBe(expected);
+    },
+  );
+  it("keeps the CLI scope flag and value together at 80 columns", () => {
+    const report = cloneFixture();
+    Object.assign(report.security!, {
+      nonAffectingVulnerabilityCount: 8,
+      unknownVulnerabilityCount: 3,
+      allVulnerabilityCount: 31,
+      assessmentStatus: "AFFECTED",
+    });
+    const text = formatPackageVulnerabilitiesTerminal(report, {
+      terminalWidth: 80,
+    });
+    expect(
+      text.split("\n").some((line) => line.includes("--scope unknown")),
+    ).toBe(true);
+    const start = text.indexOf("8 non-affecting");
+    const lines = text.slice(start).split("\n").slice(0, 2);
+    expect(lines.every((line) => line.length <= 80)).toBe(true);
+    expect(lines.join(" ").replace(/\s+/g, " ")).toContain(
+      "8 non-affecting | 3 unknown | 31 all; unknown = not evaluable, list with --scope unknown",
+    );
+  });
+});
