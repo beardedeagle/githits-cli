@@ -837,11 +837,13 @@ describe("direct unknown JSON parity", () => {
     );
     expect(cli).toMatchObject({
       code: "INVALID_ARGUMENT",
-      error: "Unknown advisory scope is supported for direct reports only.",
+      error:
+        "--scope unknown is available for direct reports only; drop --transitive or use --scope affected, non_affecting or all.",
     });
     expect(mcp.json).toMatchObject({
       code: "INVALID_ARGUMENT",
-      error: "Unknown advisory scope is supported for direct reports only.",
+      error:
+        'advisory_scope="unknown" is available for direct reports only; omit include_transitive or use advisory_scope="affected", "non_affecting" or "all".',
     });
     expect(call).not.toHaveBeenCalled();
   });

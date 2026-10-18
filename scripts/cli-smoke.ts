@@ -2039,10 +2039,6 @@ async function runLiveSmoke(env: Record<string, string>): Promise<void> {
     unknownVulnsText.includes("Scope   unknown"),
     "pkg vulns unknown scope missing scope echo",
   );
-  assert(
-    unknownVulnsText.includes("Assessment "),
-    "pkg vulns missing assessment status",
-  );
   const unknownVulnsJson = assertJsonOutput(
     await runCli([
       "pkg",
@@ -2079,7 +2075,7 @@ async function runLiveSmoke(env: Record<string, string>): Promise<void> {
     "INVALID_ARGUMENT",
   );
   assert(
-    transitiveUnknown.stderr.includes("supported for direct reports only"),
+    transitiveUnknown.stderr.includes("available for direct reports only"),
     "pkg vulns transitive unknown missing guidance",
   );
 

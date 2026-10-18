@@ -354,16 +354,24 @@ preparation, not an unpublished behavior change in this feature PR.
 
 ## Unknown vulnerability evidence
 
-Direct current/target summaries retain `unknownVulnerabilityCount` and
-`assessmentStatus` in JSON. Text shows assessment status and scope counts, with a
-nonzero unknown count and a native direct-vulnerability follow-up. Compact batch
-triage includes unknown advisory counts and assessment statuses. Retained advisory
-assessment status/reasons are preserved in JSON and detailed text, so incomplete
-target evidence is not described as a confirmed negative.
+Direct current/target JSON summaries retain `unknownVulnerabilityCount` and
+`assessmentStatus`. Detailed text adds a Current/Target assessment line only for
+unknown advisories or a non-implied status. Unknown totals include the all-count
+and a complete package/version target in CLI or MCP follow-up syntax. Implied
+AFFECTED/NON_AFFECTING statuses add no text. Status-only uncertainty is explained
+in human words; future backend status values remain verbatim.
 
-`unknownDetails` retains the backend section, arbitrary code, message and optional
-retryability. Text renders section/code/message without dispatching on the code;
-new codes need no client release for their messages (including version suggestions)
-to be visible. An identical message in legacy `unknowns` is shown only once.
-Compact batch rows include generic detail messages too. Retryability is selected
-only for JSON; advisory assessment detail is omitted from compact batch queries.
+Compact batch triage shows unknown advisory counts and non-implied uncertainty,
+omitting redundant statuses. Generic unknown-detail messages appear below compact
+rows. Verbose batches reserve those messages for each package's detailed report,
+so they appear once. Upgrade transitive security shows affected package summaries,
+not the occurrence rows used by `pkg vulns --transitive --scope all`.
+
+The query selects `unknownDetails` as the single source of unknown prose. The
+response normalizer derives the public JSON `unknowns` array from detail messages,
+retaining its existing shape without fetching duplicate text. The public core
+client also preserves its legacy `unknowns` property in memory from those details. Details retain the
+backend section, arbitrary code, message and optional retryability. Text renders
+section/code/message generically, including future codes and version suggestions.
+Retryability is selected only for JSON; advisory assessment detail is omitted
+from compact batch queries.

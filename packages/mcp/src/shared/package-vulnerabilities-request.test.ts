@@ -346,6 +346,8 @@ describe("unknown advisory scope", () => {
         advisoryScope: "unknown",
         includeTransitive: true,
       }),
-    ).toThrow("Unknown advisory scope is supported for direct reports only.");
+    ).toThrow(
+      "--scope unknown is available for direct reports only; drop --transitive or use --scope affected, non_affecting or all.",
+    );
   });
 });

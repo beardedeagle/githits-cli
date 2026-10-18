@@ -1123,9 +1123,46 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
         advisoryScope: "UNKNOWN",
         includeTransitive: true,
       }),
-    ).rejects.toThrow("supported for direct reports only");
+    ).rejects.toThrow("available for direct reports only");
     expect(fetchFn).not.toHaveBeenCalled();
   });
+
+  it.each(["AFFECTED", "NON_AFFECTING", "ALL"] as const)(
+    "selects transitive assessment status only for ALL: %s",
+    async (scope) => {
+      const body = mutableTransitiveAuditBody();
+      for (const pkg of body.data.packageDependencies.dependencies.transitive
+        .vulnerabilitySummary!.packages) {
+        for (const row of pkg.advisoryOccurrences) {
+          if (scope === "NON_AFFECTING" || scope === "ALL") {
+            Object.assign(row, {
+              affectsResolvedVersion: false,
+              matchedAffectedVersionRanges: [],
+              fixVersionsAboveResolved: [],
+              nearestFixedVersion: null,
+              assessmentStatus: scope === "ALL" ? "UNKNOWN" : "NON_AFFECTING",
+            });
+          }
+        }
+      }
+      const { service, fetchFn } = createAuditService(body);
+      const result = await service.packageVulnerabilities({
+        registry: "NPM",
+        packageName: "express",
+        includeTransitive: true,
+        advisoryScope: scope,
+      });
+      const calls = fetchFn.mock.calls as unknown as Array<
+        [string, RequestInit]
+      >;
+      const query = JSON.parse(String(calls[1]?.[1]?.body)).query;
+      expect(query.includes("assessmentStatus")).toBe(scope === "ALL");
+      if (scope === "ALL")
+        expect(
+          result.transitive?.packages[0]?.occurrences[0]?.assessmentStatus,
+        ).toBe("UNKNOWN");
+    },
+  );
 
   it("maps a happy-path response to VulnerabilityReport", async () => {
     const fetchFn = mock(() => Promise.resolve(jsonResponse(VULNS_HAPPY_BODY)));

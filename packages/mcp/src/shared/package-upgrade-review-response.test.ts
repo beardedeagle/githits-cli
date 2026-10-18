@@ -187,6 +187,13 @@ const backendResponse: PackageUpgradeReviewResponse = {
         introducedOutdated: [],
       },
       unknowns: ["changelog evidence incomplete"],
+      unknownDetails: [
+        {
+          section: "CHANGELOG",
+          code: "incomplete",
+          message: "changelog evidence incomplete",
+        },
+      ],
     },
   ],
 };
@@ -205,6 +212,7 @@ function formatterReview(
   });
   return {
     ...review,
+    unknowns: (review.unknownDetails ?? []).map((detail) => detail.message),
     registry: "npm",
     versionDelta: "minor",
     security: {
@@ -1079,7 +1087,6 @@ describe("upgrade unknown vulnerability evidence", () => {
     const backend = structuredClone(backendResponse);
     const row = backend.reviews[0]!;
     const message = "Unavailable version. Did you mean 4.4.3?";
-    row.unknowns = [message];
     row.unknownDetails = [
       { section: "SECURITY", code: "future_code", message, retryable: false },
     ];
@@ -1107,6 +1114,7 @@ describe("upgrade unknown vulnerability evidence", () => {
     );
     const json = JSON.parse(JSON.stringify(result));
     expect(json.reviews[0].unknownDetails).toEqual(row.unknownDetails);
+    expect(json.reviews[0].unknowns).toEqual([message]);
     expect(json.reviews[0].security.target).toMatchObject({
       assessmentStatus: "FUTURE_STATUS",
       unknownVulnerabilityCount: 3,
@@ -1120,10 +1128,8 @@ describe("upgrade unknown vulnerability evidence", () => {
         surface,
         terminalWidth: 200,
       });
-      expect(text).toContain("Assessment FUTURE_STATUS");
-      expect(text).toContain(
-        "Target unknown: 3 advisories could not be evaluated for this version",
-      );
+      expect(text).toContain("FUTURE_STATUS");
+      expect(text).toContain("Target: 3 of 4 advisories not evaluable");
       expect(text).toContain(
         surface === "mcp" ? 'advisory_scope="unknown"' : "--scope unknown",
       );
@@ -1136,9 +1142,65 @@ describe("upgrade unknown vulnerability evidence", () => {
   it("shows unknown advisory counts in compact batch triage", () => {
     const row = formatterReview();
     row.security.target!.unknownVulnerabilityCount = 2;
+    row.security.target!.assessmentStatus = "FUTURE_STATUS";
     const text = formatPackageUpgradeReviewTerminal(
       formatterResponse([row, { ...row, name: "second" }]),
     );
-    expect(text).toContain("0 -> 2 unknown advisories");
+    expect(text).toContain("? -> 2 unknown advisories");
+    expect(text).toContain("FUTURE_STATUS");
+  });
+});
+
+describe("reviewed upgrade uncertainty", () => {
+  it("omits implied assessment lines and uses fully addressed native hints", () => {
+    const row = formatterReview();
+    Object.assign(row.security.current!, {
+      assessmentStatus: "NON_AFFECTING",
+      affectedCount: 0,
+      unknownVulnerabilityCount: 0,
+    });
+    Object.assign(row.security.target!, {
+      assessmentStatus: "AFFECTED",
+      affectedCount: 1,
+      unknownVulnerabilityCount: 0,
+    });
+    let text = formatPackageUpgradeReviewTerminal(formatterResponse([row]));
+    expect(text).not.toContain("Current: Assessment");
+    expect(text).not.toContain("Target: Assessment");
+    expect(text).not.toContain("advisories not evaluable");
+    Object.assign(row.security.target!, {
+      unknownVulnerabilityCount: 3,
+      allCount: 31,
+    });
+    for (const surface of ["cli", "mcp"] as const) {
+      text = formatPackageUpgradeReviewTerminal(formatterResponse([row]), {
+        surface,
+        terminalWidth: 200,
+      });
+      expect(text).toContain("Target: 3 of 31 advisories not evaluable");
+      expect(text).toContain(
+        surface === "mcp"
+          ? 'pkg_vulns target="npm:zod@4.4.3" advisory_scope="unknown"'
+          : "pkg vulns npm:zod@4.4.3 --scope unknown",
+      );
+      expect(text).not.toContain("Assessment AFFECTED");
+    }
+  });
+  it("does not repeat generic detail messages in verbose batch triage", () => {
+    const row = formatterReview();
+    const message = "Unique incomplete evidence message";
+    row.unknownDetails = [{ section: "SECURITY", code: "future", message }];
+    row.unknowns = [message];
+    const response = formatterResponse([
+      row,
+      { ...formatterReview(), name: "second" },
+    ]);
+    const compact = formatPackageUpgradeReviewTerminal(response);
+    expect(compact.split(message)).toHaveLength(2);
+    const verbose = formatPackageUpgradeReviewTerminal(response, {
+      verbose: true,
+    });
+    expect(verbose.split(message)).toHaveLength(2);
+    expect(verbose).not.toContain("    Unknown:");
   });
 });

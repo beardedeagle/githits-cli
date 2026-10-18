@@ -640,6 +640,9 @@ describe("upgrade assessment evidence", () => {
     const { run, requests } = setup([body]);
     const result = await run();
     expect(result.reviews[0]?.unknownDetails).toEqual(unknownDetails);
+    expect(result.reviews[0]?.unknowns).toEqual(
+      unknownDetails.map((detail) => detail.message),
+    );
     expect(result.reviews[0]?.security.current).toMatchObject({
       unknownVulnerabilityCount: 2,
       assessmentStatus: "FUTURE_STATUS",
@@ -681,5 +684,21 @@ describe("assessment projection breadth", () => {
     expect(
       packageUpgradeReviewQuery({ ...params, changelogView: "json" }),
     ).toContain("retryable");
+  });
+});
+
+describe("upgrade unknown-message fetching", () => {
+  it("selects one source for unknown prose across every view", () => {
+    for (const changelogView of ["text", "triage", "json"] as const) {
+      const query = packageUpgradeReviewQuery({
+        packages: [identity],
+        includeTransitiveSecurity: false,
+        includeDependencyIssues: false,
+        changelogLimit: 20,
+        changelogView,
+      });
+      expect(query).not.toMatch(/\bunknowns\b/);
+      expect(query).toMatch(/unknownDetails\s*\{\s*section code message/);
+    }
   });
 });

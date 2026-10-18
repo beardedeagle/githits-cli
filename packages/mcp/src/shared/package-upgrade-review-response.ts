@@ -21,7 +21,10 @@ import type {
   UpgradeReviewPackageRequest,
 } from "./package-upgrade-review-request.js";
 import { sanitizeTerminalText, wrapTerminalProse } from "./terminal-text.js";
-import { formatVulnerabilityAssessmentReason } from "./vulnerability-assessment.js";
+import {
+  formatAssessmentUncertainty,
+  formatVulnerabilityAssessmentReason,
+} from "./vulnerability-assessment.js";
 
 export type VersionDelta =
   | "patch"
@@ -245,7 +248,7 @@ function normaliseBackendUpgradeReviewResponse(
         ? normaliseBackendDependencyChanges(review.dependencyChanges)
         : undefined,
       dependencyIssues: review.dependencyIssues,
-      unknowns: review.unknowns,
+      unknowns: (review.unknownDetails ?? []).map((detail) => detail.message),
       unknownDetails: review.unknownDetails,
     })),
   };
@@ -542,7 +545,7 @@ export function formatPackageUpgradeReviewTerminal(
         useColors,
       ),
     );
-    appendSection(lines, formatVulnerabilitySection(review.security, options));
+    appendSection(lines, formatVulnerabilitySection(review, options));
     const deprecation = formatDeprecationLine(review, options);
     if (deprecation) appendSection(lines, deprecation);
     appendSection(lines, formatChangesSection(review.changelog, options));
@@ -716,9 +719,10 @@ function formatDeprecationLine(
 }
 
 function formatVulnerabilitySection(
-  security: UpgradeSecurity,
+  review: UpgradeReview,
   options: FormatPackageUpgradeReviewTerminalOptions,
 ): string[] {
+  const security = review.security;
   const current = security.current?.affectedCount ?? "unknown";
   const target = security.target?.affectedCount ?? "unknown";
   const width = normaliseTerminalWidth(options.terminalWidth);
@@ -739,30 +743,40 @@ function formatVulnerabilitySection(
     ["Target", security.target],
   ] as const) {
     if (!summary) continue;
-    const parts: string[] = [];
-    if (summary.assessmentStatus !== undefined)
-      parts.push(`Assessment ${safeRiskText(summary.assessmentStatus)}`);
-    parts.push(
-      `${summary.nonAffectingCount} non-affecting`,
-      `${summary.allCount} all`,
-    );
-    if (parts.length)
-      appendWrappedText(
-        lines,
-        `  ${label}: `,
-        parts.join(" | "),
-        width,
-        "    ",
-      );
     const unknown = summary.unknownVulnerabilityCount ?? 0;
-    if (unknown > 0)
-      appendWrappedText(
-        lines,
-        `  ${label} unknown: `,
-        `${unknown} ${unknown === 1 ? "advisory" : "advisories"} could not be evaluated for this version. ${options.surface === "mcp" ? 'Use pkg_vulns with advisory_scope="unknown"' : "Use pkg vulns --scope unknown"} for ${summary.version}.`,
-        width,
-        "    ",
-      );
+    const uncertainty = formatAssessmentUncertainty(
+      summary.assessmentStatus,
+      summary.affectedCount > 0,
+    );
+    if (unknown === 0 && uncertainty === undefined) continue;
+    const target = `${review.registry}:${review.name}@${summary.version}`;
+    const explanation =
+      unknown > 0
+        ? `${unknown} of ${summary.allCount} advisories not evaluable`
+        : uncertainty;
+    const action =
+      unknown > 0
+        ? options.surface === "mcp"
+          ? `pkg_vulns target="${target}" advisory_scope="unknown"`
+          : `pkg vulns ${target} --scope unknown`
+        : undefined;
+    appendWrappedText(
+      lines,
+      `  ${label}: `,
+      safeRiskText(
+        [
+          explanation,
+          unknown > 0 && summary.assessmentStatus !== "UNKNOWN"
+            ? uncertainty
+            : undefined,
+          action,
+        ]
+          .filter(Boolean)
+          .join("; "),
+      ),
+      width,
+      "    ",
+    );
   }
   lines.push(
     ...formatTransitiveVulnerabilitySummary(security.transitive, options),
@@ -837,11 +851,11 @@ function formatAdvisoryPrefix(advisory: UpgradeAdvisorySummary): string {
 
 function formatAdvisoryProse(advisory: UpgradeAdvisorySummary): string {
   const parts: string[] = [];
-  if (
-    advisory.assessmentStatus !== undefined &&
-    advisory.assessmentStatus !== "AFFECTED"
-  )
-    parts.push(`Assessment ${safeRiskText(advisory.assessmentStatus)}`);
+  const uncertainty = formatAssessmentUncertainty(
+    advisory.assessmentStatus,
+    true,
+  );
+  if (uncertainty !== undefined) parts.push(safeRiskText(uncertainty));
   if (advisory.assessmentReasons?.length)
     parts.push(
       safeRiskText(
@@ -1223,25 +1237,35 @@ function formatBatchTriage(
           ? "not deprecated"
           : "deprecation unknown";
     const transitive = review.security.transitive;
-    const unknownCurrent =
-      review.security.current?.unknownVulnerabilityCount ?? 0;
-    const unknownTarget = target?.unknownVulnerabilityCount ?? 0;
+    const unknownCurrent = review.security.current?.unknownVulnerabilityCount;
+    const unknownTarget = target?.unknownVulnerabilityCount;
     const uncertainty =
-      unknownCurrent > 0 || unknownTarget > 0
-        ? ` / ${unknownCurrent} -> ${unknownTarget} unknown advisories`
+      (unknownCurrent ?? 0) > 0 || (unknownTarget ?? 0) > 0
+        ? ` / ${unknownCurrent ?? "?"} -> ${unknownTarget ?? "?"} unknown advisories`
         : "";
     const assessments = [
-      review.security.current?.assessmentStatus
-        ? `current ${safeRiskText(review.security.current.assessmentStatus)}`
-        : undefined,
-      target?.assessmentStatus
-        ? `target ${safeRiskText(target.assessmentStatus)}`
-        : undefined,
-    ]
+      ["current", review.security.current],
+      ["target", target],
+    ] as const;
+    const assessmentText = assessments
+      .map(([label, summary]) => {
+        if (
+          !summary ||
+          ((summary.unknownVulnerabilityCount ?? 0) > 0 &&
+            summary.assessmentStatus === "UNKNOWN")
+        )
+          return undefined;
+        const uncertainty = formatAssessmentUncertainty(
+          summary.assessmentStatus,
+          summary.affectedCount > 0,
+        );
+        return uncertainty === undefined
+          ? undefined
+          : `${label}: ${safeRiskText(uncertainty)}`;
+      })
       .filter(Boolean)
       .join(" / ");
-    const assessmentText = assessments ? ` / Assessment ${assessments}` : "";
-    const security = `direct vulnerabilities: ${review.security.added.length} added / ${review.security.notAddressed.length} still present${uncertainty}${assessmentText}`;
+    const security = `direct vulnerabilities: ${review.security.added.length} added / ${review.security.notAddressed.length} still present${uncertainty}${assessmentText ? ` / ${assessmentText}` : ""}`;
     const transitiveText = transitive
       ? `transitive: ${transitive.introducedPackageDetailsTotalCount} added / ${transitive.stillAffectedPackageDetailsTotalCount} still affected`
       : "transitive: not checked";
@@ -1263,7 +1287,7 @@ function formatBatchTriage(
     lines.push(
       `  ${safeRiskText(`${review.registry}:${review.name} ${review.currentVersion} -> ${review.targetVersion} (${review.versionDelta})`)} | ${formatRiskTierCount(c, "must_act", "act")} | ${formatRiskTierCount(c, "should_know", "know")} | ${c.riskCoverage.itemsUnclassified} too long to classify | versions: ${riskCoverageText(c)} | ${c.riskCoverage.unitsNoImpact} labeled no impact | ${deprecation} | ${security} | ${transitiveText} | ${c.totalKeywordEntries} keyword entries | ${review.compatibility?.peerDependencyChanges.length ?? "not checked"} peer dependency changes | ${review.compatibility?.notes.length ?? "not checked"} compatibility notes | ${dependencyCount ?? "not checked"} direct dependency changes | ${issueCount ?? "not checked"} dependency issues | ${review.unknowns.length} unknowns`,
     );
-    for (const detail of review.unknownDetails ?? []) {
+    for (const detail of options.verbose ? [] : (review.unknownDetails ?? [])) {
       appendWrappedText(
         lines,
         "    Unknown: ",

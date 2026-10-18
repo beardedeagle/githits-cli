@@ -54,7 +54,9 @@ import { sanitizeTerminalText } from "./terminal-text.js";
 import { terminalWidth as measureTerminalWidth } from "./terminal-width.js";
 import {
   formatAdvisoryAssessment,
+  formatAssessmentUncertainty,
   formatVulnerabilityAssessmentReason,
+  isAssessmentStatusImplied,
 } from "./vulnerability-assessment.js";
 
 export type VulnSeverityLabel = "critical" | "high" | "medium" | "low";
@@ -109,6 +111,7 @@ export interface LeanTransitiveVulnerablePackage {
 }
 
 export interface LeanTransitiveVulnerabilityOccurrence {
+  assessmentStatus?: string;
   resolvedVersion: string;
   affectsResolvedVersion: boolean;
   id?: string;
@@ -347,6 +350,7 @@ function buildTransitiveOccurrence(
   const lean: LeanTransitiveVulnerabilityOccurrence = {
     resolvedVersion: occurrence.version,
     affectsResolvedVersion: occurrence.affectsResolvedVersion,
+    assessmentStatus: occurrence.assessmentStatus,
     matchedAffectedVersionRanges:
       occurrence.matchedAffectedVersionRanges.slice(),
     fixVersionsAboveResolved: occurrence.fixVersionsAboveResolved.slice(),
@@ -676,6 +680,12 @@ function mergeAdvisoryCluster(
   const assessmentReasons = new Set<string>();
   let isMalicious = false;
   let affectsInspectedVersion = false;
+  const assessmentPrecedence: Record<string, number> = {
+    AFFECTED: 3,
+    UNKNOWN: 2,
+    NON_AFFECTING: 1,
+  };
+  let assessmentStatus = canonical.assessmentStatus;
   let affectedVersionRangesTruncated = false;
   let affectedVersionRangesCount = 0;
   // Latest `modifiedAt` wins, but only counts entries that explicitly
@@ -693,6 +703,13 @@ function mergeAdvisoryCluster(
     typeof canonical.severityScore === "number" ? canonical.severityScore : 0;
 
   for (const member of cluster) {
+    if (
+      member.assessmentStatus !== undefined &&
+      (assessmentStatus === undefined ||
+        (assessmentPrecedence[member.assessmentStatus] ?? 2) >
+          (assessmentPrecedence[assessmentStatus] ?? 2))
+    )
+      assessmentStatus = member.assessmentStatus;
     for (const reason of member.assessmentReasons ?? [])
       assessmentReasons.add(reason);
     for (const range of member.affectedVersionRanges ?? []) {
@@ -767,6 +784,8 @@ function mergeAdvisoryCluster(
     merged.matchedAffectedVersionRanges = Array.from(matchedAffectedRangesSet);
   }
   if (affectsInspectedVersion) merged.affectsInspectedVersion = true;
+  if (assessmentStatus !== undefined)
+    merged.assessmentStatus = assessmentStatus;
   if (assessmentReasons.size > 0)
     merged.assessmentReasons = [...assessmentReasons];
   if (duplicateIdsSet.size > 0) {
@@ -869,9 +888,14 @@ function buildAdvisory(advisory: VulnerabilityDetail): LeanAdvisory {
   if (advisory.affectedVersionRangesTruncated === true) {
     lean.affectedVersionRangesTruncated = true;
   }
-  if (advisory.assessmentStatus !== undefined)
+  if (
+    !isAssessmentStatusImplied(
+      advisory.assessmentStatus,
+      advisory.affectsInspectedVersion,
+    )
+  )
     lean.assessmentStatus = advisory.assessmentStatus;
-  if (advisory.assessmentReasons !== undefined)
+  if (advisory.assessmentReasons?.length)
     lean.assessmentReasons = advisory.assessmentReasons.slice();
   if (typeof advisory.affectsInspectedVersion === "boolean") {
     lean.affectsInspectedVersion = advisory.affectsInspectedVersion;
@@ -1066,9 +1090,6 @@ export function formatPackageVulnerabilitiesTerminal(
   if (requestedLine) headerBlock.push(requestedLine);
   headerBlock.push(...filterLines);
   headerBlock.push(formatSummaryLine(payload, useColors));
-  headerBlock.push(
-    ...formatAssessmentLines(payload, surface, options.terminalWidth),
-  );
   const selectedAdvisoryCount = payload.advisories?.length ?? 0;
   const scope = payload.filter?.advisoryScope;
   const selectedCountLine = formatSelectedAdvisoryCountLine(
@@ -1081,6 +1102,9 @@ export function formatPackageVulnerabilitiesTerminal(
       ? formatBreakdownLine(payload.summary, useColors, options.terminalWidth)
       : undefined;
   if (breakdown) headerBlock.push(breakdown);
+  headerBlock.push(
+    ...formatAssessmentLines(payload, surface, options.terminalWidth),
+  );
   blocks.push(headerBlock.join("\n"));
 
   if (payload.advisories && payload.advisories.length > 0) {
@@ -1163,34 +1187,38 @@ function formatAssessmentLines(
   terminalWidth: number | undefined,
 ): string[] {
   const summary = payload.summary;
+  const unknown = summary.unknownVulnerabilityCount ?? 0;
+  const uncertainty = formatAssessmentUncertainty(
+    summary.assessmentStatus,
+    summary.total > 0,
+  );
+  if (unknown === 0 && uncertainty === undefined) return [];
   const parts: string[] = [];
-  if (summary.assessmentStatus !== undefined)
-    parts.push(`Assessment ${sanitizeIdentity(summary.assessmentStatus)}`);
   if (summary.nonAffectingVulnerabilityCount !== undefined)
     parts.push(`${summary.nonAffectingVulnerabilityCount} non-affecting`);
+  if (summary.unknownVulnerabilityCount !== undefined)
+    parts.push(`${summary.unknownVulnerabilityCount} unknown`);
   if (summary.allVulnerabilityCount !== undefined)
     parts.push(`${summary.allVulnerabilityCount} all`);
-  const lines =
-    parts.length > 0
-      ? wrapFreeText(parts.join(" | "), normaliseTerminalWidth(terminalWidth))
-      : [];
-  const unknown = summary.unknownVulnerabilityCount ?? 0;
+  const explanations: string[] = [];
   if (unknown > 0) {
-    const noun = unknown === 1 ? "advisory" : "advisories";
-    const followup =
+    const action =
+      surface === "mcp" ? 'advisory_scope="unknown"' : "--scope unknown";
+    explanations.push(
       payload.filter?.advisoryScope === "unknown"
-        ? "Reasons below."
-        : surface === "mcp"
-          ? 'advisory_scope="unknown".'
-          : "--scope unknown.";
-    lines.push(
-      ...wrapFreeText(
-        `Unknown: ${unknown} ${noun} unevaluated for this version; ${followup}`,
-        normaliseTerminalWidth(terminalWidth),
-      ),
+        ? "unknown = not evaluable; reasons below"
+        : `unknown = not evaluable, list with ${action}`,
     );
   }
-  return lines;
+  if (
+    uncertainty !== undefined &&
+    !(unknown > 0 && summary.assessmentStatus === "UNKNOWN")
+  )
+    explanations.push(sanitizeProse(uncertainty));
+  return wrapFreeText(
+    [parts.join(" | "), ...explanations].filter(Boolean).join("; "),
+    normaliseTerminalWidth(terminalWidth),
+  );
 }
 
 function formatNoAffectedVulnerabilitiesLine(
@@ -1199,8 +1227,7 @@ function formatNoAffectedVulnerabilitiesLine(
   const selectedAdvisoryCount = payload.advisories?.length ?? 0;
   if (
     (payload.summary.unknownVulnerabilityCount ?? 0) > 0 ||
-    (payload.summary.assessmentStatus !== undefined &&
-      payload.summary.assessmentStatus !== "NON_AFFECTING")
+    !isAssessmentStatusImplied(payload.summary.assessmentStatus, false)
   ) {
     return "No confirmed vulnerabilities affect this version.";
   }
@@ -1448,7 +1475,13 @@ function formatAdvisoryLines(
   const pushRow = (label: string, value: string) => {
     lines.push(`    ${label.padEnd(detailWidth)} ${value}`);
   };
-  if (advisory.assessmentReasons?.length) {
+  if (
+    advisory.assessmentReasons?.length &&
+    formatAdvisoryAssessment(
+      advisory.assessmentStatus,
+      advisory.affectsInspectedVersion,
+    ) !== "affects this version"
+  ) {
     pushRow(
       "reason",
       advisory.assessmentReasons
@@ -1461,7 +1494,11 @@ function formatAdvisoryLines(
     pushRow(
       "affected",
       formatRangeList(
-        advisory.affectedRanges,
+        advisory.affectedRanges.map((range) =>
+          range.startsWith("osv-invalid:")
+            ? "(unevaluable source range)"
+            : range,
+        ),
         verbose,
         useColors,
         rangeLimit,
@@ -1623,12 +1660,22 @@ function formatTransitiveSummaryLine(
   }
   if (audit.advisoryScope === "all") {
     const occurrences = audit.packages.flatMap((pkg) => pkg.occurrences);
-    const affected = occurrences.filter(
-      (occurrence) => occurrence.affectsResolvedVersion,
+    const assessments = occurrences.map((occurrence) =>
+      formatAdvisoryAssessment(
+        occurrence.assessmentStatus,
+        occurrence.affectsResolvedVersion,
+      ),
+    );
+    const affected = assessments.filter(
+      (status) => status === "affects this version",
     ).length;
-    const historical = occurrences.length - affected;
+    const historical = assessments.filter(
+      (status) => status === "historical",
+    ).length;
+    const unknown = assessments.length - affected - historical;
+    const unknownText = unknown > 0 ? `, ${unknown} unknown` : "";
     const noun = summary.occurrenceCount === 1 ? "occurrence" : "occurrences";
-    return `${summary.occurrenceCount} advisory ${noun} (${affected} affected, ${historical} historical) in ${summary.packageCount} ${packageNoun}; ${summary.totalPackagesAnalyzed} ${versionNoun} checked.`;
+    return `${summary.occurrenceCount} advisory ${noun} (${affected} affected, ${historical} historical${unknownText}) in ${summary.packageCount} ${packageNoun}; ${summary.totalPackagesAnalyzed} ${versionNoun} checked.`;
   }
   return `${summary.occurrenceCount} ${occurrenceNoun} in ${summary.packageCount} ${packageNoun}; ${summary.totalPackagesAnalyzed} ${versionNoun} checked.`;
 }
@@ -1751,7 +1798,12 @@ function formatTransitiveOccurrence(
   const coordinate = `${sanitizeIdentity(row.name)}@${sanitizeIdentity(occurrence.resolvedVersion)}`;
   const identity = occurrence.id ? sanitizeIdentity(occurrence.id) : undefined;
   const headlineParts = [paddedLabel, coordinate];
-  if (!occurrence.affectsResolvedVersion) headlineParts.push("[historical]");
+  const assessment = formatAdvisoryAssessment(
+    occurrence.assessmentStatus,
+    occurrence.affectsResolvedVersion,
+  );
+  if (assessment !== undefined && assessment !== "affects this version")
+    headlineParts.push(`[${sanitizeIdentity(assessment)}]`);
   if (identity) headlineParts.push(identity);
   const headline = `${TRANSITIVE_ROW_MARGIN}${headlineParts.join(TRANSITIVE_COLUMN_SEPARATOR)}`;
   const lines = formatTransitiveHeadline(

@@ -427,6 +427,7 @@ export interface PackageUpgradeReview {
   compatibility?: PackageUpgradeCompatibility;
   dependencyChanges?: PackageUpgradeDependencyChanges;
   dependencyIssues?: PackageUpgradeDependencyIssues;
+  /** Compatibility field derived from unknownDetails, never selected separately. */
   unknowns: string[];
   unknownDetails?: PackageUpgradeUnknownEvidence[];
 }
@@ -561,6 +562,7 @@ export interface VulnerabilitySummaryDetail {
 }
 
 export interface TransitiveDependencyVulnerability {
+  assessmentStatus?: string;
   version: string;
   affectsResolvedVersion: boolean;
   matchedAffectedVersionRanges: string[];
@@ -1260,6 +1262,7 @@ const transitiveAuditAdvisorySchema = z.object({
 });
 
 const transitiveAuditOccurrenceSchema = z.object({
+  assessmentStatus: z.string().nullable().optional(),
   version: z.string(),
   affectsResolvedVersion: z.boolean(),
   matchedAffectedVersionRanges: z.array(z.string()),
@@ -1426,6 +1429,7 @@ query PackageTransitiveVulnerabilityAudit(
             advisoryOccurrences(scope: $scope, minSeverity: $minSeverity) {
               version
               affectsResolvedVersion
+              ${scope === "ALL" ? "assessmentStatus" : ""}
               matchedAffectedVersionRanges
               fixVersionsAboveResolved
               nearestFixedVersion
@@ -2275,7 +2279,6 @@ const packageUpgradeReviewSchema = z.object({
   compatibility: packageUpgradeCompatibilitySchema,
   dependencyChanges: packageUpgradeDependencyChangesSchema,
   dependencyIssues: packageUpgradeDependencyIssuesSchema,
-  unknowns: z.array(z.string()),
   unknownDetails: z
     .array(
       z.object({
@@ -2475,7 +2478,6 @@ query PackageUpgradeReview(
         introducedConflicts
         introducedOutdated
       }
-      unknowns
       unknownDetails { section code message ${view === "json" ? "retryable" : ""} }
     }
   }
@@ -3283,7 +3285,7 @@ export class PackageIntelligenceServiceImpl
       params.advisoryScope === "UNKNOWN"
     ) {
       throw new PackageIntelligenceValidationError(
-        "Unknown advisory scope is supported for direct reports only.",
+        'Advisory scope "unknown" is available for direct reports only; drop transitive mode or use affected, non_affecting or all.',
       );
     }
     return withServiceDiagnostics(
@@ -3659,6 +3661,7 @@ export class PackageIntelligenceServiceImpl
             return {
               version: occurrence.version,
               affectsResolvedVersion: occurrence.affectsResolvedVersion,
+              assessmentStatus: occurrence.assessmentStatus ?? undefined,
               matchedAffectedVersionRanges:
                 occurrence.matchedAffectedVersionRanges,
               fixVersionsAboveResolved: occurrence.fixVersionsAboveResolved,
@@ -3799,14 +3802,22 @@ export class PackageIntelligenceServiceImpl
       );
     }
 
+    // Preserve the public client response without fetching duplicate message text.
+    const reviews = data.reviews.map((review) => ({
+      ...review,
+      unknowns: (review.unknownDetails ?? []).map((detail) => detail.message),
+    }));
     const detailed = (params.changelogView ?? "text") !== "triage";
     if (!detailed)
-      return stripNullProperties(data) as PackageUpgradeReviewResponse;
+      return stripNullProperties({
+        ...data,
+        reviews,
+      }) as PackageUpgradeReviewResponse;
     const result: PackageUpgradeReviewResponse = {
       summary: data.summary,
       reviews: [],
     };
-    for (const review of data.reviews) {
+    for (const review of reviews) {
       const page = review.changelog.statements;
       if (
         !page ||

@@ -1,6 +1,6 @@
 # Direct unknown vulnerability evidence
 
-Status: implementation complete; verification passed; coordinator review pending.
+Status: round 1 fixes implemented; coordinator re-review pending.
 
 ## Outcome and verified contracts
 
@@ -56,9 +56,9 @@ CLI/MCP without reading credentials.
 
 - Production data matches the brief: torch 20 affected + 8 non-affecting + 3
   unknown = 31 all; tensorflow 384 + 49 + 1 = 434; lodash 5 + 5 + 0 = 10.
-- Complete before/after text and JSON summary excerpts, sizes and UX judgments
-  are in `docs/implementation/package-vulnerability-assessment-evidence.md`.
-  Full captures remain under `/tmp/githits-unknown-vulns-evidence` locally.
+- Full captures remain under `/tmp/githits-unknown-vulns-evidence` locally.
+  PR #486 owns the dated before/after measurements and excerpts; permanent
+  contracts are in `docs/implementation/package-vulnerability-assessments.md`.
 - Direct unknown live assertions pass for all three packages on CLI and local
   MCP: JSON equality, count reconciliation, complete unknown rows/reasons, and
   rejection of transitive unknown scope. A live torch 2.2.0 -> 2.2.1 review
@@ -82,3 +82,55 @@ CLI/MCP without reading credentials.
 - Keep this plan through coordinator review. After review is clean, delete this
   plan in a final commit in this PR; durable documentation/backlog already hold
   the lasting contract, evidence and deferred work.
+
+## Coordinator review round 1
+
+Status: fixes implemented and targeted verification passed; full CI evidence lives on PR #486.
+
+All ten items accepted. JSON drops implied row statuses and empty reasons;
+normal no-unknown text is unchanged and severity breakdown ordering is restored.
+Uncertainty uses one logical reconciliation line and human status wording.
+Confirmed-affected prose omits reason rows; raw invalid range markers have human
+text while JSON retains source evidence. Cluster merging uses status precedence.
+
+Transitive ALL fetches occurrence status and separates unknown from historical
+within returned rows, without claiming complete unknown-only package coverage.
+Upgrade transitive output has no corresponding occurrence labels to correct:
+it displays affected package summaries. Direct upgrade hints carry full targets,
+implied statuses disappear, and verbose triage skips duplicate detail messages.
+Unknown prose is fetched once from unknownDetails and public JSON unknowns is
+derived from those messages. Errors use CLI/MCP-native recovery syntax.
+
+Release fragments now request minor impact for both public artifacts, as the
+coordinator directed for additive scope values and JSON fields. Permanent docs
+retain contracts and verification methods; dated captures were removed from the
+repository. Remeasure direct outputs against the original baseline and a real
+three-package compact/verbose upgrade batch; put sizes and excerpts in the PR.
+
+### Round 1 evidence
+
+- Direct text / MCP text / CLI JSON / MCP JSON character counts are now torch
+  4531 / 1270 / 11208 / 11207; tensorflow 99894 / 1647 / 247338 / 247337;
+  lodash 1002 / 1001 / 2287 / 2286. Baseline and current excerpts are in PR #486.
+- A real three-package batch (torch 2.2.0 -> 2.2.1, lodash 4.17.20 -> 4.17.21,
+  express 4.17.1 -> 4.18.2; transitive disabled) shrank from 3213 to 3069
+  characters compact, and 13855 to 12399 verbose. Repeated target vulnerability
+  details in verbose output fell from two to one.
+- Latest focused formatter/projection tests: 196 pass, zero fail. Typecheck,
+  changed-code Biome and public-package validation pass. Source CLI/MCP smoke
+  pass in unauthenticated mode; affected live paths are checked separately.
+- The broad local run reached 5924 passes but had eight five-second timeouts
+  and a child-exit error under measured host load above 300 on ten logical CPUs.
+  These were unrelated process/harness tests, not assessment assertion failures.
+  Do not change product timers or weaken tests to mask host contention. Full
+  default-timeout Linux/Windows verification is recorded in PR #486 checks.
+- Targeted descriptor eval completed with three actual MCP calls: quick_start,
+  pkg_vulns(all), pkg_vulns(unknown). It reported the 20/8/3/31 counts and the
+  unknown/non-affecting distinction with high confidence. Tool-calls, final and
+  metrics were inspected; no isolation-violations artifact was emitted. This
+  records observed behavior, not a graded quality result. Run:
+  `.agent-eval/runs/2026-10-18T08-51-22-358Z`.
+- The core client and CLI/MCP JSON keep their existing unknowns fields by
+  deriving them in memory from details; unknowns is never separately fetched.
+- Review input `.review-r1.md` is local-only and must not be committed. This is
+  a code-finding round, so the plan stays until coordinator re-review is clean.

@@ -97,6 +97,7 @@ export function createPackageVulnerabilitiesTool(
         const target = parsePackageSpec(args.target.trim());
         const { params: builtParams, filter } =
           buildPackageVulnerabilitiesParams({
+            surface: "mcp",
             registry: target.registry,
             packageName: target.name,
             version: target.version,

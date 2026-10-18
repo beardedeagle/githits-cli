@@ -1304,10 +1304,6 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
     unknownVulnsText.includes("Scope   unknown"),
     "pkg_vulns unknown scope missing scope echo",
   );
-  assert(
-    unknownVulnsText.includes("Assessment "),
-    "pkg_vulns missing assessment status",
-  );
   const unknownVulnsJson = assertJsonResult(
     await callTool(caller, "pkg_vulns", {
       target: "npm:lodash@4.17.20",
@@ -1340,7 +1336,7 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
     "pkg_vulns transitive unknown must be invalid",
   );
   assert(
-    transitiveUnknownError.error.includes("supported for direct reports only"),
+    transitiveUnknownError.error.includes("available for direct reports only"),
     "pkg_vulns transitive unknown missing guidance",
   );
 

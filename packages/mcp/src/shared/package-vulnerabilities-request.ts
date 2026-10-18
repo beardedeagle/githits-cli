@@ -76,6 +76,8 @@ export const SEVERITY_LABEL_TO_CVSS: Readonly<Record<SeverityLabel, number>> = {
 export { supportsVulnerabilitiesRegistry } from "./pkgseer-capabilities.js";
 
 export interface PackageVulnerabilitiesRequestInput {
+  /** Host syntax for argument-error recovery. */
+  surface?: "cli" | "mcp";
   /** Lowercase registry surface value (`npm`, `pypi`, …). */
   registry: string;
   /** Raw package name — may carry surrounding whitespace. */
@@ -152,7 +154,9 @@ export function buildPackageVulnerabilitiesParams(
   const advisoryScope = resolveAdvisoryScope(input.advisoryScope);
   if (advisoryScope === "unknown" && input.includeTransitive === true) {
     throw new InvalidPackageSpecError(
-      "Unknown advisory scope is supported for direct reports only.",
+      input.surface === "mcp"
+        ? 'advisory_scope="unknown" is available for direct reports only; omit include_transitive or use advisory_scope="affected", "non_affecting" or "all".'
+        : "--scope unknown is available for direct reports only; drop --transitive or use --scope affected, non_affecting or all.",
     );
   }
   const filterWithScope = buildFilterEcho(
