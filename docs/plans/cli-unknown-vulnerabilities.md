@@ -119,11 +119,13 @@ three-package compact/verbose upgrade batch; put sizes and excerpts in the PR.
 - Latest focused formatter/projection tests: 196 pass, zero fail. Typecheck,
   changed-code Biome and public-package validation pass. Source CLI/MCP smoke
   pass in unauthenticated mode; affected live paths are checked separately.
-- The broad local run reached 5924 passes but had eight five-second timeouts
-  and a child-exit error under measured host load above 300 on ten logical CPUs.
-  These were unrelated process/harness tests, not assessment assertion failures.
-  Do not change product timers or weaken tests to mask host contention. Full
-  default-timeout Linux/Windows verification is recorded in PR #486 checks.
+- Full default-timeout Linux and Windows CI pass for code commit 543ca40,
+  together with build/package validation and Bun/Node 20/22/24/26 compatibility.
+  An earlier local broad run overlapped a source/test edit and host load above
+  300 on ten logical CPUs: it had seven process/harness timeouts, a child-exit
+  error, and one stale-module assessment assertion. That run was not a valid
+  check of the committed tree. The assessment assertion passes in the focused
+  rerun and clean CI. No product or test timers were changed.
 - Targeted descriptor eval completed with three actual MCP calls: quick_start,
   pkg_vulns(all), pkg_vulns(unknown). It reported the 20/8/3/31 counts and the
   unknown/non-affecting distinction with high confidence. Tool-calls, final and
