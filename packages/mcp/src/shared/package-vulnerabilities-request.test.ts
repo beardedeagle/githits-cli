@@ -326,3 +326,26 @@ describe("SEVERITY_LABEL_TO_CVSS", () => {
     expect(SEVERITY_LABEL_TO_CVSS.critical).toBe(9.0);
   });
 });
+
+describe("unknown advisory scope", () => {
+  it("normalizes the direct scope and echoes it", () => {
+    const result = buildPackageVulnerabilitiesParams({
+      registry: "pypi",
+      packageName: "torch",
+      advisoryScope: " UNKNOWN ",
+      includeTransitive: false,
+    });
+    expect(result.params.advisoryScope).toBe("UNKNOWN");
+    expect(result.filter?.advisoryScope).toBe("unknown");
+  });
+  it("rejects transitive unknown scope before a request", () => {
+    expect(() =>
+      buildPackageVulnerabilitiesParams({
+        registry: "pypi",
+        packageName: "torch",
+        advisoryScope: "unknown",
+        includeTransitive: true,
+      }),
+    ).toThrow("Unknown advisory scope is supported for direct reports only.");
+  });
+});

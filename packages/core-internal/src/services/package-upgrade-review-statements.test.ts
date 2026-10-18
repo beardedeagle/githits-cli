@@ -606,3 +606,80 @@ describe("upgrade statement projections", () => {
           ).not.toContain(field);
     });
 });
+
+describe("upgrade assessment evidence", () => {
+  it("preserves unknown counts, future enum values and arbitrary detail codes", async () => {
+    const body = initial([review(page(1))]);
+    const row = body.data.packageUpgradeReview.reviews[0]!;
+    const unknownDetails = [
+      {
+        section: "SECURITY",
+        code: "future_code",
+        message: "Missing version. Did you mean 1.2.3?",
+        retryable: false,
+      },
+    ];
+    Reflect.set(row, "unknownDetails", unknownDetails);
+    Reflect.set(row.security, "current", {
+      version: "1.0.0",
+      affectedCount: 0,
+      nonAffectingCount: 1,
+      unknownVulnerabilityCount: 2,
+      allCount: 3,
+      assessmentStatus: "FUTURE_STATUS",
+      advisories: [
+        {
+          id: "OSV-test",
+          aliases: [],
+          fixedIn: [],
+          assessmentStatus: "FUTURE_ADVISORY_STATUS",
+          assessmentReasons: ["FUTURE_REASON"],
+        },
+      ],
+    });
+    const { run, requests } = setup([body]);
+    const result = await run();
+    expect(result.reviews[0]?.unknownDetails).toEqual(unknownDetails);
+    expect(result.reviews[0]?.security.current).toMatchObject({
+      unknownVulnerabilityCount: 2,
+      assessmentStatus: "FUTURE_STATUS",
+    });
+    expect(result.reviews[0]?.security.current?.advisories[0]).toMatchObject({
+      assessmentStatus: "FUTURE_ADVISORY_STATUS",
+      assessmentReasons: ["FUTURE_REASON"],
+    });
+    const query = requests[0]!.query;
+    expect(query).toContain("unknownVulnerabilityCount");
+    expect(query).toContain("assessmentStatus");
+    expect(query).toContain("assessmentReasons");
+    expect(query).toContain(
+      "unknownDetails { section code message retryable }",
+    );
+  });
+});
+
+describe("assessment projection breadth", () => {
+  it("keeps generic detail messages in compact text but omits unused retryability and advisory assessment fields", () => {
+    const params: PackageUpgradeReviewParams = {
+      packages: [identity],
+      includeTransitiveSecurity: false,
+      includeDependencyIssues: false,
+      changelogLimit: 20,
+      changelogView: "triage",
+    };
+    const query = packageUpgradeReviewQuery(params);
+    expect(query).toMatch(/unknownDetails\s*\{\s*section code message\s*\}/);
+    expect(query).not.toContain("retryable");
+    expect(query).not.toContain("assessmentReasons");
+    expect(query).toContain("unknownVulnerabilityCount");
+    const detailed = packageUpgradeReviewQuery({
+      ...params,
+      changelogView: "text",
+    });
+    expect(detailed).toContain("assessmentReasons");
+    expect(detailed).not.toContain("retryable");
+    expect(
+      packageUpgradeReviewQuery({ ...params, changelogView: "json" }),
+    ).toContain("retryable");
+  });
+});

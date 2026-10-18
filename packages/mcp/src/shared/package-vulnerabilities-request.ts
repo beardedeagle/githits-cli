@@ -98,11 +98,16 @@ export interface PackageVulnerabilitiesFilterEcho {
   advisoryScope?: AdvisoryScopeLabel;
 }
 
-export type AdvisoryScopeLabel = "affected" | "non_affecting" | "all";
+export type AdvisoryScopeLabel =
+  | "affected"
+  | "non_affecting"
+  | "unknown"
+  | "all";
 
 const ADVISORY_SCOPE_TO_GRAPHQL = {
   affected: "AFFECTED",
   non_affecting: "NON_AFFECTING",
+  unknown: "UNKNOWN",
   all: "ALL",
 } as const;
 
@@ -145,6 +150,11 @@ export function buildPackageVulnerabilitiesParams(
   });
 
   const advisoryScope = resolveAdvisoryScope(input.advisoryScope);
+  if (advisoryScope === "unknown" && input.includeTransitive === true) {
+    throw new InvalidPackageSpecError(
+      "Unknown advisory scope is supported for direct reports only.",
+    );
+  }
   const filterWithScope = buildFilterEcho(
     severityLabel,
     input.includeWithdrawn,
@@ -203,11 +213,16 @@ function resolveAdvisoryScope(
   const trimmed = raw.trim();
   if (trimmed.length === 0) return undefined;
   const lower = trimmed.toLowerCase().replace(/-/g, "_");
-  if (lower === "affected" || lower === "non_affecting" || lower === "all") {
+  if (
+    lower === "affected" ||
+    lower === "non_affecting" ||
+    lower === "unknown" ||
+    lower === "all"
+  ) {
     return lower;
   }
   throw new InvalidPackageSpecError(
-    `Unsupported advisory scope '${raw}'. Expected one of: affected, non_affecting, all.`,
+    `Unsupported advisory scope '${raw}'. Expected one of: affected, non_affecting, unknown, all.`,
   );
 }
 

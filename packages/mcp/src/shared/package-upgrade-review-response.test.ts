@@ -1073,3 +1073,72 @@ describe("complete upgrade statement presentation", () => {
     ).toBeUndefined();
   });
 });
+
+describe("upgrade unknown vulnerability evidence", () => {
+  it("preserves generic unknown details and direct assessment evidence in JSON and text", async () => {
+    const backend = structuredClone(backendResponse);
+    const row = backend.reviews[0]!;
+    const message = "Unavailable version. Did you mean 4.4.3?";
+    row.unknowns = [message];
+    row.unknownDetails = [
+      { section: "SECURITY", code: "future_code", message, retryable: false },
+    ];
+    Object.assign(row.security.target!, {
+      assessmentStatus: "FUTURE_STATUS",
+      unknownVulnerabilityCount: 3,
+      allCount: 4,
+    });
+    Object.assign(row.security.added[0]!, {
+      assessmentStatus: "UNKNOWN",
+      assessmentReasons: ["MISSING_RANGES", "FUTURE_REASON"],
+    });
+    const request = buildPackageUpgradeReviewRequest({
+      registry: "npm",
+      packageName: "zod",
+      currentVersion: "4.3.6",
+      targetVersion: "4.4.3",
+    });
+    const result = await buildPackageUpgradeReview(
+      createMockPackageIntelligenceService({
+        packageUpgradeReview: mock(async () => backend),
+      }),
+      request.packages,
+      request.options,
+    );
+    const json = JSON.parse(JSON.stringify(result));
+    expect(json.reviews[0].unknownDetails).toEqual(row.unknownDetails);
+    expect(json.reviews[0].security.target).toMatchObject({
+      assessmentStatus: "FUTURE_STATUS",
+      unknownVulnerabilityCount: 3,
+    });
+    expect(json.reviews[0].security.added[0].assessmentReasons).toEqual([
+      "MISSING_RANGES",
+      "FUTURE_REASON",
+    ]);
+    for (const surface of ["cli", "mcp"] as const) {
+      const text = formatPackageUpgradeReviewTerminal(result, {
+        surface,
+        terminalWidth: 200,
+      });
+      expect(text).toContain("Assessment FUTURE_STATUS");
+      expect(text).toContain(
+        "Target unknown: 3 advisories could not be evaluated for this version",
+      );
+      expect(text).toContain(
+        surface === "mcp" ? 'advisory_scope="unknown"' : "--scope unknown",
+      );
+      expect(text).toContain("Advisory has no affected ranges");
+      expect(text).toContain("FUTURE_REASON");
+      expect(text).toContain("future_code");
+      expect(text.split(message)).toHaveLength(2);
+    }
+  });
+  it("shows unknown advisory counts in compact batch triage", () => {
+    const row = formatterReview();
+    row.security.target!.unknownVulnerabilityCount = 2;
+    const text = formatPackageUpgradeReviewTerminal(
+      formatterResponse([row, { ...row, name: "second" }]),
+    );
+    expect(text).toContain("0 -> 2 unknown advisories");
+  });
+});

@@ -1060,6 +1060,73 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     globalThis.fetch = originalFetch;
   });
 
+  it("preserves absent assessment fields without inventing a completed result", async () => {
+    const { service } = createAuditService(TRANSITIVE_AUDIT_BODY);
+    const result = await service.packageVulnerabilities({
+      registry: "NPM",
+      packageName: "express",
+    });
+    expect(result.security?.assessmentStatus).toBeUndefined();
+    expect(result.security?.unknownVulnerabilityCount).toBeUndefined();
+    expect(
+      result.security?.vulnerabilities?.[0]?.assessmentReasons,
+    ).toBeUndefined();
+  });
+
+  it("requests and preserves future status and reason values in unknown scope", async () => {
+    const body = structuredClone(VULNS_HAPPY_BODY);
+    const security = body.data.packageVulnerabilities.security;
+    Object.assign(security, {
+      unknownVulnerabilityCount: 3,
+      assessmentStatus: "FUTURE_STATUS",
+    });
+    Object.assign(security.advisories.entries[0]!, {
+      assessmentStatus: "FUTURE_ADVISORY_STATUS",
+      assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+      affectsInspectedVersion: false,
+    });
+    const fetchFn = mock(() => Promise.resolve(jsonResponse(body)));
+    const service = new PackageIntelligenceServiceImpl(
+      ENDPOINT,
+      createMockTokenProvider(),
+      asFetchFn(fetchFn),
+    );
+    const result = await service.packageVulnerabilities({
+      registry: "PYPI",
+      packageName: "torch",
+      advisoryScope: "UNKNOWN",
+    });
+    expect(result.security?.unknownVulnerabilityCount).toBe(3);
+    expect(result.security?.assessmentStatus).toBe("FUTURE_STATUS");
+    expect(result.security?.vulnerabilities?.[0]?.assessmentStatus).toBe(
+      "FUTURE_ADVISORY_STATUS",
+    );
+    expect(result.security?.vulnerabilities?.[0]?.assessmentReasons).toEqual([
+      "INVALID_RANGE",
+      "FUTURE_REASON",
+    ]);
+    const calls = fetchFn.mock.calls as unknown as Array<[string, RequestInit]>;
+    const wire = JSON.parse(String(calls[0]?.[1]?.body));
+    expect(wire.variables.scope).toBe("UNKNOWN");
+    expect(wire.query).toContain("unknownVulnerabilityCount");
+    expect(wire.query).toContain("assessmentStatus");
+    expect(wire.query).toContain("assessmentReasons");
+    expect(wire.query).not.toContain("unknownDetails");
+  });
+
+  it("rejects transitive unknown requests at the public service boundary", async () => {
+    const { service, fetchFn } = createAuditService(TRANSITIVE_AUDIT_BODY);
+    await expect(
+      service.packageVulnerabilities({
+        registry: "NPM",
+        packageName: "express",
+        advisoryScope: "UNKNOWN",
+        includeTransitive: true,
+      }),
+    ).rejects.toThrow("supported for direct reports only");
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
   it("maps a happy-path response to VulnerabilityReport", async () => {
     const fetchFn = mock(() => Promise.resolve(jsonResponse(VULNS_HAPPY_BODY)));
     const service = new PackageIntelligenceServiceImpl(

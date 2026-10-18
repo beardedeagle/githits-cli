@@ -169,6 +169,7 @@ export function createPackageUpgradeReviewTool(
         if (args.format === "json") return textResult(JSON.stringify(response));
         return textResult(
           formatPackageUpgradeReviewTerminal(response, {
+            surface: "mcp",
             verbose: args.verbose === true,
           }).trimEnd(),
         );

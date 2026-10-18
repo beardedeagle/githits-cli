@@ -351,3 +351,19 @@ Local verification artifacts are under
 working evidence, while the measurements and limitations above remain durable.
 Public skill guidance needs the corresponding filter/JSON update during release
 preparation, not an unpublished behavior change in this feature PR.
+
+## Unknown vulnerability evidence
+
+Direct current/target summaries retain `unknownVulnerabilityCount` and
+`assessmentStatus` in JSON. Text shows assessment status and scope counts, with a
+nonzero unknown count and a native direct-vulnerability follow-up. Compact batch
+triage includes unknown advisory counts and assessment statuses. Retained advisory
+assessment status/reasons are preserved in JSON and detailed text, so incomplete
+target evidence is not described as a confirmed negative.
+
+`unknownDetails` retains the backend section, arbitrary code, message and optional
+retryability. Text renders section/code/message without dispatching on the code;
+new codes need no client release for their messages (including version suggestions)
+to be visible. An identical message in legacy `unknowns` is shown only once.
+Compact batch rows include generic detail messages too. Retryability is selected
+only for JSON; advisory assessment detail is omitted from compact batch queries.

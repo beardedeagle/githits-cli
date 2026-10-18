@@ -2,6 +2,7 @@ import type {
   PackageUpgradeReviewResponse as BackendPackageUpgradeReviewResponse,
   PackageIntelligenceService,
   PackageUpgradeChangelogRiskCoverage,
+  PackageUpgradeUnknownEvidence,
 } from "@githits/core-internal";
 import {
   PENDING_CLASSIFICATION_MESSAGE,
@@ -20,6 +21,7 @@ import type {
   UpgradeReviewPackageRequest,
 } from "./package-upgrade-review-request.js";
 import { sanitizeTerminalText, wrapTerminalProse } from "./terminal-text.js";
+import { formatVulnerabilityAssessmentReason } from "./vulnerability-assessment.js";
 
 export type VersionDelta =
   | "patch"
@@ -31,6 +33,8 @@ export type VersionDelta =
   | "unknown";
 
 export interface UpgradeAdvisorySummary {
+  assessmentStatus?: string;
+  assessmentReasons?: string[];
   id?: string;
   aliases?: string[];
   summary?: string;
@@ -41,6 +45,8 @@ export interface UpgradeAdvisorySummary {
 }
 
 export interface VersionVulnerabilitySummary {
+  unknownVulnerabilityCount?: number;
+  assessmentStatus?: string;
   version: string;
   publishedAt?: string;
   deprecated?: boolean;
@@ -168,6 +174,7 @@ export interface UpgradeReview {
   dependencyChanges?: UpgradeDependencyChanges;
   dependencyIssues?: UpgradeDependencyIssues;
   unknowns: string[];
+  unknownDetails?: PackageUpgradeUnknownEvidence[];
 }
 
 export interface UpgradeReviewResponse {
@@ -184,6 +191,7 @@ export interface UpgradeReviewResponse {
 }
 
 export interface FormatPackageUpgradeReviewTerminalOptions {
+  surface?: "cli" | "mcp";
   verbose?: boolean;
   useColors?: boolean;
   terminalWidth?: number;
@@ -238,6 +246,7 @@ function normaliseBackendUpgradeReviewResponse(
         : undefined,
       dependencyIssues: review.dependencyIssues,
       unknowns: review.unknowns,
+      unknownDetails: review.unknownDetails,
     })),
   };
 }
@@ -275,6 +284,8 @@ function normaliseBackendVersionVulnerabilitySummary(
     deprecated: summary.deprecated,
     deprecationReason: summary.deprecationReason,
     affectedCount: summary.affectedCount,
+    unknownVulnerabilityCount: summary.unknownVulnerabilityCount,
+    assessmentStatus: summary.assessmentStatus,
     nonAffectingCount: summary.nonAffectingCount,
     allCount: summary.allCount,
     advisories: summary.advisories.map(normaliseBackendAdvisory),
@@ -285,6 +296,8 @@ function normaliseBackendAdvisory(
   advisory: BackendPackageUpgradeReviewResponse["reviews"][number]["security"]["added"][number],
 ): UpgradeAdvisorySummary {
   return {
+    assessmentStatus: advisory.assessmentStatus,
+    assessmentReasons: advisory.assessmentReasons,
     id: advisory.id,
     aliases: advisory.aliases,
     summary: advisory.summary,
@@ -550,12 +563,23 @@ export function formatPackageUpgradeReviewTerminal(
         lines,
         formatDependencyIssuesSection(review.dependencyIssues, options),
       );
-    if (review.unknowns.length > 0) {
+    if (review.unknowns.length > 0 || review.unknownDetails?.length) {
       const unknownLines = [
         attentionSectionTitle("Unknown evidence", useColors),
       ];
+      const details = review.unknownDetails ?? [];
+      for (const detail of details) {
+        appendWrappedText(
+          unknownLines,
+          "  - ",
+          safeRiskText(`${detail.section} (${detail.code}): ${detail.message}`),
+          width,
+          "    ",
+        );
+      }
       for (const unknown of review.unknowns) {
-        appendWrappedText(unknownLines, "  - ", unknown, width, "    ");
+        if (!details.some((detail) => detail.message === unknown))
+          appendWrappedText(unknownLines, "  - ", unknown, width, "    ");
       }
       appendSection(lines, unknownLines);
     }
@@ -710,6 +734,36 @@ function formatVulnerabilitySection(
       ? (line) => attentionLine(line, useColors)
       : undefined,
   );
+  for (const [label, summary] of [
+    ["Current", security.current],
+    ["Target", security.target],
+  ] as const) {
+    if (!summary) continue;
+    const parts: string[] = [];
+    if (summary.assessmentStatus !== undefined)
+      parts.push(`Assessment ${safeRiskText(summary.assessmentStatus)}`);
+    parts.push(
+      `${summary.nonAffectingCount} non-affecting`,
+      `${summary.allCount} all`,
+    );
+    if (parts.length)
+      appendWrappedText(
+        lines,
+        `  ${label}: `,
+        parts.join(" | "),
+        width,
+        "    ",
+      );
+    const unknown = summary.unknownVulnerabilityCount ?? 0;
+    if (unknown > 0)
+      appendWrappedText(
+        lines,
+        `  ${label} unknown: `,
+        `${unknown} ${unknown === 1 ? "advisory" : "advisories"} could not be evaluated for this version. ${options.surface === "mcp" ? 'Use pkg_vulns with advisory_scope="unknown"' : "Use pkg vulns --scope unknown"} for ${summary.version}.`,
+        width,
+        "    ",
+      );
+  }
   lines.push(
     ...formatTransitiveVulnerabilitySummary(security.transitive, options),
   );
@@ -783,6 +837,19 @@ function formatAdvisoryPrefix(advisory: UpgradeAdvisorySummary): string {
 
 function formatAdvisoryProse(advisory: UpgradeAdvisorySummary): string {
   const parts: string[] = [];
+  if (
+    advisory.assessmentStatus !== undefined &&
+    advisory.assessmentStatus !== "AFFECTED"
+  )
+    parts.push(`Assessment ${safeRiskText(advisory.assessmentStatus)}`);
+  if (advisory.assessmentReasons?.length)
+    parts.push(
+      safeRiskText(
+        advisory.assessmentReasons
+          .map(formatVulnerabilityAssessmentReason)
+          .join("; "),
+      ),
+    );
   if (advisory.summary) parts.push(advisory.summary);
   if (advisory.fixedIn?.length)
     parts.push(`fixed in ${advisory.fixedIn.join(", ")}`);
@@ -1156,7 +1223,25 @@ function formatBatchTriage(
           ? "not deprecated"
           : "deprecation unknown";
     const transitive = review.security.transitive;
-    const security = `direct vulnerabilities: ${review.security.added.length} added / ${review.security.notAddressed.length} still present`;
+    const unknownCurrent =
+      review.security.current?.unknownVulnerabilityCount ?? 0;
+    const unknownTarget = target?.unknownVulnerabilityCount ?? 0;
+    const uncertainty =
+      unknownCurrent > 0 || unknownTarget > 0
+        ? ` / ${unknownCurrent} -> ${unknownTarget} unknown advisories`
+        : "";
+    const assessments = [
+      review.security.current?.assessmentStatus
+        ? `current ${safeRiskText(review.security.current.assessmentStatus)}`
+        : undefined,
+      target?.assessmentStatus
+        ? `target ${safeRiskText(target.assessmentStatus)}`
+        : undefined,
+    ]
+      .filter(Boolean)
+      .join(" / ");
+    const assessmentText = assessments ? ` / Assessment ${assessments}` : "";
+    const security = `direct vulnerabilities: ${review.security.added.length} added / ${review.security.notAddressed.length} still present${uncertainty}${assessmentText}`;
     const transitiveText = transitive
       ? `transitive: ${transitive.introducedPackageDetailsTotalCount} added / ${transitive.stillAffectedPackageDetailsTotalCount} still affected`
       : "transitive: not checked";
@@ -1178,6 +1263,15 @@ function formatBatchTriage(
     lines.push(
       `  ${safeRiskText(`${review.registry}:${review.name} ${review.currentVersion} -> ${review.targetVersion} (${review.versionDelta})`)} | ${formatRiskTierCount(c, "must_act", "act")} | ${formatRiskTierCount(c, "should_know", "know")} | ${c.riskCoverage.itemsUnclassified} too long to classify | versions: ${riskCoverageText(c)} | ${c.riskCoverage.unitsNoImpact} labeled no impact | ${deprecation} | ${security} | ${transitiveText} | ${c.totalKeywordEntries} keyword entries | ${review.compatibility?.peerDependencyChanges.length ?? "not checked"} peer dependency changes | ${review.compatibility?.notes.length ?? "not checked"} compatibility notes | ${dependencyCount ?? "not checked"} direct dependency changes | ${issueCount ?? "not checked"} dependency issues | ${review.unknowns.length} unknowns`,
     );
+    for (const detail of review.unknownDetails ?? []) {
+      appendWrappedText(
+        lines,
+        "    Unknown: ",
+        safeRiskText(`${detail.section} (${detail.code}): ${detail.message}`),
+        normaliseTerminalWidth(options.terminalWidth),
+        "      ",
+      );
+    }
   }
   const width = normaliseTerminalWidth(options.terminalWidth);
   if (

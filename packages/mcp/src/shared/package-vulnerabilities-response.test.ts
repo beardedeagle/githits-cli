@@ -1262,7 +1262,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       { useColors: false, terminalWidth: 120 },
     );
     expect(output).toContain(
-      "No active vulnerabilities affect this version.\n\nResolved dependencies",
+      "No active vulnerabilities affect this version.\n0 non-affecting | 0 all\n\nResolved dependencies",
     );
     expect(output).toContain(
       "7 affected advisory occurrences in 3 dependency packages; 49 resolved package versions checked.",
@@ -1803,12 +1803,12 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
     expect(output).not.toContain("evil");
   });
 
-  it("renders zero-vulns hot path as header + one summary body line", () => {
+  it("renders zero-vulns with a summary and scope totals", () => {
     const output = formatPackageVulnerabilitiesTerminal(zeroVulnsFixture(), {
       useColors: false,
     });
     expect(output).toBe(
-      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version.\n",
+      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version.\n0 non-affecting | 0 all\n",
     );
   });
 
@@ -1822,7 +1822,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       useColors: false,
     });
     expect(output).toBe(
-      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (2 historical advisories do not apply).\n",
+      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (2 historical advisories do not apply).\n2 non-affecting | 2 all\n",
     );
   });
 
@@ -1836,7 +1836,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       useColors: false,
     });
     expect(output).toBe(
-      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (1 historical advisory does not apply).\n",
+      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (1 historical advisory does not apply).\n1 non-affecting | 1 all\n",
     );
   });
 
@@ -1846,7 +1846,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       filter: { minSeverity: "high" },
     });
     expect(output).toBe(
-      "clean @ 1.0.0 | npm\nFilter  severity >= high\nNo vulnerabilities matching the filter affect this version.\n",
+      "clean @ 1.0.0 | npm\nFilter  severity >= high\nNo vulnerabilities matching the filter affect this version.\n0 non-affecting | 0 all\n",
     );
   });
 
@@ -2285,5 +2285,113 @@ describe("affected-range cap adapts to terminal width", () => {
     );
     expect(output).toContain("(+2 more; use -v)");
     expect(output).not.toContain("(+4 more");
+  });
+});
+
+describe("direct assessment evidence", () => {
+  function unknownFixture(): VulnerabilityReport {
+    const report = zeroVulnsFixture();
+    Object.assign(report.security!, {
+      unknownVulnerabilityCount: 2,
+      assessmentStatus: "UNKNOWN",
+      nonAffectingVulnerabilityCount: 1,
+      allVulnerabilityCount: 3,
+      vulnerabilities: [
+        {
+          osvId: "OSV-unknown",
+          affectsInspectedVersion: false,
+          assessmentStatus: "UNKNOWN",
+          assessmentReasons: [
+            "INVALID_RANGE",
+            "MISSING_RANGES",
+            "FUTURE_REASON",
+          ],
+        },
+      ],
+    });
+    return report;
+  }
+  it("preserves the four counts and raw assessment values in JSON", () => {
+    const payload = JSON.parse(
+      JSON.stringify(
+        buildPackageVulnerabilitiesSuccessPayload(unknownFixture()),
+      ),
+    );
+    expect(payload.summary).toMatchObject({
+      total: 0,
+      affectedVulnerabilityCount: 0,
+      nonAffectingVulnerabilityCount: 1,
+      unknownVulnerabilityCount: 2,
+      allVulnerabilityCount: 3,
+      assessmentStatus: "UNKNOWN",
+    });
+    expect(payload.advisories[0]).toMatchObject({
+      assessmentStatus: "UNKNOWN",
+      assessmentReasons: ["INVALID_RANGE", "MISSING_RANGES", "FUTURE_REASON"],
+      affectsInspectedVersion: false,
+    });
+  });
+  for (const surface of ["cli", "mcp"] as const) {
+    it(`shows actionable uncertainty on ${surface}, even with affected advisories`, () => {
+      const report = unknownFixture();
+      Object.assign(report.security!, {
+        affectedVulnerabilityCount: 1,
+        allVulnerabilityCount: 4,
+        assessmentStatus: "AFFECTED",
+      });
+      const text = formatPackageVulnerabilitiesTerminal(report, { surface });
+      expect(text).toContain("1 vulnerability affects this version");
+      expect(text).toContain("Assessment AFFECTED | 1 non-affecting | 4 all");
+      expect(text).toContain(
+        "Unknown: 2 advisories unevaluated for this version;",
+      );
+      expect(text).toContain(
+        surface === "mcp" ? 'advisory_scope="unknown"' : "--scope unknown",
+      );
+      expect(text).not.toContain(
+        surface === "mcp" ? "--scope unknown" : "advisory_scope=",
+      );
+    });
+  }
+  it("does not label an unknown advisory historical or claim a clean version", () => {
+    const text = formatPackageVulnerabilitiesTerminal(unknownFixture(), {
+      filter: { advisoryScope: "unknown" },
+    });
+    expect(text).toContain("No confirmed vulnerabilities affect this version");
+    expect(text).not.toContain("No active vulnerabilities");
+    expect(text).toContain("[unknown]");
+    expect(text).not.toContain("[historical]");
+    expect(text).toContain("Advisory range could not be evaluated");
+    expect(text).toContain("Advisory has no affected ranges");
+    expect(text).toContain("FUTURE_REASON");
+  });
+  it("renders future status values verbatim and wraps prose", () => {
+    const report = unknownFixture();
+    report.security!.assessmentStatus = "FUTURE_STATUS";
+    report.security!.vulnerabilities![0]!.assessmentStatus =
+      "FUTURE_ADVISORY_STATUS";
+    const text = formatPackageVulnerabilitiesTerminal(report, {
+      terminalWidth: 55,
+    });
+    expect(text).toContain("FUTURE_STATUS");
+    expect(text).toContain("[FUTURE_ADVISORY_STATUS]");
+    expect(text).not.toContain("[historical]");
+    expect(
+      text.split("\n").filter((line) => line.startsWith("Unknown:"))[0]!.length,
+    ).toBeLessThanOrEqual(55);
+  });
+  it("keeps zero unknown in JSON but omits the unknown text line", () => {
+    const report = zeroVulnsFixture();
+    Object.assign(report.security!, {
+      assessmentStatus: "NON_AFFECTING",
+      unknownVulnerabilityCount: 0,
+    });
+    expect(
+      buildPackageVulnerabilitiesSuccessPayload(report).summary
+        .unknownVulnerabilityCount,
+    ).toBe(0);
+    const text = formatPackageVulnerabilitiesTerminal(report);
+    expect(text).toContain("Assessment NON_AFFECTING");
+    expect(text).not.toContain("Unknown:");
   });
 });
