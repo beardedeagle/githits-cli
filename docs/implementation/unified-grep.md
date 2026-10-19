@@ -211,11 +211,13 @@ provides the cursor. JSON preserves the backend enum and full status.
 Stale/failed scopes, skips, issues, omitted issue counts, safety normalization
 and unavailable targets stay visible on zero-hit pages. `No matches found.`
 is reserved for complete traversal without coverage gaps. Other empty results
-say `No matches returned; some requested content could not be searched.` If all reported
-scopes failed or were unavailable before scanning, or no native scopes are
-reported and omissions include anything beyond retryable preparation, text says
-`None of the requested content could be searched.` An empty CURRENT + COMPLETE
-corpus remains an authoritative negative. Preparation-only retryable gaps retain
+say `No matches returned; some requested content could not be searched.` Without
+a cursor, `None of the requested content could be searched.` applies when native
+scopes were reported and each failed or was unavailable before scanning; or when
+only omissions were reported and either they include more than retryable
+preparation or overall traversal failed or the cursor expired. An empty
+CURRENT + COMPLETE corpus remains an authoritative negative. Otherwise,
+preparation-only retryable gaps retain
 `No matches available yet; requested content is still being prepared.` when
 no scope was searched, or `some requested content` when another scope was searched.
 
