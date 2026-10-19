@@ -219,7 +219,8 @@ one request; exact duplicates are removed while preserving order.
 Packages require an explicit registry. Use a repository target for a full
 repository or sibling packages. Supported full repository URLs are accepted;
 GitHub also accepts `github.com/org/repo`. Launchpad requires a complete Git
-repository path; project shortcuts such as `lp:beautifulsoup` are unsupported.
+repository path. Short `lp:PROJECT`, `code.launchpad.net` and
+`git.launchpad.net` addresses are not supported yet.
 See [repository target grammar](repository-targets.md#launchpad-git-targets)
 for all Launchpad forms and URL rules. Omitted versions/refs request the latest
 package release or repository default branch. Output uses `provider:path@ref`;
@@ -1164,6 +1165,6 @@ commands in one step with a two-minute combined timeout.
 - [`mcp-cli-parity.md`](./mcp-cli-parity.md) — rules for dual-surface tools (CLI ↔ MCP)
 - `docs/guidelines/ARCHITECTURAL_GUIDELINES.md` — DI and testing patterns
 
-Direct repository targets accept approved full HTTPS URLs on github.com, codeberg.org, gitlab.com, git.launchpad.net, and code.launchpad.net. Launchpad also accepts git://git.launchpad.net roots on the default port 9418 and requires a complete owner-qualified Git path; project shortcuts remain unsupported. Codeberg requires exactly owner/repo; GitLab allows nested namespaces. Only GitHub supports host shorthand and HTTP compatibility. Never infer a provider from bare owner/repo. Repository refs use an @ suffix and may themselves contain / and @; # is reserved for semantic fragments. Empty refs and mixed suffixes are invalid. Credentials, queries, provider web subpaths, and unsupported/self-hosted hosts are rejected. Package targets keep registry-native coordinates, including `zig:cb/owner/repo` and `swift:gitlab.com/group/project`. Changelog repo URL fields remain full HTTPS URLs.
+Direct repository targets accept approved full HTTPS URLs on github.com, codeberg.org, gitlab.com, git.launchpad.net, and code.launchpad.net. Launchpad URL admission requires a complete owner-qualified Git path, including git://git.launchpad.net on the default port 9418; short lp:PROJECT and short code/git URLs remain unsupported. Codeberg requires exactly owner/repo; GitLab allows nested namespaces. Only GitHub supports host shorthand and HTTP compatibility. Never infer a provider from bare owner/repo. Repository refs use an @ suffix and may themselves contain / and @; # is reserved for semantic fragments. Empty refs and mixed suffixes are invalid. Credentials, queries, provider web subpaths, and unsupported/self-hosted hosts are rejected. Package targets keep registry-native coordinates, including `zig:cb/owner/repo` and `swift:gitlab.com/group/project`. Changelog repo URL fields remain full HTTPS URLs.
 
 See [Repository target grammar](repository-targets.md) for the shared GitHub, Codeberg, GitLab, and owner-qualified Launchpad addressing contract and provider-preserving response identity.

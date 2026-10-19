@@ -49,7 +49,7 @@ const schema: ZodRawShape = {
   target: z
     .string()
     .describe(
-      "Known package such as `npm:express@5.2.1`, repository such as `github:expressjs/express` or `launchpad:~owner/+git/repo` (`lp:` also accepted), or hosted docs site such as `site:expressjs.com`.",
+      "Known package such as `npm:express@5.2.1`, repository such as `github:expressjs/express` or `launchpad:~owner/+git/repo` (`lp:` alias for complete paths), or hosted docs site such as `site:expressjs.com`.",
     ),
   paths: z
     .array(z.string())

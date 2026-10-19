@@ -11,7 +11,7 @@ select providers or infer them from bare paths.
 | GitHub | `github:owner/repo` | `https://github.com/owner/repo` | `github.com/owner/repo` shorthand and HTTP |
 | Codeberg | `codeberg:owner/repo` | `https://codeberg.org/owner/repo` | Exactly two path components; HTTPS only |
 | GitLab | `gitlab:group[/subgroup...]/project` | `https://gitlab.com/group/subgroup/project` | Nested namespaces; HTTPS only |
-| Launchpad | `launchpad:~owner/+git/repo` (see all forms below) | `https://git.launchpad.net/<complete-path>` | Case-insensitive `lp:`; HTTPS `code.launchpad.net` roots; `git://git.launchpad.net` on default/9418 port |
+| Launchpad (owner-qualified Git only) | `launchpad:~owner/+git/repo` (see all forms below) | `https://git.launchpad.net/<complete-path>` | Case-insensitive `lp:`; HTTPS `code.launchpad.net` roots; `git://git.launchpad.net` on default/9418 port |
 
 Each form accepts an optional `@ref`. The first `@` in the repository path
 separates the repository identity from the ref; `/` and later `@` characters
@@ -43,8 +43,8 @@ Bare `owner/repo` never selects a provider.
 
 ## Launchpad Git targets
 
-Use a Git repository's HTTPS clone URL from the project's Code page, or one
-of these complete compact targets:
+This client admits complete owner-qualified Git paths only. Use an HTTPS URL
+containing that complete path, or one of these compact targets:
 
 | Repository | Target |
 | --- | --- |
@@ -58,12 +58,19 @@ For example:
 githits list lp:~ubuntu-core-dev/software-properties/+git/software-properties
 ```
 
-`launchpad:` and case-insensitive `lp:` are interchangeable input prefixes;
-output uses `launchpad:`. Append `@ref` for a branch, tag or commit.
-Project shortcuts such as `lp:beautifulsoup` and `lp:~leonardr/beautifulsoup`
-are currently unsupported. Default repository resolution belongs to the
-backend; the CLI does not guess an owner or repository. Resolver package
-suggestions do not establish a Git repository identity. Bazaar is unsupported.
+For these complete paths, `launchpad:` and case-insensitive `lp:` are
+interchangeable input prefixes; output uses `launchpad:`. Append `@ref` for a branch, tag or commit.
+Mutable shortcuts such as `lp:beautifulsoup`, `lp:~leonardr/beautifulsoup`,
+`https://code.launchpad.net/beautifulsoup` and
+`https://git.launchpad.net/beautifulsoup` are not supported yet. A URL advertised
+as a clone URL may itself be short, so copying it does not establish a complete
+repository identity.
+
+General Launchpad support must not be advertised until backend phase 2B and
+actual client shortcut admission are verified in the intended environment.
+The backend owns live `getByPath` acquisition; the CLI does not perform HTTP
+resolution or guess an owner. Resolver package suggestions do not establish a
+Git identity. Bazaar is unsupported.
 
 ### Parsing and service boundaries
 
@@ -74,8 +81,9 @@ Paths preserve case. Namespace names begin with an ASCII letter/digit and may
 then contain letters/digits and `+._-`; repository names also allow `@`.
 A `.git` suffix is rejected.
 
-Supported URLs are complete HTTPS roots on `git.launchpad.net` or
-`code.launchpad.net`, and Git transport roots on `git.launchpad.net`
+Accepted URLs contain a complete owner-qualified Git path: HTTPS roots on
+`git.launchpad.net` or `code.launchpad.net`, and Git transport roots on
+`git.launchpad.net`
 (default port 9418). HTTPS defaults to port 443. HTTP,
 SSH, nondefault ports, credentials and browse subpaths are rejected.
 
@@ -157,8 +165,8 @@ Launchpad CLI skill/reference updates follow the release lifecycle in
 Generate and check plugin assets from canonical inputs; no manifest content
 change is needed when metadata is unchanged.
 
-The Launchpad fragment declares pending minor releases for `githits` and
-`@githits/mcp`. Hosted users receive MCP changes after the package is released,
+The qualified-input fragment records pending minor impact for `githits` and
+`@githits/mcp`; it does not close the shortcut advertising gate above. Hosted users receive MCP changes after the package is released,
 adopted by `remote-mcp`, and deployed there.
 
 ## Verification

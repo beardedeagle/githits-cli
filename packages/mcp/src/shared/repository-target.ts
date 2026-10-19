@@ -140,7 +140,7 @@ const PROVIDERS: readonly ProviderGrammar[] = Object.freeze([
   }),
 ]);
 const REPOSITORY_TARGET_ERROR =
-  "Repository target must be github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/+git/repo (lp: also accepted), or an approved full HTTPS URL, with optional @gitRef suffix.";
+  "Repository target must be github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/+git/repo (lp: alias for complete paths), or an approved full HTTPS URL, with optional @gitRef suffix.";
 
 /** Marker for callers that migrate only the retired repository ref spelling. */
 export class LegacyRepositoryRefError extends InvalidArgumentError {}
@@ -214,7 +214,7 @@ function parseRepositoryTarget(
   );
   if (!provider || (url.port && !(scheme === "git" && url.port === "9418")))
     throw new InvalidArgumentError(
-      "Repository URL targets must use github.com, codeberg.org, gitlab.com, or git.launchpad.net (code.launchpad.net roots also accepted); unsupported/self-hosted hosts and nondefault ports are not accepted.",
+      "Repository URL targets must use github.com, codeberg.org, gitlab.com, or git.launchpad.net (code.launchpad.net owner-qualified Git roots also accepted); unsupported/self-hosted hosts and nondefault ports are not accepted.",
     );
   const guidance = `Use ${provider.prefix}${provider.path} with optional @gitRef, or https://${provider.host}/${provider.path}.`;
   if (provider.prefix === "launchpad:" && authority.endsWith(":"))
@@ -280,7 +280,7 @@ function parseRepositoryTarget(
           LAUNCHPAD_NAMESPACE_PATTERN.test(parts[1] ?? "")))
     )
       throw new UnsupportedLaunchpadShortcutError(
-        "Launchpad project shortcuts are not supported. Copy a Git repository's HTTPS clone URL from the project's Code page and use it as the target.",
+        "Launchpad shortcuts are not supported yet. Use a complete Git target, such as lp:~owner/project/+git/repo.",
       );
     if (provider.prefix === "github:" && parts.length === 2)
       throw new InvalidArgumentError(
@@ -382,6 +382,6 @@ export function buildInvalidTargetSpecError(
   return new InvalidArgumentError(
     `${prefix}Expected package target <registry>:<name>[@<version>] (supported registries: ${KNOWN_REGISTRIES.join(
       ", ",
-    )}) or repository target github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/+git/repo (lp: also accepted) with optional @ref (approved full HTTPS URLs also accepted; GitHub additionally supports github.com/owner/repo and HTTP).`,
+    )}) or repository target github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/+git/repo (lp: alias for complete paths) with optional @ref (approved full HTTPS URLs also accepted; GitHub additionally supports github.com/owner/repo and HTTP).`,
   );
 }

@@ -307,6 +307,10 @@ describe("provider target consumer parity", () => {
     "lp:beautifulsoup",
     "launchpad:beautifulsoup",
     "LP:~Owner/beautifulsoup",
+    "https://code.launchpad.net/beautifulsoup",
+    "https://git.launchpad.net/beautifulsoup",
+    "https://code.launchpad.net/~Owner/beautifulsoup",
+    "https://git.launchpad.net/~Owner/beautifulsoup",
   ])("keeps unsupported defaults %s unresolved", (target) => {
     expect(() => parseUnifiedSearchTargetSpec(target)).toThrow();
     expect(() =>

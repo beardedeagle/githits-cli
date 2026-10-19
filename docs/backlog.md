@@ -70,7 +70,8 @@ coverage requirement is inferred from GA promotion.
 
 ## Launchpad CLI skill updates at release
 
-After the Launchpad behavior is released or included on its release branch,
+After backend phase 2B and actual client shortcut admission are qualified,
+and the behavior is released or included on its release branch,
 update `skills/githits-code/SKILL.md` and `references/code-and-docs.md` with the
 three complete owner-qualified path forms, case-insensitive `lp:` input,
 canonical `launchpad:` replay and backend-owned raw-diff availability. The stable MCP
@@ -79,16 +80,22 @@ Acceptance: CLI examples match released addressing and raw-diff behavior,
 avoid claiming unsupported shortcut resolution, and plugin checks pass.
 This timing follows the public Agent Skill lifecycle; no runtime work is deferred.
 
-## Launchpad project shortcut resolution in the backend
+## Launchpad mutable shortcuts and advertising gate
 
-`lp:beautifulsoup` and `lp:~leonardr/beautifulsoup` currently fail repository
-validation; the CLI requires a complete Git repository path. The backend owns
-repository identity and mutable-default acquisition. Investigate and implement
-shortcut resolution there, then update CLI admission and guidance against the
-verified contract. Do not add Launchpad API lookups or guessed identities in
-the CLI. This is a backend follow-up to the owner-qualified CLI support PR.
+Phase 2B of the backend `docs/plans/LAUNCHPAD_PROVIDER_ADOPTION.md` is the
+governing plan. This entry records the client dependency, not a separate
+backend implementation plan. Mutable shortcuts must work before advertising
+Launchpad support; the qualified-input CLI draft does not close that gate.
 
-Acceptance: supported shortcuts resolve to a verified canonical Git URL and
-revision, with replayable read/list/grep/search targets; missing or ambiguous
-Git defaults produce actionable errors. Existing complete paths and escaping
-remain compatible. Test both CLI and MCP against the implemented backend.
+Current unsupported inputs include `lp:PROJECT`, owner/project defaults, and
+short `code.launchpad.net` / `git.launchpad.net` URLs. Even an advertised HTTPS
+clone URL may be short. The backend owns live `getByPath` acquisition. Do not
+add Launchpad HTTP resolution or guessed identities to the CLI.
+
+Client follow-up: after backend phase 2B is implemented and qualified, verify
+its contract and admit the supported shortcuts at existing client boundaries.
+Prove canonical owner/SHA resolution and emitted-action replay through actual
+CLI and MCP read/list/grep/search/diff surfaces in the intended environment.
+Missing or ambiguous Git defaults must remain typed failures; complete paths,
+escaping and other providers must remain compatible. Backend tests alone do
+not establish client admission. Package association remains a separate phase.

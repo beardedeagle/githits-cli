@@ -134,10 +134,8 @@ describe("mapListError", () => {
       ),
       { hasAfter: true, target: "lp:beautifulsoup" },
     );
-    expect(mapped.message).toContain(
-      "Launchpad project shortcuts are not supported",
-    );
-    expect(mapped.message).toContain("HTTPS clone URL");
+    expect(mapped.message).toContain("Launchpad shortcuts are not supported");
+    expect(mapped.message).toContain("complete Git target");
     expect(mapped.message).not.toContain("Retry once without");
     expect(mapped).toMatchObject({
       code: "INVALID_ARGUMENT",

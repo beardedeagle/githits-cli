@@ -522,11 +522,9 @@ describe("createListTool", () => {
           ? JSON.parse(output).error
           : output.replace(/\s+/g, " ");
       expect(result.isError).toBe(true);
-      expect(message).toContain(
-        "Launchpad project shortcuts are not supported",
-      );
-      expect(message).toContain("HTTPS clone URL");
-      expect(message).toContain("use it as the target");
+      expect(message).toContain("Launchpad shortcuts are not supported");
+      expect(message).toContain("complete Git target");
+      expect(message).toContain("lp:~owner/project/+git/repo");
       expect(list).toHaveBeenCalledTimes(1);
       expect(list.mock.calls[0]?.[0].target).toBe("LP:beautifulsoup");
       if (format === "json")

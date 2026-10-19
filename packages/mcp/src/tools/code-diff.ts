@@ -31,7 +31,7 @@ const schema: ZodRawShape = {
   target: z
     .string()
     .describe(
-      "One unversioned compact target string such as `npm:express`, `github:expressjs/express`, or `launchpad:~owner/+git/repo` (`lp:` also accepted). Do not embed a version or ref.",
+      "One unversioned compact target string such as `npm:express`, `github:expressjs/express`, or `launchpad:~owner/+git/repo` (`lp:` alias for complete paths). Do not embed a version or ref.",
     ),
   from: z
     .string()
