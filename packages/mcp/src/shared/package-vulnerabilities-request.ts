@@ -76,6 +76,8 @@ export const SEVERITY_LABEL_TO_CVSS: Readonly<Record<SeverityLabel, number>> = {
 export { supportsVulnerabilitiesRegistry } from "./pkgseer-capabilities.js";
 
 export interface PackageVulnerabilitiesRequestInput {
+  /** Host syntax for argument-error recovery. */
+  surface?: "cli" | "mcp";
   /** Lowercase registry surface value (`npm`, `pypi`, …). */
   registry: string;
   /** Raw package name — may carry surrounding whitespace. */
@@ -98,11 +100,16 @@ export interface PackageVulnerabilitiesFilterEcho {
   advisoryScope?: AdvisoryScopeLabel;
 }
 
-export type AdvisoryScopeLabel = "affected" | "non_affecting" | "all";
+export type AdvisoryScopeLabel =
+  | "affected"
+  | "non_affecting"
+  | "unknown"
+  | "all";
 
 const ADVISORY_SCOPE_TO_GRAPHQL = {
   affected: "AFFECTED",
   non_affecting: "NON_AFFECTING",
+  unknown: "UNKNOWN",
   all: "ALL",
 } as const;
 
@@ -145,6 +152,13 @@ export function buildPackageVulnerabilitiesParams(
   });
 
   const advisoryScope = resolveAdvisoryScope(input.advisoryScope);
+  if (advisoryScope === "unknown" && input.includeTransitive === true) {
+    throw new InvalidPackageSpecError(
+      input.surface === "mcp"
+        ? 'advisory_scope="unknown" is available for direct reports only; omit include_transitive or use advisory_scope="affected", "non_affecting" or "all".'
+        : "--scope unknown is available for direct reports only; drop --transitive or use --scope affected, non_affecting or all.",
+    );
+  }
   const filterWithScope = buildFilterEcho(
     severityLabel,
     input.includeWithdrawn,
@@ -203,11 +217,16 @@ function resolveAdvisoryScope(
   const trimmed = raw.trim();
   if (trimmed.length === 0) return undefined;
   const lower = trimmed.toLowerCase().replace(/-/g, "_");
-  if (lower === "affected" || lower === "non_affecting" || lower === "all") {
+  if (
+    lower === "affected" ||
+    lower === "non_affecting" ||
+    lower === "unknown" ||
+    lower === "all"
+  ) {
     return lower;
   }
   throw new InvalidPackageSpecError(
-    `Unsupported advisory scope '${raw}'. Expected one of: affected, non_affecting, all.`,
+    `Unsupported advisory scope '${raw}'. Expected one of: affected, non_affecting, unknown, all.`,
   );
 }
 

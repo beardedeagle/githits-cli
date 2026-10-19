@@ -776,3 +776,75 @@ describe("package_vulnerabilities parity", () => {
     });
   });
 });
+
+describe("direct unknown JSON parity", () => {
+  it("keeps unknown counts, status and raw reasons lossless on both surfaces", async () => {
+    const report = structuredClone(defaultVulnerabilityReport);
+    Object.assign(report.security!, {
+      unknownVulnerabilityCount: 3,
+      assessmentStatus: "FUTURE_STATUS",
+    });
+    Object.assign(report.security!.vulnerabilities![0]!, {
+      assessmentStatus: "UNKNOWN",
+      assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+      affectsInspectedVersion: false,
+    });
+    const service = createMockPackageIntelligenceService({
+      packageVulnerabilities: mock(async () => report),
+    });
+    const cli = await cliJson(
+      "npm:express",
+      { scope: "unknown" },
+      cliDeps({ packageIntelligenceService: service }),
+    );
+    const mcp = await mcpJson(
+      { target: "npm:express", advisory_scope: "unknown" },
+      async () => report,
+    );
+    expect(cli).toEqual(mcp.json);
+    expect(cli).toMatchObject({
+      filter: { advisoryScope: "unknown" },
+      summary: {
+        unknownVulnerabilityCount: 3,
+        assessmentStatus: "FUTURE_STATUS",
+      },
+      advisories: expect.arrayContaining([
+        expect.objectContaining({
+          assessmentStatus: "UNKNOWN",
+          assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+        }),
+      ]),
+    });
+  });
+  it("rejects transitive unknown scope on both surfaces before calling the service", async () => {
+    const call = mock(async () => defaultVulnerabilityReport);
+    const cli = await cliJson(
+      "npm:express",
+      { scope: "unknown", transitive: true },
+      cliDeps({
+        packageIntelligenceService: createMockPackageIntelligenceService({
+          packageVulnerabilities: call,
+        }),
+      }),
+    );
+    const mcp = await mcpJson(
+      {
+        target: "npm:express",
+        advisory_scope: "unknown",
+        include_transitive: true,
+      },
+      call,
+    );
+    expect(cli).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      error:
+        "--scope unknown is available for direct reports only; drop --transitive or use --scope affected, non_affecting or all.",
+    });
+    expect(mcp.json).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      error:
+        'advisory_scope="unknown" is available for direct reports only; omit include_transitive or use advisory_scope="affected", "non_affecting" or "all".',
+    });
+    expect(call).not.toHaveBeenCalled();
+  });
+});

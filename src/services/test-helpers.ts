@@ -1032,6 +1032,7 @@ export const defaultPackageUpgradeReviewResponse: PackageUpgradeReviewResponse =
           transitive: { added: [], removed: [], changed: [] },
         },
         unknowns: [],
+        unknownDetails: [],
       },
     ],
   };

@@ -351,3 +351,34 @@ Local verification artifacts are under
 working evidence, while the measurements and limitations above remain durable.
 Public skill guidance needs the corresponding filter/JSON update during release
 preparation, not an unpublished behavior change in this feature PR.
+
+## Unknown vulnerability evidence
+
+Direct current/target JSON summaries retain `unknownVulnerabilityCount` and
+`assessmentStatus`. Detailed text adds a Current/Target assessment line only for
+unknown advisories or a non-implied status. Unknown totals include the all-count
+and a complete package/version target in CLI or MCP follow-up syntax. Implied
+AFFECTED/NON_AFFECTING statuses add no text. Status-only uncertainty is explained
+in human words; future backend status values remain verbatim.
+
+Compact batch triage shows unknown advisory counts and non-implied uncertainty,
+omitting redundant statuses. Generic unknown-detail messages appear below compact
+rows. Verbose batches reserve those messages for each package's detailed report,
+so they appear once. Upgrade transitive security shows affected package summaries,
+not the occurrence rows used by `pkg vulns --transitive --scope all`.
+
+The query selects `unknownDetails` as the single source of unknown prose. The
+core service derives its compatibility `unknowns` array from detail messages;
+the response normalizer passes it through without deriving or deduplicating it
+again. Detailed text renders `unknownDetails` alone. Details retain the
+backend section, arbitrary code, message and optional retryability. Text renders
+section/code/message generically, including future codes and version suggestions.
+Retryability is selected only for JSON; advisory assessment detail is omitted
+from compact batch queries.
+
+Advisory lists contain affected advisories from a comparison side, so JSON omits
+implied AFFECTED status and empty assessment-reason arrays on current/target and
+diff rows. Other statuses and nonempty reasons remain explicit. Diff text omits
+NOT_ASSESSED because the producer builds these rows without a concrete report;
+it does not establish uncertainty about their comparison-side affectedness. The
+raw status stays in JSON. Other non-implied statuses still appear in diff text.

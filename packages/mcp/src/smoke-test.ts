@@ -1293,6 +1293,53 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
     "pkg_vulns scoped json missing advisory scope echo",
   );
 
+  const unknownVulnsText = assertDefaultText(
+    await callTool(caller, "pkg_vulns", {
+      target: "npm:lodash@4.17.20",
+      advisory_scope: "unknown",
+    }),
+    "pkg_vulns unknown scope",
+  );
+  assert(
+    unknownVulnsText.includes("Scope   unknown"),
+    "pkg_vulns unknown scope missing scope echo",
+  );
+  const unknownVulnsJson = assertJsonResult(
+    await callTool(caller, "pkg_vulns", {
+      target: "npm:lodash@4.17.20",
+      advisory_scope: "unknown",
+      format: "json",
+    }),
+    "pkg_vulns unknown json",
+  );
+  assertRecord(unknownVulnsJson, "pkg_vulns unknown json");
+  assertRecord(unknownVulnsJson.summary, "pkg_vulns unknown summary");
+  assert(
+    typeof unknownVulnsJson.summary.unknownVulnerabilityCount === "number",
+    "pkg_vulns missing unknown count",
+  );
+  assert(
+    typeof unknownVulnsJson.summary.assessmentStatus === "string",
+    "pkg_vulns missing assessment status in JSON",
+  );
+  const transitiveUnknownError = assertCleanErrorEnvelope(
+    await callTool(caller, "pkg_vulns", {
+      target: "npm:lodash",
+      advisory_scope: "unknown",
+      include_transitive: true,
+      format: "json",
+    }),
+    "pkg_vulns transitive unknown rejection",
+  );
+  assert(
+    transitiveUnknownError.code === "INVALID_ARGUMENT",
+    "pkg_vulns transitive unknown must be invalid",
+  );
+  assert(
+    transitiveUnknownError.error.includes("available for direct reports only"),
+    "pkg_vulns transitive unknown missing guidance",
+  );
+
   // Complete statement and original-note views have no fixed text-size bound.
   const changelogText = assertToolText(
     await callTool(caller, "pkg_changelog", {

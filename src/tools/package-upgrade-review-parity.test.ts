@@ -268,6 +268,13 @@ describe("package_upgrade_review parity", () => {
               currentVersion: "4.3.6",
               targetVersion: "4.4.3",
               unknowns: ["vulnerability check failed: backend timeout"],
+              unknownDetails: [
+                {
+                  section: "SECURITY",
+                  code: "lookup_failed",
+                  message: "vulnerability check failed: backend timeout",
+                },
+              ],
             },
           ],
         }),

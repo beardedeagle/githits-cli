@@ -56,7 +56,7 @@ const schema: ZodRawShape = {
     .string()
     .optional()
     .describe(
-      "Advisory rows to return: `affected` (default), `non_affecting` for historical advisories that do not affect the inspected version, or `all` for both affected and historical advisories. Counts always include affected/non-affecting/all totals.",
+      "Advisory rows to return: `affected` (default), `non_affecting` for historical advisories that do not affect the inspected version, `unknown` for advisories that could not be evaluated (direct reports only; cannot combine with include_transitive), or `all` for every outcome. Counts always include affected/non-affecting/unknown/all totals.",
     ),
   verbose: z
     .boolean()
@@ -97,6 +97,7 @@ export function createPackageVulnerabilitiesTool(
         const target = parsePackageSpec(args.target.trim());
         const { params: builtParams, filter } =
           buildPackageVulnerabilitiesParams({
+            surface: "mcp",
             registry: target.registry,
             packageName: target.name,
             version: target.version,

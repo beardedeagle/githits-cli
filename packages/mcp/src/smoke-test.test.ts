@@ -1369,6 +1369,21 @@ function smokeResponse(
   args: Record<string, unknown>,
 ): McpSmokeToolResult {
   if (
+    name === "pkg_vulns" &&
+    args.advisory_scope === "unknown" &&
+    args.include_transitive === true
+  ) {
+    return errorResult(
+      "INVALID_ARGUMENT",
+      JSON.stringify({
+        code: "INVALID_ARGUMENT",
+        error:
+          'advisory_scope="unknown" is available for direct reports only; omit include_transitive or use advisory_scope="affected", "non_affecting" or "all".',
+        retryable: false,
+      }),
+    );
+  }
+  if (
     (name === "pkg_deps" &&
       args.target === "go:github.com/docker/docker@v20.10.0") ||
     (name === "list" &&
@@ -1454,6 +1469,11 @@ function smokeResponse(
           : 'Runtime dependencies:\npass lifecycle="all"',
       );
     case "pkg_vulns":
+      if (args.advisory_scope === "unknown") {
+        return textResult(
+          "lodash vulnerabilities\nScope   unknown\nAssessment AFFECTED | 4 non-affecting | 8 all",
+        );
+      }
       if (args.include_transitive === true) {
         return textResult(
           "express vulnerabilities\n\n" +
@@ -1639,7 +1659,7 @@ function smokeJsonResponse(
         });
       }
       return jsonResult({
-        summary: {},
+        summary: { unknownVulnerabilityCount: 0, assessmentStatus: "AFFECTED" },
         filter: {
           minSeverity: args.min_severity,
           advisoryScope: args.advisory_scope,

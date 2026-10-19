@@ -2031,6 +2031,54 @@ async function runLiveSmoke(env: Record<string, string>): Promise<void> {
     "pkg vulns scoped json missing advisory scope echo",
   );
 
+  const unknownVulnsText = assertTerminalOutput(
+    await runCli(["pkg", "vulns", "npm:lodash@4.17.20", "--scope", "unknown"]),
+    "pkg vulns unknown scope",
+  );
+  assert(
+    unknownVulnsText.includes("Scope   unknown"),
+    "pkg vulns unknown scope missing scope echo",
+  );
+  const unknownVulnsJson = assertJsonOutput(
+    await runCli([
+      "pkg",
+      "vulns",
+      "npm:lodash@4.17.20",
+      "--scope",
+      "unknown",
+      "--json",
+    ]),
+    "pkg vulns unknown json",
+  );
+  assertRecord(unknownVulnsJson, "pkg vulns unknown json");
+  assertRecord(unknownVulnsJson.summary, "pkg vulns unknown summary");
+  assert(
+    typeof unknownVulnsJson.summary.unknownVulnerabilityCount === "number",
+    "pkg vulns missing unknown count",
+  );
+  assert(
+    typeof unknownVulnsJson.summary.assessmentStatus === "string",
+    "pkg vulns missing assessment status in JSON",
+  );
+  const transitiveUnknown = await runCli([
+    "pkg",
+    "vulns",
+    "npm:lodash",
+    "--scope",
+    "unknown",
+    "--transitive",
+    "--json",
+  ]);
+  assertJsonErrorCode(
+    transitiveUnknown,
+    "pkg vulns transitive unknown",
+    "INVALID_ARGUMENT",
+  );
+  assert(
+    transitiveUnknown.stderr.includes("available for direct reports only"),
+    "pkg vulns transitive unknown missing guidance",
+  );
+
   const changelogText = assertCompleteTerminalOutput(
     await runCli(["pkg", "changelog", "npm:express", "--limit", "1"]),
     "pkg changelog terminal",

@@ -127,11 +127,17 @@ export interface PackageVulnerabilitiesParams {
   includeTransitive?: boolean;
   /** Optional internal breadth for advisory-wide transitive detail fields. */
   includeTransitiveAdvisoryDetails?: boolean;
-  /** Advisory rows to return for the root and opt-in transitive audit; direct counts always include all scopes. */
+  /** Advisory rows to return; UNKNOWN is direct-only. Direct counts always include all scopes. */
   advisoryScope?: VulnerabilityScope;
 }
 
-export type VulnerabilityScope = "AFFECTED" | "NON_AFFECTING" | "ALL";
+export type VulnerabilityScope =
+  | "AFFECTED"
+  | "NON_AFFECTING"
+  | "UNKNOWN"
+  | "ALL";
+
+type TransitiveVulnerabilityScope = Exclude<VulnerabilityScope, "UNKNOWN">;
 
 export interface PackageVersionIdentity {
   name: string;
@@ -157,11 +163,15 @@ export interface VulnerabilityDetail {
   aliases?: string[];
   isMalicious?: boolean;
   affectsInspectedVersion?: boolean;
+  assessmentStatus?: string;
+  assessmentReasons?: string[];
   matchedAffectedVersionRanges?: string[];
   duplicateIds?: string[];
 }
 
 export interface VulnerabilitySecurityDetails {
+  unknownVulnerabilityCount?: number;
+  assessmentStatus?: string;
   affectedVulnerabilityCount: number;
   nonAffectingVulnerabilityCount: number;
   allVulnerabilityCount: number;
@@ -178,7 +188,7 @@ export interface VulnerabilityReport {
 
 export interface TransitiveVulnerabilityAudit {
   /** Advisory scope applied to dependency-package occurrences. */
-  advisoryScope: VulnerabilityScope;
+  advisoryScope: TransitiveVulnerabilityScope;
   /** Number of resolved package-version graph nodes checked. */
   totalPackagesAnalyzed: number;
   /** Number of dependency package rows with occurrences in the selected scope. */
@@ -254,6 +264,8 @@ export interface PackageUpgradeReviewParams {
 }
 
 export interface PackageUpgradeAdvisorySummary {
+  assessmentStatus?: string;
+  assessmentReasons?: string[];
   id?: string;
   aliases: string[];
   summary?: string;
@@ -264,6 +276,8 @@ export interface PackageUpgradeAdvisorySummary {
 }
 
 export interface PackageUpgradeVersionVulnerabilitySummary {
+  unknownVulnerabilityCount?: number;
+  assessmentStatus?: string;
   version: string;
   publishedAt?: string;
   deprecated?: boolean;
@@ -394,6 +408,13 @@ export interface PackageUpgradeDependencyIssues {
   introducedOutdated: string[];
 }
 
+export interface PackageUpgradeUnknownEvidence {
+  section: string;
+  code: string;
+  message: string;
+  retryable?: boolean;
+}
+
 export interface PackageUpgradeReview {
   registry: string;
   name: string;
@@ -406,7 +427,9 @@ export interface PackageUpgradeReview {
   compatibility?: PackageUpgradeCompatibility;
   dependencyChanges?: PackageUpgradeDependencyChanges;
   dependencyIssues?: PackageUpgradeDependencyIssues;
+  /** Compatibility field derived from unknownDetails, never selected separately. */
   unknowns: string[];
+  unknownDetails?: PackageUpgradeUnknownEvidence[];
 }
 
 export interface PackageUpgradeReviewResponse {
@@ -539,6 +562,7 @@ export interface VulnerabilitySummaryDetail {
 }
 
 export interface TransitiveDependencyVulnerability {
+  assessmentStatus?: string;
   version: string;
   affectsResolvedVersion: boolean;
   matchedAffectedVersionRanges: string[];
@@ -1158,6 +1182,8 @@ const packageVersionIdentitySchema = z.object({
 });
 
 const vulnerabilityDetailSchema = z.object({
+  assessmentStatus: z.string().nullable().optional(),
+  assessmentReasons: z.array(z.string()).nullable().optional(),
   osvId: z.string().nullable().optional(),
   summary: z.string().nullable().optional(),
   severityScore: z.number().nullable().optional(),
@@ -1189,6 +1215,13 @@ const vulnerabilityAdvisoryPageSchema = z.object({
 
 const vulnerabilitySecurityDetailsSchema = z
   .object({
+    unknownVulnerabilityCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .optional(),
+    assessmentStatus: z.string().nullable().optional(),
     affectedVulnerabilityCount: z.number().int(),
     nonAffectingVulnerabilityCount: z.number().int(),
     allVulnerabilityCount: z.number().int(),
@@ -1229,6 +1262,7 @@ const transitiveAuditAdvisorySchema = z.object({
 });
 
 const transitiveAuditOccurrenceSchema = z.object({
+  assessmentStatus: z.string().nullable().optional(),
   version: z.string(),
   affectsResolvedVersion: z.boolean(),
   matchedAffectedVersionRanges: z.array(z.string()),
@@ -1304,6 +1338,8 @@ query PackageVulnerabilities(
       version
     }
     security {
+      unknownVulnerabilityCount
+      assessmentStatus
       affectedVulnerabilityCount
       nonAffectingVulnerabilityCount
       allVulnerabilityCount
@@ -1325,6 +1361,8 @@ query PackageVulnerabilities(
           aliases
           isMalicious
           affectsInspectedVersion
+          assessmentStatus
+          assessmentReasons
           matchedAffectedVersionRanges
           duplicateIds
         }
@@ -1339,7 +1377,10 @@ query PackageVulnerabilities(
 }`;
 
 const TRANSITIVE_AUDIT_SCOPE_FIELDS: Readonly<
-  Record<VulnerabilityScope, { summary: string; packageCount: string }>
+  Record<
+    TransitiveVulnerabilityScope,
+    { summary: string; packageCount: string }
+  >
 > = {
   AFFECTED: { summary: "affected", packageCount: "affectedCount" },
   NON_AFFECTING: {
@@ -1350,7 +1391,7 @@ const TRANSITIVE_AUDIT_SCOPE_FIELDS: Readonly<
 };
 
 function buildPackageTransitiveVulnerabilityAuditQuery(
-  scope: VulnerabilityScope,
+  scope: TransitiveVulnerabilityScope,
 ): string {
   const fields = TRANSITIVE_AUDIT_SCOPE_FIELDS[scope];
   return `
@@ -1388,6 +1429,7 @@ query PackageTransitiveVulnerabilityAudit(
             advisoryOccurrences(scope: $scope, minSeverity: $minSeverity) {
               version
               affectsResolvedVersion
+              ${scope === "ALL" ? "assessmentStatus" : ""}
               matchedAffectedVersionRanges
               fixVersionsAboveResolved
               nearestFixedVersion
@@ -1999,6 +2041,8 @@ query PackageUpgradeDependencyProbe(
 // --------------------------------------------------------------------
 
 const packageUpgradeAdvisorySchema = z.object({
+  assessmentStatus: z.string().nullable().optional(),
+  assessmentReasons: z.array(z.string()).nullable().optional(),
   id: z.string().nullable().optional(),
   aliases: z.array(z.string()),
   summary: z.string().nullable().optional(),
@@ -2010,6 +2054,13 @@ const packageUpgradeAdvisorySchema = z.object({
 
 const packageUpgradeVersionVulnerabilitySummarySchema = z
   .object({
+    unknownVulnerabilityCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .optional(),
+    assessmentStatus: z.string().nullable().optional(),
     version: z.string(),
     publishedAt: z.string().nullable().optional(),
     deprecated: z.boolean().nullable().optional(),
@@ -2228,7 +2279,17 @@ const packageUpgradeReviewSchema = z.object({
   compatibility: packageUpgradeCompatibilitySchema,
   dependencyChanges: packageUpgradeDependencyChangesSchema,
   dependencyIssues: packageUpgradeDependencyIssuesSchema,
-  unknowns: z.array(z.string()),
+  unknownDetails: z
+    .array(
+      z.object({
+        section: z.string(),
+        code: z.string(),
+        message: z.string(),
+        retryable: z.boolean().nullable().optional(),
+      }),
+    )
+    .nullable()
+    .optional(),
 });
 
 const packageUpgradeReviewResponseSchema = z.object({
@@ -2309,6 +2370,8 @@ query PackageUpgradeReview(
           deprecationReason
           affectedCount
           nonAffectingCount
+          unknownVulnerabilityCount
+          assessmentStatus
           allCount
           lastModifiedAt
           advisories {
@@ -2322,6 +2385,8 @@ query PackageUpgradeReview(
           deprecationReason
           affectedCount
           nonAffectingCount
+          unknownVulnerabilityCount
+          assessmentStatus
           allCount
           lastModifiedAt
           advisories {
@@ -2413,12 +2478,13 @@ query PackageUpgradeReview(
         introducedConflicts
         introducedOutdated
       }
-      unknowns
+      unknownDetails { section code message ${view === "json" ? "retryable" : ""} }
     }
   }
 }
 
 fragment PackageUpgradeAdvisoryFields on PackageUpgradeAdvisorySummary {
+  ${view !== "triage" ? "assessmentStatus assessmentReasons" : ""}
   id
   aliases
   summary
@@ -3214,6 +3280,14 @@ export class PackageIntelligenceServiceImpl
   async packageVulnerabilities(
     params: PackageVulnerabilitiesParams,
   ): Promise<VulnerabilityReport> {
+    if (
+      params.includeTransitive === true &&
+      params.advisoryScope === "UNKNOWN"
+    ) {
+      throw new PackageIntelligenceValidationError(
+        'Advisory scope "unknown" is available for direct reports only; drop transitive mode or use affected, non_affecting or all.',
+      );
+    }
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.vulnerabilities.request",
@@ -3302,7 +3376,10 @@ export class PackageIntelligenceServiceImpl
       : firstPage;
 
     const report = this.normaliseVulnerabilityReport(data);
-    if (params.includeTransitive === true) {
+    if (
+      params.includeTransitive === true &&
+      params.advisoryScope !== "UNKNOWN"
+    ) {
       report.transitive = await this.fetchTransitiveVulnerabilityAudit(
         token,
         report.package,
@@ -3398,6 +3475,9 @@ export class PackageIntelligenceServiceImpl
 
     const security: VulnerabilitySecurityDetails | undefined = data.security
       ? {
+          unknownVulnerabilityCount:
+            data.security.unknownVulnerabilityCount ?? undefined,
+          assessmentStatus: data.security.assessmentStatus ?? undefined,
           affectedVulnerabilityCount: data.security.affectedVulnerabilityCount,
           nonAffectingVulnerabilityCount:
             data.security.nonAffectingVulnerabilityCount,
@@ -3419,6 +3499,8 @@ export class PackageIntelligenceServiceImpl
             aliases: vuln.aliases ?? undefined,
             isMalicious: vuln.isMalicious ?? undefined,
             affectsInspectedVersion: vuln.affectsInspectedVersion,
+            assessmentStatus: vuln.assessmentStatus ?? undefined,
+            assessmentReasons: vuln.assessmentReasons ?? undefined,
             matchedAffectedVersionRanges: vuln.matchedAffectedVersionRanges,
             duplicateIds: vuln.duplicateIds,
           })),
@@ -3436,7 +3518,7 @@ export class PackageIntelligenceServiceImpl
     token: string,
     directIdentity: PackageVersionIdentity,
     minSeverity: number | undefined,
-    advisoryScope: VulnerabilityScope,
+    advisoryScope: TransitiveVulnerabilityScope,
     params: PackageVulnerabilitiesParams,
   ): Promise<TransitiveVulnerabilityAudit> {
     if (!directIdentity.registry) {
@@ -3526,7 +3608,7 @@ export class PackageIntelligenceServiceImpl
 
   private normaliseTransitiveVulnerabilityAudit(
     summary: z.infer<typeof transitiveAuditSummarySchema>,
-    advisoryScope: VulnerabilityScope,
+    advisoryScope: TransitiveVulnerabilityScope,
   ): TransitiveVulnerabilityAudit {
     const packages = summary.packages
       .filter((pkg) => pkg.selectedCount > 0)
@@ -3579,6 +3661,7 @@ export class PackageIntelligenceServiceImpl
             return {
               version: occurrence.version,
               affectsResolvedVersion: occurrence.affectsResolvedVersion,
+              assessmentStatus: occurrence.assessmentStatus ?? undefined,
               matchedAffectedVersionRanges:
                 occurrence.matchedAffectedVersionRanges,
               fixVersionsAboveResolved: occurrence.fixVersionsAboveResolved,
@@ -3719,14 +3802,22 @@ export class PackageIntelligenceServiceImpl
       );
     }
 
+    // Preserve the public client response without fetching duplicate message text.
+    const reviews = data.reviews.map((review) => ({
+      ...review,
+      unknowns: (review.unknownDetails ?? []).map((detail) => detail.message),
+    }));
     const detailed = (params.changelogView ?? "text") !== "triage";
     if (!detailed)
-      return stripNullProperties(data) as PackageUpgradeReviewResponse;
+      return stripNullProperties({
+        ...data,
+        reviews,
+      }) as PackageUpgradeReviewResponse;
     const result: PackageUpgradeReviewResponse = {
       summary: data.summary,
       reviews: [],
     };
-    for (const review of data.reviews) {
+    for (const review of reviews) {
       const page = review.changelog.statements;
       if (
         !page ||
