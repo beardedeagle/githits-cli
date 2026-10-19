@@ -1,4 +1,4 @@
-import { MalformedAgenticAskResponseError } from "@githits/core-internal";
+import { MalformedAgenticAskResponseError } from "@githits/core-internal/browser";
 
 /** Read the sole text primitive; JSON callers bypass display extraction entirely. */
 export function extractAgenticAskDisplay(response: unknown): string {

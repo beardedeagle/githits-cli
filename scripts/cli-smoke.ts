@@ -76,6 +76,7 @@ export const EXPECTED_STABLE_TOP_LEVEL_COMMANDS = [
   "logout",
   "mcp",
   "example",
+  "research",
   "resolve",
   "doctor",
   "settings",
@@ -88,11 +89,6 @@ export const EXPECTED_STABLE_TOP_LEVEL_COMMANDS = [
   "pkg",
   "docs",
   "auth",
-] as const;
-
-export const EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS = [
-  ...EXPECTED_STABLE_TOP_LEVEL_COMMANDS,
-  "research",
 ] as const;
 
 /** Backwards-compatible name for the exact stable baseline command set. */
@@ -395,8 +391,10 @@ export function parseRootHelpCommands(helpText: string): string[] {
     }
     if (line.trim() === "") break;
     const match = /^ {2}(\S+)/.exec(line);
-    const command = match?.[1]?.split("|", 1)[0];
-    if (command && command !== "help") commands.push(command);
+    // Aliases count as commands so a reintroduced alias fails the exact set.
+    for (const command of match?.[1]?.split("|") ?? []) {
+      if (command && command !== "help") commands.push(command);
+    }
   }
   return commands;
 }
@@ -1042,7 +1040,7 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
   const isolated = createIsolatedSmokeEnvironment("githits-cli-smoke-home-");
   const { env } = isolated;
   try {
-    const configPath = writeSmokeConfig(env, "[experimental]\ntools = false\n");
+    writeSmokeConfig(env, "[experimental]\ntools = false\n");
     for (const args of [
       ["pkg", "info", "--json"],
       ["pkg", "info", "npm:express", "--unknown-option", "--json"],
@@ -1094,12 +1092,9 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
       EXPECTED_STABLE_TOP_LEVEL_COMMANDS,
     );
     assert(
-      !helpResult.stdout.includes("ask"),
-      "stable root help should omit ask",
-    );
-    assert(
-      !helpResult.stdout.includes("research"),
-      "stable root help should omit research",
+      helpResult.stdout.includes('githits research npm:express "How?"') &&
+        !helpResult.stdout.includes("research|ask"),
+      "stable root help should expose research without an alias",
     );
     assert(
       helpResult.stdout.includes("resolve"),
@@ -1122,35 +1117,67 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
       "stable code help should expose diff",
     );
 
-    for (const command of ["research", "ask"] as const) {
-      const disabled = await runCliWithEnv(
-        [command, "npm:express", "How is routing implemented?"],
-        env,
-      );
-      const disabledMessage = `Experimental CLI command "${command}" is disabled. Enable it in ${configPath} by adding:\n[experimental]\ntools = true`;
+    {
+      const commandHelp = await runCliWithEnv(["research", "--help"], env);
       assert(
-        disabled.exitCode !== 0 &&
-          `${disabled.stderr}\n${disabled.stdout}`.includes(disabledMessage),
-        `disabled ${command} should echo its spelling and expose the config path and snippet`,
-      );
-
-      const disabledJson = await runCliWithEnv(
-        [command, "npm:express", "How is routing implemented?", "--json"],
-        env,
-      );
-      const context = `disabled ${command} JSON`;
-      assertJsonErrorCode(disabledJson, context, "INVALID_ARGUMENT");
-      assert(
-        disabledJson.stdout.trim() === "",
-        `${context} should keep stdout empty`,
-      );
-      assert(
-        assertCleanErrorEnvelope(disabledJson.stderr, context).error.includes(
-          disabledMessage,
-        ),
-        `${context} should echo its spelling and retain the enable snippet`,
+        commandHelp.exitCode === 0 &&
+          commandHelp.stdout.includes("Usage: githits research") &&
+          commandHelp.stdout.includes("[target] <question>") &&
+          commandHelp.stdout.includes("Omit the target") &&
+          commandHelp.stdout.includes("--thread <UUID>") &&
+          commandHelp.stdout.includes("--source-format <format>") &&
+          commandHelp.stdout.includes('choices: "cli", "url"') &&
+          commandHelp.stdout.includes("--json"),
+        "stable research help should expose the research CLI contract",
       );
     }
+
+    const malformedResearchJson = await runCliWithEnv(
+      [
+        "research",
+        "--json",
+        "--thread",
+        "018f47a6-7b32-7b1e-8f45-6a2d39c81720",
+      ],
+      env,
+    );
+    assertJsonErrorCode(
+      malformedResearchJson,
+      "malformed research",
+      "INVALID_ARGUMENT",
+    );
+    assert(
+      malformedResearchJson.stdout.trim() === "",
+      "malformed research should keep stdout empty",
+    );
+
+    const researchJson = await runCliWithEnv(
+      ["research", "npm:express", "How is routing implemented?", "--json"],
+      env,
+    );
+    assertJsonErrorCode(
+      researchJson,
+      "stable unauthenticated research",
+      "AUTH_REQUIRED",
+    );
+    const targetlessResearchJson = await runCliWithEnv(
+      ["research", "How does Express routing work?", "--json"],
+      env,
+    );
+    assertJsonErrorCode(
+      targetlessResearchJson,
+      "stable unauthenticated targetless research",
+      "AUTH_REQUIRED",
+    );
+    const removedAsk = await runCliWithEnv(
+      ["ask", "How does Express routing work?"],
+      env,
+    );
+    assert(
+      removedAsk.exitCode !== 0 &&
+        removedAsk.stderr.includes("unknown command 'ask'"),
+      "removed ask alias must fail as an unknown command before auth",
+    );
 
     const resolveHelp = await runCliWithEnv(["resolve", "--help"], env);
     assert(
@@ -1320,93 +1347,22 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
   }
 }
 
-async function assertExperimentalUnauthenticatedBehavior(): Promise<void> {
+/** A legacy `[experimental] tools = true` config must change nothing. */
+async function assertLegacyExperimentalOptInIgnored(): Promise<void> {
   const isolated = createIsolatedSmokeEnvironment(
-    "githits-cli-experimental-smoke-home-",
+    "githits-cli-legacy-experimental-smoke-home-",
   );
   const { env } = isolated;
   try {
     writeSmokeConfig(env, "[experimental]\ntools = true\n");
     const helpResult = await runCliWithEnv(["--help"], env);
-    assert(helpResult.exitCode === 0, "experimental root help should succeed");
+    assert(
+      helpResult.exitCode === 0,
+      "root help with legacy opt-in should succeed",
+    );
     assertRootHelpStructure(
       helpResult.stdout,
-      EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS,
-    );
-    assert(
-      helpResult.stdout.includes('githits research npm:express "How?"'),
-      "experimental root help should use research in Getting started",
-    );
-    assert(
-      helpResult.stdout.includes("research|ask"),
-      "experimental root help should list ask as the research alias",
-    );
-    assert(
-      helpResult.stdout.includes("githits resolve express"),
-      "root help with opt-in should include stable resolve in Getting started",
-    );
-
-    for (const command of ["research", "ask"] as const) {
-      const commandHelp = await runCliWithEnv([command, "--help"], env);
-      assert(
-        commandHelp.exitCode === 0 &&
-          commandHelp.stdout.includes("[target] <question>") &&
-          commandHelp.stdout.includes("Omit the target") &&
-          commandHelp.stdout.includes("--thread <UUID>") &&
-          commandHelp.stdout.includes("--source-format <format>") &&
-          commandHelp.stdout.includes('choices: "cli", "url"') &&
-          commandHelp.stdout.includes("--json"),
-        `experimental ${command} help should expose the research CLI contract`,
-      );
-    }
-
-    const malformedResearchJson = await runCliWithEnv(
-      [
-        "research",
-        "--json",
-        "--thread",
-        "018f47a6-7b32-7b1e-8f45-6a2d39c81720",
-      ],
-      env,
-    );
-    assertJsonErrorCode(
-      malformedResearchJson,
-      "experimental malformed research",
-      "INVALID_ARGUMENT",
-    );
-    assert(
-      malformedResearchJson.stdout.trim() === "",
-      "experimental malformed research should keep stdout empty",
-    );
-
-    const codeHelp = await runCliWithEnv(["code", "--help"], env);
-    assert(
-      codeHelp.exitCode === 0 && codeHelp.stdout.includes("diff"),
-      "stable diff should remain in code help with experimental tools enabled",
-    );
-    const resolveHelp = await runCliWithEnv(["resolve", "--help"], env);
-    assert(
-      resolveHelp.exitCode === 0 &&
-        resolveHelp.stdout.includes("credentials") &&
-        resolveHelp.stdout.includes("private code"),
-      "resolve help should expose privacy guidance",
-    );
-    const codeDiffHelp = await runCliWithEnv(["code", "diff", "--help"], env);
-    assert(
-      codeDiffHelp.exitCode === 0 &&
-        codeDiffHelp.stdout.includes("<from>..<to>") &&
-        codeDiffHelp.stdout.includes("--name-status"),
-      "stable diff help should expose the bounded contract with experimental tools enabled",
-    );
-
-    const resolveJson = await runCliWithEnv(
-      ["resolve", "express", "--json"],
-      env,
-    );
-    assertJsonErrorCode(
-      resolveJson,
-      "stable resolve auth probe with experimental opt-in",
-      "AUTH_REQUIRED",
+      EXPECTED_STABLE_TOP_LEVEL_COMMANDS,
     );
     const researchJson = await runCliWithEnv(
       ["research", "npm:express", "How is routing implemented?", "--json"],
@@ -1414,25 +1370,7 @@ async function assertExperimentalUnauthenticatedBehavior(): Promise<void> {
     );
     assertJsonErrorCode(
       researchJson,
-      "experimental unauthenticated research",
-      "AUTH_REQUIRED",
-    );
-    const targetlessAskJson = await runCliWithEnv(
-      ["ask", "How does Express routing work?", "--json"],
-      env,
-    );
-    assertJsonErrorCode(
-      targetlessAskJson,
-      "experimental unauthenticated targetless ask alias",
-      "AUTH_REQUIRED",
-    );
-    const codeDiffJson = await runCliWithEnv(
-      ["code", "diff", "npm:express", "5.2.0..5.2.1", "--json"],
-      env,
-    );
-    assertJsonErrorCode(
-      codeDiffJson,
-      "stable unauthenticated code diff with experimental tools enabled",
+      "research auth probe with legacy opt-in",
       "AUTH_REQUIRED",
     );
   } finally {
@@ -3112,9 +3050,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     `[smoke] CLI launch target: ${formatCliLaunchTarget(options.target)}\n`,
   );
   await assertUnauthenticatedBehavior();
-  await assertExperimentalUnauthenticatedBehavior();
+  await assertLegacyExperimentalOptInIgnored();
   if (options.mode === "unauthenticated") {
-    console.log("CLI stable + experimental unauthenticated smoke passed");
+    console.log("CLI stable unauthenticated smoke passed");
     return;
   }
   const stableLive = createScopedSmokeEnvironment(

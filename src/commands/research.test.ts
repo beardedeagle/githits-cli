@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import {
+  AGENTIC_ASK_DAILY_LIMIT_MESSAGE,
   AgenticAskHttpError,
   AgenticAskRequestTimeoutError,
   type AgenticAskResponse,
@@ -12,11 +13,11 @@ import {
 } from "@githits/mcp/internal";
 import { Command } from "commander";
 import displayContract from "../../packages/core-internal/src/services/fixtures/ask-display-contract.json";
-import { buildLocalMcpInstructions } from "../../packages/mcp/src/mcp/instructions.js";
+import { buildMcpQuickStart } from "../../packages/mcp/src/mcp/instructions.js";
 import {
   formatResearchMcpText,
   DESCRIPTION as MCP_RESEARCH_DESCRIPTION,
-} from "../../packages/mcp/src/mcp/local-research.js";
+} from "../../packages/mcp/src/tools/research.js";
 import {
   formatAgenticAskHumanResponse,
   type ResearchCommandDependencies,
@@ -375,6 +376,35 @@ describe("researchAction", () => {
     );
   });
 
+  it("tells the user when the daily research allowance is exhausted", async () => {
+    const error = spyOn(console, "error").mockImplementation(() => undefined);
+    spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit");
+    });
+    const failure = new AgenticAskHttpError(
+      "RATE_LIMITED",
+      AGENTIC_ASK_DAILY_LIMIT_MESSAGE,
+      429,
+      undefined,
+      43_200,
+      false,
+      undefined,
+      undefined,
+      "daily",
+    );
+
+    await expect(
+      researchAction(
+        "npm:example",
+        "How?",
+        {},
+        createDeps(mock(() => Promise.reject(failure))),
+      ),
+    ).rejects.toThrow("process.exit");
+
+    expect(error.mock.calls[0]?.[0]).toBe(AGENTIC_ASK_DAILY_LIMIT_MESSAGE);
+  });
+
   it("renders the shared terms-acceptance remediation", async () => {
     const error = spyOn(console, "error").mockImplementation(() => undefined);
     spyOn(process, "exit").mockImplementation(() => {
@@ -636,7 +666,7 @@ describe("Research positional parsing", () => {
 
 describe("Research registration", () => {
   it.each(
-    ["research", "ask"].flatMap((command) =>
+    ["research"].flatMap((command) =>
       ["", " ", "\t\n"].flatMap((question) => [
         { args: [command, question] },
         { args: [command, "npm:example", question] },
@@ -663,7 +693,7 @@ describe("Research registration", () => {
   );
 
   it.each(
-    ["research", "ask"].flatMap((command) =>
+    ["research"].flatMap((command) =>
       [
         [command, "How does Express routing work?"],
         [
@@ -690,7 +720,7 @@ describe("Research registration", () => {
   });
 
   it.each(
-    ["research", "ask"].flatMap((command) => [
+    ["research"].flatMap((command) => [
       [
         `${command}: missing follow-up question`,
         [command, "--thread", THREAD_ID],
@@ -722,7 +752,7 @@ describe("Research registration", () => {
 });
 
 describe("Research answer guidance", () => {
-  it("tells CLI and local MCP callers to cite verified sources directly", () => {
+  it("tells CLI and MCP callers to cite verified sources directly", () => {
     const program = new Command().name("githits");
     const help = registerResearchCommand(program)
       .helpInformation()
@@ -735,8 +765,8 @@ describe("Research answer guidance", () => {
     expect(MCP_RESEARCH_DESCRIPTION).toContain(
       RESEARCH_VERIFIED_ANSWER_GUIDANCE,
     );
-    expect(
-      buildLocalMcpInstructions({ enabledExperimentalTools: ["research"] }),
-    ).toContain(RESEARCH_VERIFIED_ANSWER_GUIDANCE);
+    expect(buildMcpQuickStart().replace(/\s+/g, " ")).toContain(
+      RESEARCH_VERIFIED_ANSWER_GUIDANCE,
+    );
   });
 });

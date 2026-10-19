@@ -1,7 +1,7 @@
 # Target resolution
 
 `resolve_target` and `githits resolve` are stable default surfaces in this source
-version. Research remains experimental. Backend discovery/ranking owns identity
+version, as is [research](research.md). Backend discovery/ranking owns identity
 and confidence; the client preserves its result and determines continuation.
 
 Resolve a noncanonical name before calling another GitHits command:
@@ -42,8 +42,8 @@ optional diagnostics as their other service clients. Resolver service, params,
 result, candidate and malicious-content types are exported there. The factory
 and `ResolveTargetMcpArgs` are available from `@githits/mcp/tools`.
 
-The stable registry and smoke inventory contain 14 tools, including one resolver.
-Experimental opt-in adds Research only. No GraphQL fields, ranking, authentication,
+The stable registry and smoke inventory contain 15 tools, including one resolver
+and `research`. No GraphQL fields, ranking, authentication,
 continuation gates or output envelopes change. Compact requests still omit
 JSON-only details; verbose text adds only lexical-similarity evidence. The shared
 guide and public MCP skill route bare names to `resolve_target`; its

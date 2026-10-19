@@ -1,16 +1,21 @@
 import { describe, expect, it } from "bun:test";
+import { RESEARCH_VERIFIED_ANSWER_GUIDANCE } from "../shared/research-guidance.js";
 import {
   buildLocalMcpInstructions,
   buildLocalMcpQuickStart,
   buildMcpInstructions,
   buildMcpQuickStart,
-  type LocalExperimentalToolName,
+  type LocalExperimentalToolGuidance,
 } from "./instructions.js";
 
-const EXPERIMENTAL_TOOLS = ["research"] as const;
+const PROBE_TOOL: LocalExperimentalToolGuidance = {
+  name: "probe",
+  guidance: "- `probe` — probe one experimental contract.",
+};
+const EXPERIMENTAL_TOOLS = [PROBE_TOOL] as const;
 
 function buildLocal(
-  enabledExperimentalTools: readonly LocalExperimentalToolName[],
+  enabledExperimentalTools: readonly LocalExperimentalToolGuidance[],
 ): string {
   return buildLocalMcpQuickStart({
     enabledExperimentalTools,
@@ -33,6 +38,7 @@ describe("buildMcpQuickStart", () => {
       "## Workflow",
       "## Targets",
       "## Results",
+      "## Research",
       "## External-content posture",
     ]);
     expect(guide).not.toMatch(/public OSS/i);
@@ -103,6 +109,35 @@ describe("buildMcpQuickStart", () => {
     }
   });
 
+  it("routes research on the stable guide with its contract", () => {
+    const raw = buildMcpQuickStart();
+    const guide = normalized(raw);
+
+    expect(raw).toContain(
+      "| Answer a question about an OSS package or repository with sources | `research` |",
+    );
+    for (const phrase of [
+      "Inputs are sent to GitHits. Never send credentials, personal data, private or proprietary content, local paths, or private targets.",
+      "`research` researches a public repository or package to answer a question with sources",
+      "Omit `target` and `thread_id` for question-only lookup",
+      "ask the user to select a `target`, then retry",
+      "Reuse a returned `thread_id` for follow-ups",
+      "Change project, version, or topic in the follow-up question",
+      RESEARCH_VERIFIED_ANSWER_GUIDANCE,
+      'Sources default to MCP read calls; use `source_format:"url"` for original upstream URLs',
+      "Do not invent or rewrite sources",
+      "Research takes the project's package or repository instead; it covers code and docs",
+    ]) {
+      expect(guide).toContain(phrase);
+    }
+    // The privacy sentence stays attached to the research guidance.
+    expect(raw.split("## Research")[1]).toContain(
+      "Inputs are sent to GitHits.",
+    );
+    expect(raw).not.toContain("`ask`");
+    expect(raw).not.toContain("Local experimental tools");
+  });
+
   it("states the private-input boundary and skill/quick_start equivalence", () => {
     const guide = normalized(buildMcpQuickStart());
 
@@ -134,60 +169,20 @@ describe("buildLocalMcpQuickStart", () => {
     expect(buildLocal([])).toBe(baseline);
   });
 
-  it("routes enabled experimental tools without feedback guidance", () => {
+  it("appends enabled experimental guidance after the public guide", () => {
     const instructions = buildLocal(EXPERIMENTAL_TOOLS);
 
-    expect(instructions).toContain("## Local experimental tools");
-    expect(instructions).toContain("`research`");
-    expect(instructions).not.toContain("`ask`");
-    expect(instructions).toContain(
-      "research a public repository or package to answer a question with sources",
-    );
-    expect(instructions).toContain("Omit `target` and `thread_id`");
-    expect(instructions).toContain(
-      "ask the user to select a `target`, then retry",
-    );
-    expect(instructions).toContain(
-      "Reuse a returned `thread_id` for follow-ups",
-    );
-    expect(instructions).toContain('`source_format:"url"`');
-    expect(instructions).toContain("Do not invent or rewrite sources");
     expect(instructions.startsWith(buildMcpQuickStart())).toBe(true);
+    expect(instructions).toContain("## Local experimental tools");
     expect(instructions).toContain("credentials");
     expect(instructions).toContain("private or proprietary content");
-    expect(instructions).toContain("targets.\n\n- `research`");
-    expect(instructions.split("Local experimental tools")[1]).not.toContain(
-      "`resolve_target`",
-    );
-    expect(instructions.split("Local experimental tools")[1]).not.toContain(
-      "`code_diff`",
-    );
-    expect(instructions.length - buildMcpQuickStart().length).toBeLessThan(
-      2_000,
-    );
+    expect(instructions).toContain(`targets.\n\n${PROBE_TOOL.guidance}`);
     expect(instructions).not.toContain("Issue reporting");
-    expect(instructions).not.toMatch(/report(?:ing)? (?:a )?defect/i);
     expect(instructions).not.toContain("accepted: false");
   });
 
-  it("composes only the requested experimental subset without phantom guidance", () => {
-    const cases = [
-      { enabled: [] as const, absent: EXPERIMENTAL_TOOLS },
-      { enabled: ["research"] as const, absent: [] as const },
-    ];
-
-    for (const { enabled, absent } of cases) {
-      const instructions = buildLocal(enabled);
-      expect(instructions).toContain("`code_diff`");
-      expect(instructions).toContain("`resolve_target`");
-      expect(instructions).not.toContain("feedback");
-      expect(instructions).not.toContain("Issue reporting");
-      for (const name of enabled) {
-        expect(instructions).toContain(`\`${name}\``);
-      }
-      for (const name of absent) {
-        expect(instructions).not.toContain(`\`${name}\``);
-      }
-    }
+  it("adds no local section while no experimental tool is enabled", () => {
+    expect(buildLocal([])).not.toContain("Local experimental tools");
+    expect(buildLocal([])).not.toContain("`probe`");
   });
 });

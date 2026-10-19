@@ -38,10 +38,6 @@ export interface McpSmokeScriptOptions {
   target: CliLaunchTarget;
 }
 
-export const EXPECTED_EXPERIMENTAL_MCP_TOOLS = [
-  ...EXPECTED_MCP_TOOLS,
-  "research",
-] as const;
 export const STABLE_MCP_SMOKE_CONFIG = "[experimental]\ntools = false\n";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -176,39 +172,12 @@ async function assertStableMcpSession(
   assert(
     quickStart.includes("`search`") &&
       quickStart.includes("`grep`") &&
-      quickStart.includes("`code_diff`"),
-    `${context}: quick_start missing stable routing guidance`,
-  );
-}
-
-async function assertExperimentalMcpSession(
-  client: Client,
-  context: string,
-): Promise<void> {
-  await assertMcpSession(client, EXPECTED_EXPERIMENTAL_MCP_TOOLS, context);
-  const instructions = await client.getInstructions();
-  assert(
-    instructions === undefined,
-    `${context}: GitHits must not publish MCP server instructions`,
-  );
-  const quickStart = assertDefaultText(
-    (await client.callTool({
-      name: "quick_start",
-      arguments: {},
-    })) as McpSmokeToolResult,
-    `${context}: quick_start`,
-  );
-  assert(
-    quickStart.includes("`research`") &&
+      quickStart.includes("`code_diff`") &&
+      quickStart.includes("`research`") &&
       !quickStart.includes("`ask`") &&
-      quickStart.includes("resolve_target") &&
-      quickStart.includes("code_diff") &&
-      quickStart.includes('source:"docs"') &&
-      quickStart.includes("`read`") &&
-      quickStart.includes("## Local experimental tools") &&
-      quickStart.includes("private or proprietary content") &&
-      !quickStart.includes("Issue reporting"),
-    `${context}: experimental quick_start missing routing/privacy guidance or contains retired issue-reporting guidance`,
+      quickStart.includes("private or") &&
+      !quickStart.includes("## Local experimental tools"),
+    `${context}: quick_start missing stable routing or research guidance`,
   );
 }
 
@@ -350,6 +319,31 @@ async function runRegistrationSmoke(target: CliLaunchTarget): Promise<void> {
         ).code === "AUTH_REQUIRED",
         "stable resolve_target must reach auth without experimental opt-in",
       );
+      for (const subject of [{ target: "npm:express" }, {}]) {
+        const researchResult = (await trackSmokeStep(
+          `mcp research ${JSON.stringify(subject)} registration`,
+          () =>
+            client.callTool(
+              {
+                name: "research",
+                arguments: {
+                  ...subject,
+                  format: "json",
+                  question: "Where is Express router dispatch implemented?",
+                },
+              },
+              undefined,
+              { timeout: AGENTIC_ASK_REQUEST_TIMEOUT_MS },
+            ),
+        )) as McpSmokeToolResult;
+        assert(
+          assertCleanErrorEnvelope(
+            researchResult,
+            "stable research registration",
+          ).code === "AUTH_REQUIRED",
+          "stable research must reach auth without experimental opt-in",
+        );
+      }
       await runMcpSmoke(createSmokeCaller(client), {
         includeLiveTools: false,
         logger: console,
@@ -361,11 +355,12 @@ async function runRegistrationSmoke(target: CliLaunchTarget): Promise<void> {
   }
 }
 
-async function runExperimentalRegistrationSmoke(
+/** The hidden eval flag adds nothing while no local experiment is registered. */
+async function runLegacyOptInRegistrationSmoke(
   target: CliLaunchTarget,
 ): Promise<void> {
   const isolated = createIsolatedSmokeEnvironment(
-    "githits-mcp-experimental-registration-smoke-home-",
+    "githits-mcp-legacy-opt-in-smoke-home-",
   );
   try {
     await withMcpClient(
@@ -373,155 +368,124 @@ async function runExperimentalRegistrationSmoke(
       isolated.env,
       ["--experimental-tools"],
       async (client) => {
-        await assertExperimentalMcpSession(client, "experimental registration");
-        for (const subject of [{ target: "npm:express" }, {}]) {
-          const researchResult = (await trackSmokeStep(
-            `mcp research ${JSON.stringify(subject)} registration`,
-            () =>
-              client.callTool(
-                {
-                  name: "research",
-                  arguments: {
-                    ...subject,
-                    format: "json",
-                    question: "Where is Express router dispatch implemented?",
-                  },
-                },
-                undefined,
-                { timeout: AGENTIC_ASK_REQUEST_TIMEOUT_MS },
-              ),
-          )) as McpSmokeToolResult;
-          assert(
-            assertCleanErrorEnvelope(researchResult, "research registration")
-              .code === "AUTH_REQUIRED",
-            "research registration should require auth",
-          );
-        }
+        await assertStableMcpSession(client, "legacy opt-in registration");
       },
     );
-    console.log("MCP experimental registration smoke passed");
+    console.log("MCP legacy opt-in registration smoke passed");
   } finally {
     isolated.cleanup();
   }
 }
 
-async function runExperimentalLiveSmoke(
-  target: CliLaunchTarget,
-): Promise<void> {
-  const scoped = createScopedSmokeEnvironment("githits-mcp-experimental-live-");
+/** Research answers can take minutes and count toward the daily limit: three calls. */
+async function runResearchLiveSmoke(target: CliLaunchTarget): Promise<void> {
+  const scoped = createScopedSmokeEnvironment("githits-mcp-research-live-");
   try {
-    await withMcpClient(
-      target,
-      scoped.env,
-      ["--experimental-tools"],
-      async (client) => {
-        await assertExperimentalMcpSession(client, "experimental live");
-        const authProbe = (await trackSmokeStep(
-          'mcp pkg_info {"target":"npm:express"} experimental live auth probe',
-          () =>
-            client.callTool({
-              name: "pkg_info",
-              arguments: { target: "npm:express", format: "json" },
-            }),
-        )) as McpSmokeToolResult;
-        if (authProbe.isError === true) {
-          const envelope = assertCleanErrorEnvelope(
-            authProbe,
-            "experimental live auth probe",
-          );
-          assert(
-            envelope.code === "AUTH_REQUIRED",
-            `experimental live auth probe returned ${envelope.code}`,
-          );
-          console.log("AUTH_REQUIRED: live MCP experimental smoke skipped");
-          return;
-        }
+    writeSmokeConfig(scoped.env, STABLE_MCP_SMOKE_CONFIG);
+    await withMcpClient(target, scoped.env, [], async (client) => {
+      await assertStableMcpSession(client, "research live");
+      const authProbe = (await trackSmokeStep(
+        'mcp pkg_info {"target":"npm:express"} research live auth probe',
+        () =>
+          client.callTool({
+            name: "pkg_info",
+            arguments: { target: "npm:express", format: "json" },
+          }),
+      )) as McpSmokeToolResult;
+      if (authProbe.isError === true) {
+        const envelope = assertCleanErrorEnvelope(
+          authProbe,
+          "research live auth probe",
+        );
+        assert(
+          envelope.code === "AUTH_REQUIRED",
+          `research live auth probe returned ${envelope.code}`,
+        );
+        console.log("AUTH_REQUIRED: live MCP research smoke skipped");
+        return;
+      }
 
-        const researchJson = (await trackSmokeStep(
-          "mcp research JSON experimental live",
-          () =>
-            client.callTool(
-              {
-                name: "research",
-                arguments: {
-                  target: "npm:express",
-                  question: "Where is router dispatch implemented?",
-                  format: "json",
-                },
-              },
-              undefined,
-              { timeout: AGENTIC_ASK_REQUEST_TIMEOUT_MS },
-            ),
-        )) as McpSmokeToolResult;
-        const researchRecord = assertJsonResult(
-          researchJson,
-          "experimental research JSON",
-        ) as Record<string, unknown>;
-        assert(
-          typeof researchRecord.display_markdown === "string" &&
-            researchRecord.display_markdown.length > 0 &&
-            typeof researchRecord.thread_id === "string",
-          "experimental research should return display text and thread metadata",
-        );
+      const researchJson = (await trackSmokeStep("mcp research JSON live", () =>
+        client.callTool(
+          {
+            name: "research",
+            arguments: {
+              target: "npm:express",
+              question: "Where is router dispatch implemented?",
+              format: "json",
+            },
+          },
+          undefined,
+          { timeout: AGENTIC_ASK_REQUEST_TIMEOUT_MS },
+        ),
+      )) as McpSmokeToolResult;
+      const researchRecord = assertJsonResult(
+        researchJson,
+        "research JSON",
+      ) as Record<string, unknown>;
+      assert(
+        typeof researchRecord.display_markdown === "string" &&
+          researchRecord.display_markdown.length > 0 &&
+          typeof researchRecord.thread_id === "string",
+        "research should return display text and thread metadata",
+      );
 
-        const researchUrlJson = (await trackSmokeStep(
-          "mcp research URL JSON experimental live",
-          () =>
-            client.callTool(
-              {
-                name: "research",
-                arguments: {
-                  thread_id: researchRecord.thread_id,
-                  question:
-                    "How is the matched route handler invoked after dispatch?",
-                  source_format: "url",
-                  format: "json",
-                },
+      const researchUrlJson = (await trackSmokeStep(
+        "mcp research URL JSON live",
+        () =>
+          client.callTool(
+            {
+              name: "research",
+              arguments: {
+                thread_id: researchRecord.thread_id,
+                question:
+                  "How is the matched route handler invoked after dispatch?",
+                source_format: "url",
+                format: "json",
               },
-              undefined,
-              { timeout: AGENTIC_ASK_REQUEST_TIMEOUT_MS },
-            ),
-        )) as McpSmokeToolResult;
-        const researchUrlPayload = assertJsonResult(
-          researchUrlJson,
-          "experimental research URL JSON",
-        );
-        assert(
-          researchUrlPayload !== null &&
-            typeof researchUrlPayload === "object" &&
-            !Array.isArray(researchUrlPayload),
-          "experimental research URL JSON should be an object",
-        );
-        const researchUrlRecord = researchUrlPayload as Record<string, unknown>;
-        assert(
-          typeof researchUrlRecord.display_markdown === "string" &&
-            researchUrlRecord.display_markdown.length > 0 &&
-            typeof researchUrlRecord.tool_call_id === "string" &&
-            researchUrlRecord.thread_id === researchRecord.thread_id,
-          "experimental research URL JSON should preserve the display contract and thread",
-        );
-        const researchText = (await trackSmokeStep(
-          "mcp research text follow-up experimental live",
-          () =>
-            client.callTool(
-              {
-                name: "research",
-                arguments: {
-                  thread_id: researchRecord.thread_id,
-                  question: "Summarize that answer briefly.",
-                },
+            },
+            undefined,
+            { timeout: AGENTIC_ASK_REQUEST_TIMEOUT_MS },
+          ),
+      )) as McpSmokeToolResult;
+      const researchUrlPayload = assertJsonResult(
+        researchUrlJson,
+        "research URL JSON",
+      );
+      assert(
+        researchUrlPayload !== null &&
+          typeof researchUrlPayload === "object" &&
+          !Array.isArray(researchUrlPayload),
+        "research URL JSON should be an object",
+      );
+      const researchUrlRecord = researchUrlPayload as Record<string, unknown>;
+      assert(
+        typeof researchUrlRecord.display_markdown === "string" &&
+          researchUrlRecord.display_markdown.length > 0 &&
+          typeof researchUrlRecord.tool_call_id === "string" &&
+          researchUrlRecord.thread_id === researchRecord.thread_id,
+        "research URL JSON should preserve the display contract and thread",
+      );
+      const researchText = (await trackSmokeStep(
+        "mcp research text follow-up live",
+        () =>
+          client.callTool(
+            {
+              name: "research",
+              arguments: {
+                thread_id: researchRecord.thread_id,
+                question: "Summarize that answer briefly.",
               },
-              undefined,
-              { timeout: AGENTIC_ASK_REQUEST_TIMEOUT_MS },
-            ),
-        )) as McpSmokeToolResult;
-        assert(
-          assertDefaultText(researchText, "experimental research text").trim()
-            .length > 0,
-          "experimental research should return nonempty backend display text",
-        );
-      },
-    );
+            },
+            undefined,
+            { timeout: AGENTIC_ASK_REQUEST_TIMEOUT_MS },
+          ),
+      )) as McpSmokeToolResult;
+      assert(
+        assertDefaultText(researchText, "research text").trim().length > 0,
+        "research should return nonempty backend display text",
+      );
+    });
   } finally {
     scoped.cleanup();
   }
@@ -534,7 +498,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   );
   if (options.mode === "registration") {
     await runRegistrationSmoke(options.target);
-    await runExperimentalRegistrationSmoke(options.target);
+    await runLegacyOptInRegistrationSmoke(options.target);
     return;
   }
 
@@ -549,7 +513,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   } finally {
     stable.cleanup();
   }
-  await runExperimentalLiveSmoke(options.target);
+  await runResearchLiveSmoke(options.target);
 }
 
 if (import.meta.main) {

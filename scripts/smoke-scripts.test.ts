@@ -13,7 +13,6 @@ import {
   assertSearchTerminalText,
   assertTransitiveVulnerabilityText,
   buildMcpParityCommand,
-  EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS,
   EXPECTED_STABLE_TOP_LEVEL_COMMANDS,
   EXPECTED_TOP_LEVEL_COMMANDS,
   formatCliLiveCohortSummary,
@@ -22,11 +21,7 @@ import {
   parseRootHelpCommands,
 } from "./cli-smoke.ts";
 import { parseMcpCallArgs } from "./mcp-call.ts";
-import {
-  EXPECTED_EXPERIMENTAL_MCP_TOOLS,
-  parseMcpSmokeArgs,
-  STABLE_MCP_SMOKE_CONFIG,
-} from "./mcp-smoke.ts";
+import { parseMcpSmokeArgs, STABLE_MCP_SMOKE_CONFIG } from "./mcp-smoke.ts";
 import { toStdioLaunch } from "./smoke-launch-target.ts";
 
 describe("CLI search smoke contract", () => {
@@ -735,20 +730,14 @@ describe("smoke script options", () => {
 });
 
 describe("CLI root help smoke contract", () => {
-  it("keeps stable and experimental command cohorts exact and separate", () => {
+  it("keeps the stable command cohort exact", () => {
     expect(EXPECTED_TOP_LEVEL_COMMANDS).toEqual(
       EXPECTED_STABLE_TOP_LEVEL_COMMANDS,
     );
     expect(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).toContain("uninstall");
     expect(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).not.toContain("ask");
-    expect(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).not.toContain("research");
+    expect(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).toContain("research");
     expect(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).toContain("resolve");
-    expect(EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS).toContain("research");
-    expect(EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS).not.toContain("ask");
-    expect(EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS).toContain("resolve");
-    expect(EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS).toHaveLength(
-      EXPECTED_STABLE_TOP_LEVEL_COMMANDS.length + 1,
-    );
   });
 
   it("accepts the complete product command set and ignores generated help", () => {
@@ -760,16 +749,15 @@ describe("CLI root help smoke contract", () => {
     expect(() => assertRootHelpStructure(help)).not.toThrow();
   });
 
-  it("parses research as canonical while retaining ask in the help alias", () => {
-    const help = rootHelpFixture(EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS);
+  it("fails when the removed ask alias reappears in root help", () => {
+    const help = rootHelpFixture(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).replace(
+      "  research [options]",
+      "  research|ask [options]",
+    );
 
     expect(help).toContain("  research|ask [options]");
-    expect(parseRootHelpCommands(help)).toEqual([
-      ...EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS,
-    ]);
-    expect(() =>
-      assertRootHelpStructure(help, EXPECTED_EXPERIMENTAL_TOP_LEVEL_COMMANDS),
-    ).not.toThrow();
+    expect(parseRootHelpCommands(help)).toContain("ask");
+    expect(() => assertRootHelpStructure(help)).toThrow("unexpected: ask");
   });
 
   it("fails when a command disappears even if prose still mentions it", () => {
@@ -793,10 +781,9 @@ describe("CLI root help smoke contract", () => {
   });
 
   function rootHelpFixture(commands: readonly string[]): string {
-    const rows = commands.map((command) => {
-      const displayName = command === "research" ? "research|ask" : command;
-      return `  ${displayName} [options]  ${command} description`;
-    });
+    const rows = commands.map(
+      (command) => `  ${command} [options]  ${command} description`,
+    );
     return [
       "Usage: githits [options] [command]",
       "",
@@ -811,13 +798,9 @@ describe("CLI root help smoke contract", () => {
 });
 
 describe("MCP smoke cohorts", () => {
-  it("keeps experimental inventory local and additive to the stable baseline", () => {
-    expect(EXPECTED_EXPERIMENTAL_MCP_TOOLS).toEqual([
-      ...EXPECTED_MCP_TOOLS,
-      "research",
-    ]);
-    expect(EXPECTED_EXPERIMENTAL_MCP_TOOLS).toContain("research");
-    expect(EXPECTED_EXPERIMENTAL_MCP_TOOLS).not.toContain("ask");
+  it("keeps research in the stable MCP inventory without its alias", () => {
+    expect(EXPECTED_MCP_TOOLS).toContain("research");
+    expect(EXPECTED_MCP_TOOLS).not.toContain("ask");
   });
 
   it("pins every stable cohort to an explicit disabled experimental config", () => {

@@ -6,7 +6,6 @@ import { SessionIdConfigError } from "@githits/core-internal";
 import { AuthRequiredError } from "@githits/mcp/internal";
 import { CommanderError, InvalidArgumentError } from "commander";
 import { AuthConfigError } from "../services/auth-config.js";
-import { ExperimentalToolsDisabledError } from "../services/experimental-cli-policy.js";
 import { ExperimentalConfigError } from "../services/experimental-config.js";
 import { AuthStorageLockTimeoutError } from "../services/locked-auth-storage.js";
 import { AuthStoragePolicyError } from "../services/mode-aware-file-auth-storage.js";
@@ -92,13 +91,7 @@ describe("handleCliError", () => {
     expect(output).not.toContain("at ");
   });
 
-  it("prints experimental policy errors as concise user-facing failures", () => {
-    const disabled = captureCliError(
-      new ExperimentalToolsDisabledError("research", "/tmp/config.toml"),
-    );
-    expect(disabled.output).toContain("[experimental]\ntools = true");
-    expect(disabled.output).not.toContain("githits doctor");
-
+  it("prints experimental config errors as concise user-facing failures", () => {
     const malformed = captureCliError(
       new ExperimentalConfigError(
         "Cannot parse GitHits config at /tmp/config.toml: invalid TOML",
@@ -108,20 +101,7 @@ describe("handleCliError", () => {
     expect(malformed.output).not.toContain("githits doctor");
   });
 
-  it("renders experimental policy errors as clean JSON when requested", () => {
-    const disabled = captureCliError(
-      new ExperimentalToolsDisabledError("research", "/tmp/config.toml"),
-      true,
-    );
-    expect(disabled.output.trim()).toBe(
-      JSON.stringify({
-        error:
-          'Experimental CLI command "research" is disabled. Enable it in /tmp/config.toml by adding:\n[experimental]\ntools = true',
-        code: "INVALID_ARGUMENT",
-        retryable: false,
-      }),
-    );
-
+  it("renders experimental config errors as clean JSON when requested", () => {
     const malformed = captureCliError(
       new ExperimentalConfigError(
         "Cannot parse GitHits config at /tmp/config.toml: invalid TOML",
@@ -468,8 +448,10 @@ describe("handleCliError", () => {
     }
   });
 
-  it("renders legacy repository refs through the ask alias as a clean JSON argument error", async () => {
-    const configHome = mkdtempSync(join(tmpdir(), "githits-cli-ask-error-"));
+  it("renders legacy repository refs through research as a clean JSON argument error", async () => {
+    const configHome = mkdtempSync(
+      join(tmpdir(), "githits-cli-research-error-"),
+    );
     mkdirSync(join(configHome, "githits"), { recursive: true });
     writeFileSync(
       join(configHome, "githits", "config.toml"),
@@ -490,7 +472,7 @@ describe("handleCliError", () => {
         "bun",
         "run",
         "src/cli.ts",
-        "ask",
+        "research",
         "--json",
         "github:expressjs/express#main",
         "why?",

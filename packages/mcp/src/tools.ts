@@ -76,6 +76,10 @@ export {
   type GetExampleService,
 } from "./tools/get-example.js";
 export {
+  createResearchTool,
+  type ResearchMcpArgs,
+} from "./tools/research.js";
+export {
   createResolveTargetTool,
   type ResolveTargetMcpArgs,
 } from "./tools/resolve-target.js";

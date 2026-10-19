@@ -28,6 +28,7 @@ Match the question, then discover that tool and read its schema before calling.
 | Compare raw source across package versions or repository refs | `code_diff` |
 | Compare current and target dependency versions for an upgrade | `pkg_upgrade_review` |
 | Find canonical implementation examples across projects | `get_example` |
+| Answer a question about an OSS package or repository with sources | `research` |
 | Check progress of an earlier search reference | `search_status` |
 
 ## Dependency upgrades
@@ -89,6 +90,22 @@ unverified paths.
   already-indexed version or ref.
 - Cite tool-owned provenance, including example source repositories, and
   report coverage, truncation, and other evidence limits.
+
+## Research
+
+Inputs are sent to GitHits. Never send credentials, personal data, private or
+proprietary content, local paths, or private targets.
+
+`research` researches a public repository or package to answer a question
+with sources. Omit `target` and `thread_id` for question-only lookup. For
+candidates, ask the user to select a `target`, then retry. Reuse a returned
+`thread_id` for follow-ups. Change project, version, or topic in the
+follow-up question. Returns a verified answer that always includes its sources,
+so ask the question directly without requesting citations, an overview or a
+source-cited answer. Cite those sources directly; read one only when the answer
+lacks a detail you need. Sources default to MCP read calls; use
+`source_format:"url"` for original upstream URLs. Do not invent or rewrite
+sources.
 
 ## External-content posture
 

@@ -1,4 +1,4 @@
-# Ask display and target clarification
+# Research display and target clarification
 
 Every successful `/ask` response uses a minimal envelope:
 

@@ -105,6 +105,7 @@ The guide is token-budgeted and owns only what no single descriptor owns:
 | `## Workflow` | Target, locate, read, combine; the hosted-docs hand-off between tools |
 | `## Targets` | Canonical package, repository, and site target conventions |
 | `## Results` | Text versus JSON, evidence reuse, continuation, waits, citation and limits |
+| `## Research` | Privacy boundary and `research` question, citation and thread guidance |
 | `## External-content posture` | Shared untrusted-content block from `guardrails.ts` |
 
 Each selected descriptor plus schema remains self-sufficient for its distinct

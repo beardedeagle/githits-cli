@@ -1,17 +1,14 @@
-import type { AgenticAskService } from "@githits/core-internal";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { McpToolServices } from "../tools/tool-services.js";
 import type { ToolTermsRemediation } from "../tools/types.js";
 import {
   buildLocalMcpQuickStart,
-  type LocalExperimentalToolName,
+  type LocalExperimentalToolGuidance,
 } from "./instructions.js";
-import { createLocalResearchTool } from "./local-research.js";
 import {
   createDescriptorServices,
   createMcpServerWithFactories,
   createStableMcpToolFactories,
-  eraseMcpTool,
   type McpAuthAction,
   type McpRequestContext,
   type McpServerMetadata,
@@ -23,15 +20,32 @@ export interface LocalExperimentalMcpPolicy {
   tools: boolean;
 }
 
-export interface LocalMcpToolServices extends McpToolServices {
-  agenticAskService: AgenticAskService;
-}
+/**
+ * Services for the local stdio server. Identical to the public seam while no
+ * local-only experimental tool needs an extra service; a future experiment
+ * extends this type instead of widening `McpToolServices`.
+ */
+export type LocalMcpToolServices = McpToolServices;
 
 export type LocalMcpToolServicesProvider<TExtra = unknown> =
   | LocalMcpToolServices
   | ((
       context: McpRequestContext<TExtra>,
     ) => LocalMcpToolServices | Promise<LocalMcpToolServices>);
+
+/** A local-only dogfood tool and the quick-start guidance it adds. */
+export interface LocalExperimentalToolDefinition
+  extends LocalExperimentalToolGuidance {
+  factory: McpToolFactory<LocalMcpToolServices>;
+}
+
+/**
+ * Local-only experimental tools enabled by `[experimental] tools = true` or
+ * the hidden `--experimental-tools` flag. Empty while nothing is in dogfood:
+ * the opt-in then yields exactly the stable inventory and guide.
+ */
+export const LOCAL_EXPERIMENTAL_TOOL_DEFINITIONS: readonly LocalExperimentalToolDefinition[] =
+  [];
 
 export interface CreateLocalMcpServerOptions<TExtra = unknown> {
   metadata: McpServerMetadata;
@@ -40,6 +54,8 @@ export interface CreateLocalMcpServerOptions<TExtra = unknown> {
   authAction?: McpAuthAction;
   termsRemediation?: ToolTermsRemediation;
   traceTool?: McpToolExecutionHook;
+  /** Experimental definitions; defaults to `LOCAL_EXPERIMENTAL_TOOL_DEFINITIONS`. */
+  experimentalTools?: readonly LocalExperimentalToolDefinition[];
 }
 
 /** Compose the local MCP server while keeping local-only service requirements
@@ -48,10 +64,10 @@ export function createLocalMcpServer<TExtra = unknown>(
   options: CreateLocalMcpServerOptions<TExtra>,
 ): McpServer {
   const enabledExperimentalTools = options.policy.tools
-    ? LOCAL_EXPERIMENTAL_TOOL_DEFINITIONS
+    ? (options.experimentalTools ?? LOCAL_EXPERIMENTAL_TOOL_DEFINITIONS)
     : [];
   const quickStartGuide = buildLocalMcpQuickStart({
-    enabledExperimentalTools: enabledExperimentalTools.map(({ name }) => name),
+    enabledExperimentalTools,
   });
   const toolFactories: readonly McpToolFactory<LocalMcpToolServices>[] = [
     ...createStableMcpToolFactories(quickStartGuide),
@@ -61,34 +77,9 @@ export function createLocalMcpServer<TExtra = unknown>(
     metadata: options.metadata,
     services: options.services,
     toolFactories,
-    descriptorServices: createLocalDescriptorServices(),
+    descriptorServices: createDescriptorServices(),
     authAction: options.authAction,
     termsRemediation: options.termsRemediation,
     traceTool: options.traceTool,
   });
-}
-
-const LOCAL_RESEARCH_FACTORY: McpToolFactory<LocalMcpToolServices> = (
-  services,
-) => eraseMcpTool(createLocalResearchTool(services.agenticAskService));
-
-interface LocalExperimentalToolDefinition {
-  name: LocalExperimentalToolName;
-  factory: McpToolFactory<LocalMcpToolServices>;
-}
-
-const LOCAL_EXPERIMENTAL_TOOL_DEFINITIONS: readonly LocalExperimentalToolDefinition[] =
-  [{ name: "research", factory: LOCAL_RESEARCH_FACTORY }];
-
-function createLocalDescriptorServices(): LocalMcpToolServices {
-  const fail = () => {
-    throw new Error("Descriptor services must not execute tool handlers.");
-  };
-  const stable = createDescriptorServices();
-  return {
-    ...stable,
-    agenticAskService: {
-      ask: fail,
-    },
-  };
 }

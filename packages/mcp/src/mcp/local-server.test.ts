@@ -23,6 +23,7 @@ import { buildLocalMcpQuickStart, buildMcpQuickStart } from "./instructions.js";
 import {
   createLocalMcpServer,
   type LocalExperimentalMcpPolicy,
+  type LocalExperimentalToolDefinition,
   type LocalMcpToolServices,
 } from "./local-server.js";
 
@@ -41,10 +42,6 @@ const EXPECTED_STABLE_NAMES = [
   "pkg_deps",
   "pkg_changelog",
   "pkg_upgrade_review",
-] as const;
-
-const EXPECTED_EXPERIMENTAL_NAMES = [
-  ...EXPECTED_STABLE_NAMES,
   "research",
 ] as const;
 
@@ -205,8 +202,7 @@ describe("createLocalMcpServer", () => {
 
       expect(registeredToolNames(server)).toEqual([...EXPECTED_STABLE_NAMES]);
       expect(registeredToolNames(server)).not.toContain("ask");
-      expect(registeredToolNames(server)).not.toContain("research");
-      expect(registeredToolNames(server)).toHaveLength(14);
+      expect(registeredToolNames(server)).toHaveLength(15);
       expect(registeredToolNames(server)).toContain("list");
       expect(registeredToolNames(server)).not.toContain("code_files");
       expect(registeredToolNames(server)).not.toContain("docs_list");
@@ -231,30 +227,16 @@ describe("createLocalMcpServer", () => {
     }
   });
 
-  it("adds all experimental tools to the quick-start guide", async () => {
+  it("keeps the legacy opt-in on the stable inventory and guide", async () => {
     const server = createLocalMcpServer({
       metadata: { name: "local-githits", version: "0.0.0" },
       services: createServices(),
       policy: { tools: true },
     });
 
-    expect(registeredToolNames(server)).toEqual([
-      ...EXPECTED_EXPERIMENTAL_NAMES,
-    ]);
-    expect(registeredToolNames(server)).toContain("research");
+    expect(registeredToolNames(server)).toEqual([...EXPECTED_STABLE_NAMES]);
     expect(registeredToolNames(server)).not.toContain("ask");
-    expect(registeredToolNames(server)).toHaveLength(15);
-    expect(registeredToolNames(server)).toContain("list");
-    expect(registeredToolNames(server)).not.toContain("code_files");
-    expect(registeredToolNames(server)).not.toContain("docs_list");
-    expect(registeredToolNames(server)).not.toContain("code_read");
-    expect(registeredToolNames(server)).not.toContain("docs_read");
     expect(serverInstructions(server)).toBeUndefined();
-    for (const name of ["research", "resolve_target", "code_diff"] as const) {
-      expect(registeredTools(server)[name]?.description).toEndWith(
-        QUICK_START_PREREQUISITE,
-      );
-    }
     const result = await registeredTools(server).quick_start!.handler(
       {},
       undefined as unknown as RequestHandlerExtra<
@@ -262,16 +244,61 @@ describe("createLocalMcpServer", () => {
         ServerNotification
       >,
     );
-    expect(result.content[0]?.text).toBe(
-      buildLocalMcpQuickStart({
-        enabledExperimentalTools: ["research"],
+    expect(result.content[0]?.text).toBe(buildMcpQuickStart());
+  });
+
+  it("composes injected experimental tools only when the policy enables them", async () => {
+    const probe: LocalExperimentalToolDefinition = {
+      name: "experimental_probe",
+      guidance: "- `experimental_probe` — probe one experimental contract.",
+      factory: () => ({
+        name: "experimental_probe",
+        description: "Probe one experimental contract.",
+        schema: {},
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          openWorldHint: true,
+        },
+        handler: async () => ({
+          content: [{ type: "text" as const, text: "probe" }],
+        }),
       }),
+    };
+    const options = {
+      metadata: { name: "local-githits", version: "0.0.0" },
+      services: createServices(),
+      experimentalTools: [probe],
+    };
+
+    const disabled = createLocalMcpServer({
+      ...options,
+      policy: { tools: false },
+    });
+    expect(registeredToolNames(disabled)).toEqual([...EXPECTED_STABLE_NAMES]);
+
+    const enabled = createLocalMcpServer({
+      ...options,
+      policy: { tools: true },
+    });
+    expect(registeredToolNames(enabled)).toEqual([
+      ...EXPECTED_STABLE_NAMES,
+      "experimental_probe",
+    ]);
+    expect(registeredTools(enabled).experimental_probe?.description).toEndWith(
+      QUICK_START_PREREQUISITE,
     );
-    for (const name of EXPECTED_EXPERIMENTAL_NAMES.filter(
-      (name) => name !== "quick_start",
-    )) {
-      expect(result.content[0]?.text).toContain(`\`${name}\``);
-    }
+    const result = await registeredTools(enabled).quick_start!.handler(
+      {},
+      undefined as unknown as RequestHandlerExtra<
+        ServerRequest,
+        ServerNotification
+      >,
+    );
+    expect(result.content[0]?.text).toBe(
+      buildLocalMcpQuickStart({ enabledExperimentalTools: [probe] }),
+    );
+    expect(result.content[0]?.text).toContain("## Local experimental tools");
   });
 
   it("renders complete stable and experimental selection sentences", () => {

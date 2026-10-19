@@ -3,6 +3,9 @@ import { EXTERNAL_CONTENT_POSTURE } from "../tools/guardrails.js";
 /**
  * Shared guide: cross-tool workflow and conventions that no single tool
  * description owns. Selected descriptions and schemas own call mechanics.
+ *
+ * The Research section wraps RESEARCH_VERIFIED_ANSWER_GUIDANCE as prose; tests
+ * keep its whitespace-normalized text identical to the shared constant.
  */
 const GUIDE = `# GitHits
 
@@ -29,6 +32,7 @@ Match the question, then discover that tool and read its schema before calling.
 | Compare raw source across package versions or repository refs | \`code_diff\` |
 | Compare current and target dependency versions for an upgrade | \`pkg_upgrade_review\` |
 | Find canonical implementation examples across projects | \`get_example\` |
+| Answer a question about an OSS package or repository with sources | \`research\` |
 | Check progress of an earlier search reference | \`search_status\` |
 
 ## Dependency upgrades
@@ -89,7 +93,23 @@ unverified paths.
   indexing, use the displayed estimate to wait longer or pick a listed
   already-indexed version or ref.
 - Cite tool-owned provenance, including example source repositories, and
-  report coverage, truncation, and other evidence limits.`;
+  report coverage, truncation, and other evidence limits.
+
+## Research
+
+Inputs are sent to GitHits. Never send credentials, personal data, private or
+proprietary content, local paths, or private targets.
+
+\`research\` researches a public repository or package to answer a question
+with sources. Omit \`target\` and \`thread_id\` for question-only lookup. For
+candidates, ask the user to select a \`target\`, then retry. Reuse a returned
+\`thread_id\` for follow-ups. Change project, version, or topic in the
+follow-up question. Returns a verified answer that always includes its sources,
+so ask the question directly without requesting citations, an overview or a
+source-cited answer. Cite those sources directly; read one only when the answer
+lacks a detail you need. Sources default to MCP read calls; use
+\`source_format:"url"\` for original upstream URLs. Do not invent or rewrite
+sources.`;
 
 /**
  * Build the guide returned by `quick_start` and published as the skill body.
@@ -127,10 +147,15 @@ export function buildMcpInstructions(
   return buildMcpQuickStart(options);
 }
 
-export type LocalExperimentalToolName = "research";
+/** Guidance a local-only experimental tool adds to the local quick-start guide. */
+export interface LocalExperimentalToolGuidance {
+  name: string;
+  /** One Markdown bullet with the tool's routing and contract. */
+  guidance: string;
+}
 
 export interface BuildLocalMcpQuickStartOptions {
-  enabledExperimentalTools: readonly LocalExperimentalToolName[];
+  enabledExperimentalTools: readonly LocalExperimentalToolGuidance[];
 }
 
 /** @deprecated Use `BuildLocalMcpQuickStartOptions`. */
@@ -141,37 +166,22 @@ const LOCAL_EXPERIMENTAL_HEADING = "## Local experimental tools";
 const LOCAL_EXPERIMENTAL_PRIVACY =
   "Inputs are sent to GitHits. Never send credentials, personal data, private or proprietary content, local paths, or private targets.";
 
-const LOCAL_RESEARCH_GUIDANCE_START =
-  "- `research` — research a public repository or package to answer a question with sources. Omit `target` and `thread_id` for question-only lookup. For candidates, ask the user to select a `target`, then retry.";
-
-// A literal, not the shared RESEARCH_VERIFIED_ANSWER_GUIDANCE import: this module
-// is in the public @githits/mcp graph, and the import kept local research text in
-// the hosted bundle. Tests keep the sentence identical to the shared constant.
-const LOCAL_RESEARCH_GUIDANCE_END =
-  ' Reuse a returned `thread_id` for follow-ups. Change project, version, or topic in the follow-up question. Returns a verified answer that always includes its sources, so ask the question directly without requesting citations, an overview or a source-cited answer. Cite those sources directly; read one only when the answer lacks a detail you need. Sources default to MCP read calls; use `source_format:"url"` for original upstream URLs. Do not invent or rewrite sources.';
-
 /**
  * Compose local-only experimental guidance without changing the public
- * `buildMcpQuickStart()` output or public package surface.
+ * `buildMcpQuickStart()` output or public package surface. With no enabled
+ * experimental tools the result is exactly the public guide.
  */
 export function buildLocalMcpQuickStart(
   options: BuildLocalMcpQuickStartOptions,
 ): string {
-  const enabled = new Set(options.enabledExperimentalTools);
-  if (enabled.size === 0) return buildMcpQuickStart();
+  if (options.enabledExperimentalTools.length === 0)
+    return buildMcpQuickStart();
 
-  const guidance: string[] = [
+  const guidance = [
     LOCAL_EXPERIMENTAL_HEADING,
     LOCAL_EXPERIMENTAL_PRIVACY,
+    options.enabledExperimentalTools.map((tool) => tool.guidance).join("\n"),
   ];
-  const toolGuidance: string[] = [];
-  if (enabled.has("research")) {
-    toolGuidance.push(
-      `${LOCAL_RESEARCH_GUIDANCE_START}${LOCAL_RESEARCH_GUIDANCE_END}`,
-    );
-  }
-  guidance.push(toolGuidance.join("\n"));
-
   return `${buildMcpQuickStart()}\n\n${guidance.join("\n\n")}`;
 }
 

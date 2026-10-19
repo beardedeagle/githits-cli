@@ -23,6 +23,7 @@ import type {
 } from "@modelcontextprotocol/sdk/types.js";
 import * as publicMcpClient from "../packages/mcp/src/client.js";
 import {
+  createMockAgenticAskService,
   createMockCodeNavigationService,
   createMockGitHitsService,
   createMockGrepService,
@@ -30,6 +31,7 @@ import {
   createMockPackageIntelligenceService,
   createMockReadService,
   createMockResolveTargetService,
+  defaultAgenticAskResponse,
   defaultCodeDiffResult,
   defaultResolveTargetResult,
 } from "./services/test-helpers.js";
@@ -56,6 +58,7 @@ function createServices(
     readService: createMockReadService(),
     grepService: createMockGrepService(),
     resolveTargetService: createMockResolveTargetService(),
+    agenticAskService: createMockAgenticAskService(),
     ...overrides,
   };
 }
@@ -83,6 +86,7 @@ const EXPECTED_DESCRIPTOR_NAMES = [
   "pkg_deps",
   "pkg_changelog",
   "pkg_upgrade_review",
+  "research",
 ] as const;
 
 const EXPECTED_SMOKE_NAMES = [
@@ -100,6 +104,7 @@ const EXPECTED_SMOKE_NAMES = [
   "pkg_deps",
   "pkg_changelog",
   "pkg_upgrade_review",
+  "research",
 ] as const;
 
 describe("public MCP package surface", () => {
@@ -147,6 +152,50 @@ describe("public MCP package surface", () => {
       } else {
         expect(text).toContain("npm:express");
         expect(text).toContain("[exact; package]");
+      }
+    },
+  );
+
+  it.each([undefined, "json"] as const)(
+    "executes stable research with request-scoped services and format=%s",
+    async (format) => {
+      const ask = mock(() => Promise.resolve(defaultAgenticAskResponse));
+      const provider = mock((context: { extra: RemoteExtra | undefined }) => {
+        expect(context.extra?.sessionId).toBe("research-session");
+        return createServices({
+          agenticAskService: createMockAgenticAskService({ ask }),
+        });
+      });
+      const server = createMcpServer<RemoteExtra>({
+        metadata: { name: "public-research", version: "0.0.0" },
+        services: provider,
+      });
+      const result = await registeredTool(server, "research").handler(
+        {
+          target: "npm:express",
+          question: "How is routing dispatched?",
+          ...(format ? { format } : {}),
+        },
+        { sessionId: "research-session" } as unknown as RequestHandlerExtra<
+          ServerRequest,
+          ServerNotification
+        >,
+      );
+      expect(result.isError).toBeUndefined();
+      expect(ask).toHaveBeenCalledTimes(1);
+      expect(ask).toHaveBeenCalledWith(
+        {
+          target: "npm:express",
+          question: "How is routing dispatched?",
+          sourceFormat: "mcp",
+        },
+        undefined,
+      );
+      const text = result.content[0]?.text ?? "";
+      if (format === "json") {
+        expect(JSON.parse(text)).toEqual(defaultAgenticAskResponse);
+      } else {
+        expect(text).toBe(defaultAgenticAskResponse.display_markdown);
       }
     },
   );
@@ -208,7 +257,7 @@ describe("public MCP package surface", () => {
     });
   });
 
-  it("keeps the public and smoke inventories stable and non-experimental", () => {
+  it("keeps the public and smoke inventories stable", () => {
     const names = getMcpToolDescriptors().map((tool) => tool.name);
     const definitions = getMcpToolDefinitions(createServices()).map(
       (tool) => tool.name,
@@ -226,7 +275,7 @@ describe("public MCP package surface", () => {
     );
 
     expect(names).toEqual([...EXPECTED_DESCRIPTOR_NAMES]);
-    expect(names).toHaveLength(14);
+    expect(names).toHaveLength(15);
     expect(names).toContain("list");
     expect(names).toContain("read");
     expect(names).not.toContain("code_read");
@@ -247,7 +296,7 @@ describe("public MCP package surface", () => {
       expect(
         inventory.filter((name) => name === "resolve_target"),
       ).toHaveLength(1);
-      expect(inventory).not.toContain("research");
+      expect(inventory.filter((name) => name === "research")).toHaveLength(1);
       expect(inventory).toContain("code_diff");
       expect(inventory.filter((name) => name === "code_diff")).toHaveLength(1);
       expect(inventory).not.toContain("ask");
@@ -262,7 +311,8 @@ describe("public MCP package surface", () => {
     expect("ListServiceImpl" in publicMcp).toBe(false);
     expect(publicMcpClient.ListServiceImpl).toBeDefined();
     expect(publicMcpClient.ResolveTargetServiceImpl).toBeDefined();
-    expect("AgenticAskServiceImpl" in publicMcpClient).toBe(false);
+    expect(publicMcpClient.AgenticAskServiceImpl).toBeDefined();
+    expect(publicMcpClient.AGENTIC_ASK_REQUEST_TIMEOUT_MS).toBe(210_000);
   });
 
   it("contains the APIs needed by a remote MCP server without internal imports", () => {

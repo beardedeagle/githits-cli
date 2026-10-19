@@ -178,8 +178,8 @@ When writing config or auth files, use `FileSystemService` rather than `node:fs`
 
 ## Experimental Tools Policy
 
-The same canonical `config.toml` also controls the local experimental CLI and
-stdio MCP surface:
+The same canonical `config.toml` also holds the local stdio MCP experimental
+policy:
 
 ```toml
 [experimental]
@@ -194,13 +194,14 @@ feedback-submission guidance.
 Auth and experimental settings share TOML discovery/parsing and the canonical
 platform path above, including the existing macOS legacy fallback, but validate
 their own subsections independently. Unknown keys remain accepted. With the
-host policy enabled, local `research`/`ask` and MCP `research` become available.
-CLI `resolve` and `code diff`, and public MCP `resolve_target` and `code_diff`,
-are stable and independent of this setting. The public `@githits/mcp` surface
-remains the stable inventory and does not acquire research service requirements.
+host policy enabled, local MCP registers `LOCAL_EXPERIMENTAL_TOOL_DEFINITIONS`,
+which is currently empty, so the setting changes nothing. CLI commands never read
+it. `research`, `resolve` and `code diff` (MCP `research`, `resolve_target` and
+`code_diff`) are stable and independent of this setting.
 
 The hidden `githits mcp start --experimental-tools` option is for isolated
-evaluation/development only. It enables local tools for that process without
+evaluation/development only. It enables local experimental tools (currently
+none) for that process without
 writing or inheriting the host experimental policy; valid
 host auth settings still apply, and malformed shared TOML can still prevent
 auth startup.
@@ -251,7 +252,7 @@ Environment variables + config.toml
        ├─ apiUrl → passed to GitHitsServiceImpl constructor
        ├─ codeNavigationUrl → passed to CodeNavigationServiceImpl, PackageIntelligenceServiceImpl, ReadServiceImpl, and ListServiceImpl
        ├─ auth.storage → controls OAuth credential persistence
-       ├─ experimental.tools → local CLI/MCP availability
+       ├─ experimental.tools → local MCP experimental seam (no tools)
        ├─ apiToken → resolved from env var or OAuth storage
        └─ hasValidToken → gates authenticated commands
 ```
@@ -289,7 +290,7 @@ remains a compatibility alias for `githits uninstall`.
 | `src/services/settings-service.ts` | CLI-only accounts URL selection and settings requests |
 | `src/services/auth-config.ts` | `config.toml` and `GITHITS_AUTH_STORAGE` auth storage mode parsing |
 | `src/services/app-config.ts` | Shared canonical/legacy TOML discovery and parsing |
-| `src/services/experimental-config.ts` | Typed local experimental tools policy |
+| `src/services/experimental-config.ts` | Typed local MCP experimental tools policy |
 | `src/services/skill-config.ts` | Typed local MCP skill update policy |
 | `src/services/mcp-skill-update.ts` | Non-fatal installed skill maintenance at local MCP startup |
 | `src/services/app-config-paths.ts` | Platform config path resolution |

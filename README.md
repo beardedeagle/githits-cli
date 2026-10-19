@@ -159,21 +159,26 @@ See [target resolution](docs/implementation/resolve-target.md) for continuation
 rules and limits. Hosted MCP and plugins receive it after the released package
 is adopted and deployed.
 
-## Experimental Tools
+## Research
 
-`research` / `githits research` (`githits ask` alias) answers grounded questions
-with sources. It is hidden and disabled by default and available through the
-local CLI and local stdio MCP after host-config opt-in:
+`research` / `githits research` answers a question about one public package or
+repository with a verified answer that cites its sources. It is available by
+default in the CLI, local MCP and public MCP package:
 
-```toml
-# macOS/Linux: ~/.config/githits/config.toml
-# Windows: %APPDATA%\githits\config.toml
-[experimental]
-tools = true
+```sh
+githits research "How does FastAPI dependency injection resolve nested dependencies?"
+githits research npm:express "Where is router dispatch implemented?"
+githits research --thread <thread-id> "How does that interact with route parameters?"
 ```
 
-Restart the coding agent after changing the setting. See
-[Experimental tools](docs/experimental-tools.md) for configuration and usage.
+Omit the target to let GitHits identify it from the question; reuse a returned
+thread ID for follow-ups. Answers usually take 30 seconds to a few minutes.
+Questions are sent to GitHits, so never include credentials, personal data or
+private code. Research may return a rate-limit or daily-limit error; the message says when to
+retry, and the daily limit resets at 00:00 UTC. See
+[research](docs/implementation/research.md) for sources, threads and limits.
+Hosted MCP and plugins receive it after the released package is adopted and
+deployed.
 
 ## Supported Sources
 

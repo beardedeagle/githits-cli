@@ -59,6 +59,7 @@ export const EXPECTED_MCP_TOOLS = [
   "pkg_deps",
   "pkg_changelog",
   "pkg_upgrade_review",
+  "research",
 ] as const;
 
 const DEFAULT_TEXT_LIMIT = 12_000;
@@ -2202,6 +2203,20 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
       "NOT_FOUND",
     );
   }
+
+  // Research answers can take minutes and count toward the daily limit, so
+  // the shared smoke checks only its request validation, which never reaches
+  // the backend. Full answers are exercised by the CLI repository smoke.
+  assertErrorCode(
+    await callTool(caller, "research", {
+      target: "npm:express",
+      thread_id: "018f47a6-7b32-7b1e-8f45-6a2d39c81720",
+      question: "How is routing dispatched?",
+      format: "json",
+    }),
+    "research target and thread_id",
+    "INVALID_ARGUMENT",
+  );
 }
 
 async function runResolveSmoke(caller: McpSmokeCaller): Promise<void> {
@@ -2356,6 +2371,7 @@ export async function runMcpSmoke(
     "`read`",
     "`code_diff`",
     "`resolve_target`",
+    "`research`",
   ]) {
     assert(
       quickStart.includes(expected),

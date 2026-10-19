@@ -1,4 +1,5 @@
 import type {
+  AgenticAskService,
   CodeDiffService,
   CodeNavigationService,
   GitHitsService,
@@ -23,4 +24,6 @@ export interface McpToolServices {
   readService: ReadService;
   grepService: GrepService;
   resolveTargetService: ResolveTargetService;
+  /** Research over the GitHits REST API; answers can take a few minutes. */
+  agenticAskService: AgenticAskService;
 }

@@ -15,8 +15,8 @@ GitHits has one shared MCP tool implementation and two server hosts. The public
   released `@githits/mcp` version. It owns HTTP transport, request-scoped
   service composition, auth/session handling, deployment, and observability.
 - **Local** (`githits-cli`) — runs via `githits mcp start` over stdio and adds
-  local auth/storage, CLI startup, and config-gated experimental tools around
-  the shared stable package surface.
+  local auth/storage, CLI startup, and a config-gated experimental seam (with no
+  tools registered) around the shared stable package surface.
 
 Do not copy or independently implement package-owned MCP behavior in
 `remote-mcp`. A change here reaches hosted clients after `@githits/mcp` is
@@ -812,7 +812,7 @@ The `hint` field is emitted only when the cap *actually truncated* the response 
 ## Text response format (`format: "text"`)
 
 Every format-selectable MCP tool accepts only `text` and `json`, with `text` as
-the default. This includes stable `code_diff` and `resolve_target`, and local experimental `research`. The format parameter recommends:
+the default. This includes stable `code_diff`, `resolve_target`, and `research`. The format parameter recommends:
 "Use `text` (default) for reading and tool follow-ups; it is token-efficient.
 Use `json` only to parse responses in code or obtain fields absent from text." Tool-specific JSON-only details remain documented. The shared quick-start guide
 and its skill copy explicitly allow passing returned paths, IDs, and line ranges
@@ -1081,19 +1081,22 @@ payload whose privilege, visibility, and repetition vary by host.
   CLEAR/NOT_APPLICABLE allows automatic continuation. Other or missing statuses
   are non-actionable; MEDIUM/LOW or ambiguity needs narrowing or explicit
   choice. Sites use docs search/list and emitted read actions.
+- **Research section** — the stable guide routes question answering to
+  `research`, keeps its privacy sentence, and carries the shared
+  verified-answer guidance; see [research](research.md#routing-guidance).
 - **Local experimental block** — appended only by the workspace-internal local
-  composer when experimental tools are enabled. It routes `research` question
-  answering with open-source/privacy limits. Disabling experimental tools returns
-  the exact public guide; public and remote servers never receive this appendix.
+  composer for enabled local experimental definitions. None are registered, so
+  the local guide equals the public guide; public and remote servers never
+  receive this appendix.
 
 The stable guide embedded in `skills/githits-mcp/SKILL.md` is an exact copy of
 `buildMcpQuickStart()` and is checked by `src/skills-packaging.test.ts`. The
 local experimental appendices from `buildLocalMcpQuickStart()` are not copied
 into the public skill and do not override the loaded-skill rule.
 
-Host users enable local experimental tools with `[experimental] tools = true`
-in `config.toml`. The hidden `githits mcp start --experimental-tools` eval
-override enables them for one process without changing host config.
+`[experimental] tools = true` in `config.toml`, or the hidden
+`githits mcp start --experimental-tools` eval override for one process, enables
+local experimental definitions; with none registered it changes nothing.
 
 When adding a new package tool, extend the quick-start composer with a one-line bullet (`\`tool_name\` — one-sentence purpose`) in the same PR that registers the tool. Keep the bullet terse; argument and response detail belong in the tool's `description`. `mcp-instructions.test.ts` enforces both directions of the mention↔registration invariant.
 
@@ -1127,7 +1130,7 @@ The layering is intentional:
 - **Tool definitions** (`packages/mcp/src/tools/*.ts`) own the MCP contract: names, descriptions, schemas, and response formatting
 - **GitHitsService / CodeNavigationService / PackageIntelligenceService / ReadService** own the HTTP transport contracts and live in `packages/core-internal`; `ReadService` is the compact `Query.read` client
 - **Shared factory engine** (`packages/mcp/src/mcp/server.ts`) owns MCP SDK registration, per-call provider resolution, and auth/trace wrapping
-- **Workspace-internal local composer** (`packages/mcp/src/mcp/local-server.ts`) combines the local policy with extended local services and composes the matching experimental instruction subset while keeping those requirements out of the public package
+- **Workspace-internal local composer** (`packages/mcp/src/mcp/local-server.ts`) combines the local policy with injected experimental definitions (currently none) and composes their instruction subset while keeping any local-only requirements out of the public package
 - **Public/remote server setup** (`createMcpServer()` from `@githits/mcp`) uses stable `McpToolServices` (including required `readService`) and the stable public inventory
 - **CLI MCP command** (`src/commands/mcp.ts`) owns local stdio startup: loads policy only for an actual server start, creates services from the CLI container, sets request-header mode, connects `StdioServerTransport`, and prints TTY setup instructions
 
@@ -1227,8 +1230,8 @@ definitions or formatters. Both register the `@githits/mcp` surface and inject
 services through its `McpToolServices` boundary. `remote-mcp` owns hosted
 transport, request auth/session state, deployment, and observability; the CLI
 owns stdio startup, local auth/storage, and local configuration. The CLI may
-compose config-gated experimental tools, but those do not change the public or
-hosted stable inventory.
+compose config-gated experimental tools when one exists, but those do not change
+the public or hosted stable inventory.
 
 ## Testing Tools
 

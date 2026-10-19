@@ -122,6 +122,7 @@ const EXPECTED_TOOL_NAMES = [
   "pkg_deps",
   "pkg_changelog",
   "pkg_upgrade_review",
+  "research",
 ] as const;
 
 const TEST_MCP_SERVER_METADATA = { name: "githits-test", version: "0.0.0" };
@@ -148,7 +149,7 @@ describe("createMcpServer", () => {
     const tools = getMcpToolDefinitions(services);
 
     expect(tools.map((tool) => tool.name)).toEqual([...EXPECTED_TOOL_NAMES]);
-    expect(tools.map((tool) => tool.name)).toHaveLength(14);
+    expect(tools.map((tool) => tool.name)).toHaveLength(15);
     expect(tools.map((tool) => tool.name)).toContain("read");
     expect(tools.map((tool) => tool.name)).toContain("list");
     expect(tools.map((tool) => tool.name)).not.toContain("code_files");

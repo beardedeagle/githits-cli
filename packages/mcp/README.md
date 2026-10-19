@@ -18,6 +18,28 @@ update and deployment rather than through a parallel implementation.
 > filesystem access, authentication implementation or storage, configuration
 > discovery, or any other host behavior.
 
+## Stable Research
+
+The public inventory includes `research` by default. It answers one question
+about a public package or repository with a verified, source-cited answer, can
+identify the target from the question, and continues threads by `thread_id`.
+Answers can take a few minutes; `AgenticAskServiceImpl` applies a 210-second
+deadline (`AGENTIC_ASK_REQUEST_TIMEOUT_MS`) and honors the MCP request's abort
+signal. Hosts should keep their request and MCP client timeouts above that
+deadline, or pass a lower `timeoutMs`.
+
+Providers must now supply `agenticAskService: AgenticAskService`. Import
+`AgenticAskServiceImpl` and its request/response/runtime contracts from
+`@githits/mcp/client`; construct it with the GitHits REST API base (the same
+`apiUrl` used by `GitHitsServiceImpl`), the request's token provider, and the
+request's client headers and user agent. The browser-callable factory
+`createResearchTool` and `ResearchMcpArgs` are exported from
+`@githits/mcp/tools`. Rate limits map to `RATE_LIMITED`: the short-term limit
+is retryable after `retryAfterSeconds`, while the daily limit sets
+`details.rateLimitScope: "daily"` and is not retryable before 00:00 UTC. Hosted
+MCP must adopt and deploy the released package before its clients receive the
+tool.
+
 ## Stable Target Resolution
 
 The public inventory includes `resolve_target` by default. It ranks fuzzy public

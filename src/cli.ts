@@ -35,10 +35,6 @@ import {
   createContainer,
   loadAutoLoginAuthSessionMetadata,
 } from "./container.js";
-import {
-  resolveExperimentalCliPolicy,
-  shouldRegisterCliCommand,
-} from "./services/experimental-cli-policy.js";
 import { FileSystemServiceImpl } from "./services/filesystem-service.js";
 import { createLazyCliFetch } from "./services/proxy-fetch.js";
 import { NpmRegistryUpdateCheckService } from "./services/update-check-service.js";
@@ -83,15 +79,6 @@ if (isTelemetryEnabled()) {
 }
 
 async function main(): Promise<void> {
-  const experimentalCliPolicy = await resolveExperimentalCliPolicy(
-    new FileSystemServiceImpl(),
-    argv,
-  );
-  const researchAvailable = shouldRegisterCliCommand(
-    "research",
-    experimentalCliPolicy.tools,
-  );
-
   await enforceCachedRequiredUpdateForInvocation({
     args: argv,
     env: process.env,
@@ -129,7 +116,7 @@ async function main(): Promise<void> {
     .hook("postAction", (_thisCommand, actionCommand) => {
       endTelemetrySpan(commandSpans.get(actionCommand));
     })
-    .addHelpText("after", buildGettingStartedText({ researchAvailable }));
+    .addHelpText("after", buildGettingStartedText());
 
   // Setup command
   registerInitCommand(program);
@@ -144,9 +131,7 @@ async function main(): Promise<void> {
   // CLI commands
   registerExampleCommand(program);
   registerDoctorCommand(program);
-  if (researchAvailable) {
-    registerResearchCommand(program);
-  }
+  registerResearchCommand(program);
   registerResolveCommand(program);
   registerSettingsCommand(program);
   registerReadCommand(program);
@@ -258,18 +243,14 @@ function isSearchHelpTarget(value: string | undefined): boolean {
   return value === "search" || value === "search-status";
 }
 
-function buildGettingStartedText(options: {
-  researchAvailable: boolean;
-}): string {
-  const experimentalResearch = options.researchAvailable
-    ? '\n  githits research npm:express "How?"  Research one open-source target'
-    : "";
+function buildGettingStartedText(): string {
   return `
 ${colorizeBrand("Getting started:", "primary", useColors, { bold: true })}
   githits init                         Connect GitHits to your coding agents
   githits login                        Sign in to your GitHits account
   githits mcp                          Show MCP setup instructions
-  githits example "query"              Find real-world implementations${experimentalResearch}
+  githits example "query"              Find real-world implementations
+  githits research npm:express "How?"  Research one open-source target
   githits resolve express              Resolve a package, repository, or documentation site
 
 Learn more at https://githits.com

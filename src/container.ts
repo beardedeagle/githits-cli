@@ -312,7 +312,7 @@ export interface Dependencies {
   readService: ReadService;
   /** Resolves fuzzy package, repository, and documentation-site names. */
   resolveTargetService: ResolveTargetService;
-  /** Private experimental Ask service used by the root CLI and local MCP. */
+  /** Research service used by the CLI research command and MCP. */
   agenticAskService: AgenticAskService;
   /** GitHits REST API service */
   githitsService: GitHitsService;

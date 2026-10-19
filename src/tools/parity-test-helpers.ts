@@ -4,6 +4,7 @@ import {
   type ToolDefinition,
 } from "@githits/mcp/internal";
 import {
+  createMockAgenticAskService,
   createMockCodeNavigationService,
   createMockGitHitsService,
   createMockGrepService,
@@ -29,6 +30,7 @@ export function createParityMcpTool<TArgs = unknown>(
     readService: createMockReadService(),
     grepService: createMockGrepService(),
     resolveTargetService: createMockResolveTargetService(),
+    agenticAskService: createMockAgenticAskService(),
     ...overrides,
   };
   const tool = getMcpToolDefinitions(services).find(

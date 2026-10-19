@@ -2,12 +2,6 @@
   "schemaVersion": 1,
   "workloads": [
     {
-      "id": "ask-version-followup",
-      "path": "eval/agentic/workloads/ask-version-followup.md",
-      "safety": "experimental",
-      "suites": ["experimental"]
-    },
-    {
       "id": "code-diff",
       "path": "eval/agentic/workloads/code-diff.md",
       "safety": "stable",
@@ -84,12 +78,6 @@
       "path": "eval/agentic/workloads/docs-search-noise.md",
       "safety": "stable",
       "suites": ["stable-full"]
-    },
-    {
-      "id": "experimental-question-only-ask",
-      "path": "eval/agentic/workloads/experimental-question-only-ask.md",
-      "safety": "experimental",
-      "suites": ["experimental"]
     },
     {
       "id": "express-router",
@@ -214,6 +202,18 @@
     {
       "id": "package-vulnerability-transitive",
       "path": "eval/agentic/workloads/package-vulnerability-transitive.md",
+      "safety": "stable",
+      "suites": ["stable-full"]
+    },
+    {
+      "id": "question-only-research",
+      "path": "eval/agentic/workloads/question-only-research.md",
+      "safety": "stable",
+      "suites": ["stable-full"]
+    },
+    {
+      "id": "research-version-followup",
+      "path": "eval/agentic/workloads/research-version-followup.md",
       "safety": "stable",
       "suites": ["stable-full"]
     },
