@@ -124,8 +124,8 @@ No third plan round is required for these wording-only fixes.
 
 - Implemented only shared text selection/recovery and the directly affected
   tests/docs; JSON/API, descriptors, request behavior and match rendering unchanged.
-- Final focused command (7 files named in verification above): 105 passed,
-  0 failed, 887 assertions. New matrix reproduced 15 failures before the fix.
+- Final focused command (7 files named in verification above): 106 passed,
+  0 failed, 935 assertions. New matrix reproduced 15 failures before the fix.
 - `bun run build`, `bun run typecheck` and Biome checks for six changed TS files pass.
 - Internal code review direction sound, no code findings; accepted one docs
   correction so all fresh-retry guidance selects only eligible requested targets.
@@ -164,3 +164,14 @@ No new ownership or infrastructure; all fixes remain in the existing formatter.
 Revised full delta internal re-review is clean. Focused105 tests/887 assertions,
 root build/typecheck and six-file Biome checks pass. Existing healthy fixtures
 remain byte-identical after review fixes; counts above include the comma.
+
+
+Round 2 verified every prior finding closed and raised one low polish finding:
+omission attribution remained coupled to unrelated page gaps via omissionsOnly.
+Accepted: generic warning now independently recognizes omissions for non-failed
+traversal; overall FAILED remains disclosed. Sibling scan covered the complete
+caveat predicate, Preparing/Omitted branches, zero-hit precedence and both
+presentation docs. Added pending/terminal × binary/stale × partial/failed ×
+CLI/MCP regression cases retaining hits/read locators. Shared formatter ownership
+remains correct; no new abstraction or infrastructure. Revised106 focused tests
+pass with935 assertions; build, typecheck and affected-file Biome checks pass.

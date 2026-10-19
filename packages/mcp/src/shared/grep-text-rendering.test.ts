@@ -678,3 +678,32 @@ describe("grep recovery precedence", () => {
     }
   });
 });
+
+describe("grep omission attribution", () => {
+  it("avoids a repeated caveat for explained omissions beside unrelated scope gaps", () => {
+    for (const omission of [preparing, terminal]) {
+      for (const gap of [
+        { binaryFilesSkipped: 1 },
+        { readiness: "STALE" },
+      ] satisfies Partial<GrepTargetStatus>[]) {
+        for (const traversal of ["NON_RESUMABLE_PARTIAL", "FAILED"] as const) {
+          const data = page([hit()], {
+            traversal,
+            targets: [scope(gap)],
+            unavailableTargets: [omission],
+          });
+          for (const syntax of ["cli", "mcp"] as const) {
+            const text = formatGrepText(data, { syntax, width: 160 });
+            expect(text).toContain(
+              omission.retryable ? "Preparing:" : "Omitted:",
+            );
+            expect(
+              text.includes("Search incomplete; no continuation is available."),
+            ).toBe(traversal === "FAILED");
+            expect(text).toContain("[1] github:o/r@sha a.ts\n3: router");
+          }
+        }
+      }
+    }
+  });
+});

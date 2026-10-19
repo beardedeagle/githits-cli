@@ -186,7 +186,7 @@ export function formatGrepText(
   else if (
     result.traversal !== "COMPLETE" &&
     (!result.nextCursor || result.traversal !== "RESUMABLE_LIMIT") &&
-    !omissionsOnly &&
+    (result.unavailableTargets.length === 0 || result.traversal === "FAILED") &&
     !result.targets.some(
       (scope) =>
         !["COMPLETE", "RESUMABLE_LIMIT"].includes(scope.traversal) ||
