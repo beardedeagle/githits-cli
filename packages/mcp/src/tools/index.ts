@@ -27,6 +27,12 @@ export {
 } from "./quick-start.js";
 export { createReadTool, DESCRIPTION as READ_DESCRIPTION } from "./read.js";
 export {
+  createResearchTool,
+  DESCRIPTION as RESEARCH_DESCRIPTION,
+  formatResearchMcpText,
+  type ResearchMcpArgs,
+} from "./research.js";
+export {
   createResolveTargetTool,
   DESCRIPTION as RESOLVE_TARGET_DESCRIPTION,
   type ResolveTargetMcpArgs,

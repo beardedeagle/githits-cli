@@ -2,35 +2,18 @@
 
 ## Purpose
 
-The CLI exposes setup/auth commands, `doctor`, `example`, top-level indexed `search` / `search-status`, `read`, `list`, `grep`, and the `code`, `docs`, and `pkg` command groups by default. `code diff` and `resolve` are available by default. MCP-parity commands share business logic with the MCP tools through the same service interfaces and shared utilities. Unified search shares its presentation model and text formatter with MCP; `list` and unified `grep` use the same request, result, error, and text helpers on both surfaces. Legacy `githits code grep` retains its separate single-target repository-file contract.
+The CLI exposes setup/auth commands, `doctor`, `example`, top-level indexed `search` / `search-status`, `read`, `list`, `grep`, and the `code`, `docs`, and `pkg` command groups by default. `research`, `code diff` and `resolve` are available by default. MCP-parity commands share business logic with the MCP tools through the same service interfaces and shared utilities. Unified search shares its presentation model and text formatter with MCP; `list` and unified `grep` use the same request, result, error, and text helpers on both surfaces. Legacy `githits code grep` retains its separate single-target repository-file contract.
 
 ## Experimental CLI commands
 
-Enable the experimental CLI surface in the shared host config:
-
-```toml
-[experimental]
-tools = true
-```
-
-`experimental.tools` is a strict boolean and defaults to `false` when absent.
-GitHits reads `$XDG_CONFIG_HOME/githits/config.toml` (or
-`~/.config/githits/config.toml` when `XDG_CONFIG_HOME` is unset) on Unix-like
-platforms and `%APPDATA%\githits\config.toml` on Windows. Existing macOS
-installations may also be read from the legacy Application Support path when
-the canonical file is absent.
-
-Without the setting, or with `tools = false`, help omits experimental
-`research` and `ask`; `resolve` and `code diff` remain available. Direct
-experimental invocations fail before authentication or network
-startup with the resolved config path and the snippet above. Terminal failures
-retain that exact path/snippet; `--json` failures write only the structured
-`INVALID_ARGUMENT` envelope to stderr and keep stdout empty. Malformed config
-falls back to the stable help/version and recovery surfaces; direct
-experimental invocations report the path-qualified config error using the same
-terminal/JSON split. Stable commands that need authentication likewise render
-malformed auth/config failures as the same stderr-only `INVALID_ARGUMENT` JSON
-envelope when `--json` is requested; terminal output remains human-readable.
+The CLI has no experimental commands and no command-level opt-in. A legacy
+`[experimental] tools = true` (or `false`) in `config.toml` is ignored by every
+CLI command, including when the section is malformed; only `githits mcp start`
+reads it for the local MCP seam described in
+[experimental tools](../experimental-tools.md). Stable commands that need
+authentication render malformed auth/config failures as the stderr-only
+`INVALID_ARGUMENT` JSON envelope when `--json` is requested; terminal output
+remains human-readable.
 
 ## Commands
 
@@ -297,7 +280,7 @@ same projection and documentation-source formatter for both commands; contributo
 duplicated onto generic progress targets. JSON remains the stable, lossless
 follow-up contract even when text collapses healthy sources or groups recovery inline.
 
-### `githits research` (experimental; `githits ask` alias)
+### `githits research` (`githits ask` alias)
 
 ```sh
 githits research "How does Express routing work?"
@@ -306,9 +289,9 @@ githits research --thread <UUID> "Where is that checked?"
 githits research "How does Express routing work?" --source-format url --json
 ```
 
-Requires experimental tools to be enabled in local configuration. The `ask`
-alias uses the same registration, handler, auth metadata, and `command.research`
-telemetry name. A disabled direct invocation reports the spelling typed. One positional
+Registered by default. The `ask` compatibility alias uses the same
+registration, handler, auth metadata, and `command.research` telemetry name;
+help shows it only as `research|ask`. One positional
 argument is the question; two are target and question. Quote multi-word questions.
 With neither a target nor `--thread`, GitHits uses the question to identify a
 public package or repository.
@@ -318,8 +301,9 @@ by the backend. `--thread` continues the existing bound scope and cannot be
 combined with an explicit target. Use it only when the previous answer needs a
 follow-up. Source formatting, structured run/thread IDs, authentication, and the
 existing 210-second client timeout are unchanged. Human text labels the run ID
-"Research run ID". The local MCP tool is named `research`; its structured
-schema is unchanged apart from description prose.
+"Research run ID". The MCP tool is named `research` in both the local and public
+inventories. A rate-limit error says "Try again in N seconds."; a daily-limit
+error is not retryable before 00:00 UTC; see [research](research.md#rate-limits).
 
 ### `githits doctor`
 
@@ -477,8 +461,7 @@ ref readiness. Code commands independently establish whether they can resolve
 and serve a commit SHA; compact resolver text does not add a trailing readiness
 disclaimer or render negative availability labels.
 
-The command and local experimental MCP adapter use an internal service and do
-not change the public `@githits/mcp` service interface. Its GraphQL selection
+The command and MCP tool share `ResolveTargetService`. Its GraphQL selection
 keeps `best` and `protectedMatches` to `kind`, `canonicalKey`, and `confidence`;
 one ordered `targets` selection always includes compact identity, presentation,
 security, grouping, count, and license fields, while JSON-only identity and
@@ -1102,17 +1085,17 @@ All commands support two output modes:
 ## Product Smoke
 
 `bun run smoke:cli` is the local live-capable suite. It launches source through
-`bun run dev`, verifies separate isolated stable and experimental cohorts, and
-runs the stable live corpus plus CLI/MCP JSON parity when local credentials are
-available. Experimental live probes run only in a temporary opt-in config and
-are skipped with an explicit `AUTH_REQUIRED` message when credentials are not
-available.
+`bun run dev`, verifies the isolated stable cohort (including `research` help,
+validation and auth probes) and that a legacy `[experimental] tools = true`
+config leaves the command set unchanged, and runs the stable live corpus plus
+CLI/MCP JSON parity when local credentials are available; live probes are
+skipped with an explicit `AUTH_REQUIRED` message without credentials.
 
 `bun run smoke:cli:built` is the secret-free CI product check. After
 `bun run build`, its Bun harness launches `node <absolute dist/cli.js>` and:
 
 - parses the root `Commands:` table and requires the exact stable top-level
-  product command set, then separately checks the experimental opt-in cohort;
+  product command set, including `research`, with and without a legacy opt-in;
 - verifies JSON and terminal authentication failures under isolated file auth;
 - strips inherited credentials and redirects all config roots and GitHits URLs;
 - exits before live probes or parity calls.

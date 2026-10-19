@@ -1,7 +1,5 @@
-import {
-  type AgenticAskService,
-  normalizeAgenticAskThreadId,
-} from "@githits/core-internal";
+import type { AgenticAskService } from "@githits/core-internal";
+import { normalizeAgenticAskThreadId } from "@githits/core-internal/browser";
 import { z } from "zod";
 import { mapAgenticAskError } from "../shared/agentic-ask-error-map.js";
 import { extractAgenticAskDisplay } from "../shared/agentic-ask-response.js";
@@ -16,16 +14,16 @@ import {
   buildMcpErrorPayload,
   mcpMappedErrorResult,
   throwIfCallerCancellation,
-} from "../tools/shared.js";
+} from "./shared.js";
 import {
   errorResult,
   OPEN_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
   type ToolDefinition,
   textResult,
   type ZodRawShape,
-} from "../tools/types.js";
+} from "./types.js";
 
-export interface LocalResearchMcpArgs {
+export interface ResearchMcpArgs {
   target?: string;
   thread_id?: string;
   question: string;
@@ -70,9 +68,9 @@ const schema: ZodRawShape = {
 
 export const DESCRIPTION = `Research a public repository or package to answer a question with sources. Omit target and thread_id to identify the target from the question. If Research returns candidates, ask the user to select a target before retrying. Supply at most one of target or thread_id. Continue a prior thread by its returned thread_id. Follow-ups can change project, version, or topic; state changes in the question. ${RESEARCH_VERIFIED_ANSWER_GUIDANCE} Sources default to MCP read calls; request source_format=url for original upstream URLs.`;
 
-export function createLocalResearchTool(
+export function createResearchTool(
   service: AgenticAskService,
-): ToolDefinition<LocalResearchMcpArgs, typeof schema> {
+): ToolDefinition<ResearchMcpArgs, typeof schema> {
   return {
     name: "research",
     description: DESCRIPTION,
@@ -157,12 +155,12 @@ export function formatResearchMcpText(response: unknown): string {
   return extractAgenticAskDisplay(response);
 }
 
-function isTextFormat(format: LocalResearchMcpArgs["format"]): boolean {
+function isTextFormat(format: ResearchMcpArgs["format"]): boolean {
   return format === undefined || format === "text";
 }
 
 function resolveResearchSubject(
-  args: LocalResearchMcpArgs,
+  args: ResearchMcpArgs,
 ): { target?: string } | { threadId: string } | { error: string } {
   if (args.target !== undefined && args.thread_id !== undefined) {
     return { error: "Provide at most one of target or thread_id." };

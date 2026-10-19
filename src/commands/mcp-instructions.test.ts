@@ -6,6 +6,7 @@ import {
 } from "@githits/mcp/internal";
 import { EXTERNAL_CONTENT_POSTURE } from "../../packages/mcp/src/tools/guardrails.js";
 import {
+  createMockAgenticAskService,
   createMockCodeNavigationService,
   createMockGitHitsService,
   createMockGrepService,
@@ -26,6 +27,7 @@ function createTestServices(
     readService: createMockReadService(),
     grepService: createMockGrepService(),
     resolveTargetService: createMockResolveTargetService(),
+    agenticAskService: createMockAgenticAskService(),
     ...overrides,
   };
 }
@@ -44,6 +46,7 @@ const KNOWN_TOOLS = [
   "pkg_deps",
   "pkg_changelog",
   "pkg_upgrade_review",
+  "research",
 ] as const;
 
 function mentionedTools(instructions: string): Set<string> {
@@ -144,7 +147,7 @@ describe("buildMcpQuickStart", () => {
     const mentioned = mentionedTools(buildMcpQuickStart());
     const registered = registeredTools(services);
 
-    expect(registered.size).toBe(14);
+    expect(registered.size).toBe(15);
     expect(mentioned).toEqual(new Set(KNOWN_TOOLS));
     for (const name of mentioned) {
       expect(registered.has(name)).toBe(true);
@@ -202,17 +205,17 @@ describe("buildMcpQuickStart", () => {
 });
 
 describe("remote MCP surface", () => {
-  it("excludes the experimental research tool and its guidance", () => {
-    // Research is local and experimental; hosted MCP guidance and tools must
-    // not mention it or its answer guidance.
+  it("publishes the stable research tool and its answer guidance", () => {
+    // Research is stable: hosted MCP tools and the shared guide expose it with
+    // the same verified-answer guidance as the CLI command.
     const tools = getMcpToolDefinitions(createTestServices());
-    const published = [
-      buildMcpQuickStart(),
-      ...tools.map((tool) => JSON.stringify(tool)),
-    ].join("\n");
+    const research = tools.find((tool) => tool.name === "research");
 
-    expect(tools.map((tool) => tool.name)).not.toContain("research");
-    expect(published).not.toContain(RESEARCH_VERIFIED_ANSWER_GUIDANCE);
-    expect(published).not.toContain("`research`");
+    expect(research?.description).toContain(RESEARCH_VERIFIED_ANSWER_GUIDANCE);
+    expect(research?.description).not.toContain("Experimental");
+    expect(buildMcpQuickStart()).toContain("`research`");
+    expect(buildMcpQuickStart().replace(/\s+/g, " ")).toContain(
+      RESEARCH_VERIFIED_ANSWER_GUIDANCE,
+    );
   });
 });

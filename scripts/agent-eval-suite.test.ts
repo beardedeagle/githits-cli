@@ -396,7 +396,7 @@ describe("agent eval suites", () => {
     expect(manifest.workloads).toHaveLength(42);
     expect(
       manifest.workloads.filter((workload) => workload.safety === "stable"),
-    ).toHaveLength(39);
+    ).toHaveLength(41);
     expect(
       manifest.workloads.filter((workload) => workload.safety === "stateful"),
     ).toHaveLength(1);
@@ -404,7 +404,7 @@ describe("agent eval suites", () => {
       manifest.workloads.filter(
         (workload) => workload.safety === "experimental",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(0);
 
     expect(
       manifest.workloads
@@ -505,6 +505,8 @@ describe("agent eval suites", () => {
       "package-vulnerability-history",
       "package-vulnerability-rubygems",
       "package-vulnerability-transitive",
+      "question-only-research",
+      "research-version-followup",
       "resolution-follow-up",
       "search-inline-qualifiers",
       "search-source-ergonomics",
@@ -515,9 +517,10 @@ describe("agent eval suites", () => {
     expect(
       selectSuiteWorkloads(manifest, "stateful-manual").map((item) => item.id),
     ).toEqual(["githits-onboarding"]);
-    expect(
-      selectSuiteWorkloads(manifest, "experimental").map((item) => item.id),
-    ).toEqual(["ask-version-followup", "experimental-question-only-ask"]);
+    // No local experiment is in dogfood; the suite stays as the seam for one.
+    expect(() => selectSuiteWorkloads(manifest, "experimental")).toThrow(
+      "suite experimental has no selected workloads",
+    );
     expect(AGENT_EVAL_SUITE_NAMES).toEqual([
       "canary",
       "smoke",

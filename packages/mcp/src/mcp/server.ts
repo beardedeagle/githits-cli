@@ -12,6 +12,7 @@ import {
   createPackageVulnerabilitiesTool,
   createQuickStartTool,
   createReadTool,
+  createResearchTool,
   createResolveTargetTool,
   createSearchStatusTool,
   createSearchTool,
@@ -115,6 +116,7 @@ const STABLE_MCP_OPERATION_FACTORIES: readonly McpToolFactory[] = [
     eraseMcpTool(
       createPackageUpgradeReviewTool(services.packageIntelligenceService),
     ),
+  (services) => eraseMcpTool(createResearchTool(services.agenticAskService)),
 ];
 
 export function createStableMcpToolFactories(
@@ -351,6 +353,9 @@ export function createDescriptorServices(): McpToolServices {
     },
     resolveTargetService: {
       resolveTarget: fail,
+    },
+    agenticAskService: {
+      ask: fail,
     },
   };
 }

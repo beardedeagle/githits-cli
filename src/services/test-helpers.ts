@@ -1,6 +1,7 @@
 import { mock } from "bun:test";
 import { posix, win32 } from "node:path";
 import type {
+  AgenticAskService,
   ChangelogReport,
   CodeDiffResult,
   CodeDiffService,
@@ -1165,6 +1166,21 @@ export function createMockResolveTargetService(
 ): ResolveTargetService {
   return {
     resolveTarget: mock(() => Promise.resolve(defaultResolveTargetResult)),
+    ...impl,
+  };
+}
+
+export const defaultAgenticAskResponse = {
+  display_markdown: "Answer.",
+  tool_call_id: "018f47a6-7b32-7a1e-8f45-6a2d39c81720",
+  thread_id: "018f47a6-7b32-7b1e-8f45-6a2d39c81720",
+};
+
+export function createMockAgenticAskService(
+  impl: Partial<AgenticAskService> = {},
+): AgenticAskService {
+  return {
+    ask: mock(() => Promise.resolve(defaultAgenticAskResponse)),
     ...impl,
   };
 }

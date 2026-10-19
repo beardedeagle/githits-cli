@@ -190,7 +190,8 @@ this repository owns no hosted transport or deployment changes. The 0.26.0
 release preparation updates CLI code/package Agent Skills with stable diff
 routing, repository-wide package scope, exact endpoints, and coverage limits.
 The `githits-mcp` guide follows the repository's bounded same-PR parity exception.
-Research and Resolve remain experimental.
+Resolve and Research were promoted to stable later (#457 and the Research GA
+change).
 
 The product change merged in PR #448. The requested coordinated minor release
 prepares both packages at 0.26.0, carrying the breaking custom-provider

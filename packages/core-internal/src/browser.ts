@@ -1,4 +1,13 @@
 export {
+  AgenticAskConnectionError,
+  AgenticAskHttpError,
+  type AgenticAskRateLimitScope,
+  AgenticAskRequestTimeoutError,
+  AgenticAskResponseTooLargeError,
+  MalformedAgenticAskResponseError,
+  normalizeAgenticAskThreadId,
+} from "./services/agentic-ask-service.js";
+export {
   CLIENT_UPDATE_REQUIRED_REASON,
   ClientUpdateRequiredError,
 } from "./services/client-update-required-error.js";

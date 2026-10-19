@@ -57,6 +57,38 @@ function createCaller(callTool: McpSmokeCaller["callTool"]): McpSmokeCaller {
 }
 
 describe("MCP smoke-test helpers", () => {
+  it("requires stable research registration", async () => {
+    const caller = createCaller(async (name, args) =>
+      smokeResponse(name, args),
+    );
+    const listTools = caller.listTools;
+    caller.listTools = async () => ({
+      tools: (await listTools()).tools.filter(
+        (tool) => tool.name !== "research",
+      ),
+    });
+    await expect(
+      runMcpSmoke(caller, { includeLiveTools: false }),
+    ).rejects.toThrow("listTools missing research");
+  });
+
+  it("probes research validation without requesting an answer", async () => {
+    const calls: Array<Record<string, unknown>> = [];
+    const caller = createCaller(async (name, args) => {
+      if (name === "research") calls.push(args);
+      return smokeResponse(name, args);
+    });
+    await runMcpSmoke(caller, { logger: { log: () => {}, error: () => {} } });
+    expect(calls).toEqual([
+      {
+        target: "npm:express",
+        thread_id: "018f47a6-7b32-7b1e-8f45-6a2d39c81720",
+        question: "How is routing dispatched?",
+        format: "json",
+      },
+    ]);
+  });
+
   it("requires stable resolver registration", async () => {
     const caller = createCaller(async (name, args) =>
       smokeResponse(name, args),
@@ -1414,6 +1446,13 @@ function smokeResponse(
       }),
     );
   }
+  if (
+    name === "research" &&
+    args.target !== undefined &&
+    args.thread_id !== undefined
+  ) {
+    return errorResult("INVALID_ARGUMENT");
+  }
   if (args.format === "json") return smokeJsonResponse(name, args);
 
   switch (name) {
@@ -1435,7 +1474,7 @@ function smokeResponse(
       );
     case "quick_start":
       return textResult(
-        "## Choose a tool\nUse `search` to discover, `list` to browse files, `grep` to match code and docs, and `read` to open results; `resolve_target` resolves names; `code_diff` compares source.",
+        "## Choose a tool\nUse `search` to discover, `list` to browse files, `grep` to match code and docs, and `read` to open results; `resolve_target` resolves names; `code_diff` compares source; `research` answers questions.",
       );
     case "get_example":
       return textResult("example\nsolution_id: smoke");

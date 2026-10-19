@@ -28,10 +28,9 @@ config roots, disable advisory update checks, and point GitHits service URLs at
 reserved `.invalid` hosts. CLI built smoke verifies the exact top-level command
 set from root help plus JSON/terminal auth behavior. MCP built smoke lists tools,
 exercises the static `quick_start` guide, probes unauthenticated behavior, and
-requires the exact stable `EXPECTED_MCP_TOOLS` cohort plus a
-separate local-only experimental cohort launched with the hidden session
-override. The experimental cohort also checks its local `quick_start` guide and
-unauthenticated tool envelopes; it never changes the public smoke constant.
+requires the exact stable `EXPECTED_MCP_TOOLS` cohort, including `research`.
+A separate session launched with the hidden `--experimental-tools` override
+must expose the same stable inventory, since no local experiment is registered.
 One CI step applies a combined two-minute timeout and logs
 each harness timing summary and selected launch vector.
 
@@ -71,14 +70,15 @@ The retained `githits code grep` command is a CLI-only compatibility surface;
 it has no exact MCP alias and keeps its legacy source-only controls.
 
 The local smoke runners execute these cohorts independently in source and
-built modes. CLI experimental runs use a temporary opt-in config. MCP
-experimental registration and live runs use the hidden session override,
-which forces the local tools on without reading host
-experimental policy. Scoped temporary roots preserve inherited environment
+built modes. CLI legacy opt-in runs use a temporary `tools = true` config and
+the MCP legacy opt-in registration run uses the hidden session override; both
+must match the stable cohort. Scoped temporary roots preserve inherited environment
 credentials but do not copy host file-auth state; authenticated live
 validation is conditional and skips with `AUTH_REQUIRED` when unavailable.
-Public/remote smoke remains stable-only. The local experimental `research`
-smoke calls give the MCP SDK the existing 210-second agentic-ask service budget.
+The shared `@githits/mcp/smoke-test` (also used against hosted MCP) checks the
+`research` inventory, guide and request validation without requesting an answer,
+so it spends no daily allowance. The local `scripts/mcp-smoke.ts` research
+registration and live calls give the MCP SDK the 210-second agentic-ask budget.
 The SDK's 60-second default can otherwise cancel a valid long-running research
 reply before the service's own deadline. This allowance applies only to those
 smoke calls; other calls and production service budgets are unchanged.
@@ -274,7 +274,8 @@ test suite anchors the doc.
 - `resolve_target` and `code_diff` are stable CLI/public-MCP pairs, included in
   definitions, descriptors, smoke inventories and public exports. Hosted
   availability follows package release, dependency adoption and deployment.
-  `research` remains the config-gated local experimental tool.
+  `research` is likewise a stable CLI/public-MCP pair (`githits research`,
+  alias `githits ask`).
 - Equivalent explicit calls must normalize to identical service params. CLI
   comma-separated registries and MCP registry arrays, CLI repeated intent
   hints and MCP hint arrays, CLI target/range syntax and MCP target/endpoints,

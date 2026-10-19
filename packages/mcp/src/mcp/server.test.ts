@@ -28,6 +28,7 @@ const FORMAT_SELECTABLE_TOOLS = new Set([
   "pkg_deps",
   "pkg_changelog",
   "pkg_upgrade_review",
+  "research",
 ]);
 
 const STABLE_MCP_TOOL_NAMES = [
@@ -45,6 +46,7 @@ const STABLE_MCP_TOOL_NAMES = [
   "pkg_deps",
   "pkg_changelog",
   "pkg_upgrade_review",
+  "research",
 ] as const;
 
 const DESCRIPTION_ROUTING: Record<
@@ -66,6 +68,19 @@ const DESCRIPTION_ROUTING: Record<
       "EXACT or HIGH",
       "CLEAR or NOT_APPLICABLE",
       "MEDIUM and LOW require",
+    ],
+    absent: ["Experimental"],
+  },
+  research: {
+    prefix:
+      /^Research a public repository or package to answer a question with sources\./,
+    exactPrefix:
+      "Research a public repository or package to answer a question with sources. Omit ",
+    body: [
+      "Omit target and thread_id",
+      "returned thread_id",
+      "verified answer that always includes its sources",
+      "source_format=url",
     ],
     absent: ["Experimental"],
   },
@@ -250,7 +265,7 @@ describe("MCP tool annotations", () => {
     const descriptors = getMcpToolDescriptors();
 
     expect(descriptors.map(({ name }) => name)).not.toContain("feedback");
-    expect(descriptors).toHaveLength(14);
+    expect(descriptors).toHaveLength(15);
     expect(descriptors.map(({ name }) => name)).toContain("read");
     expect(descriptors.map(({ name }) => name)).toContain("list");
     expect(descriptors.map(({ name }) => name)).toContain("grep");

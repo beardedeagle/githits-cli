@@ -1,5 +1,11 @@
 export type {
   AgentInfo,
+  AgenticAskRateLimitScope,
+  AgenticAskRequest,
+  AgenticAskRequestOptions,
+  AgenticAskResponse,
+  AgenticAskService,
+  AgenticAskServiceRuntimeOptions,
   CodeDiffErrorDetails,
   CodeDiffErrorRef,
   CodeDiffMode,
@@ -96,6 +102,8 @@ export type {
 } from "@githits/core-internal";
 
 export {
+  AGENTIC_ASK_REQUEST_TIMEOUT_MS,
+  AgenticAskServiceImpl,
   CodeDiffError,
   CodeNavigationServiceImpl,
   createClientHeaderBuilder,

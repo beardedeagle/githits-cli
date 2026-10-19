@@ -5,7 +5,7 @@ import {
   AgenticAskResponseTooLargeError,
   AuthenticationError,
   MalformedAgenticAskResponseError,
-} from "@githits/core-internal";
+} from "@githits/core-internal/browser";
 import type { MappedError } from "./mapped-error.js";
 import { mapSessionIdError } from "./session-id-error-map.js";
 import { mapTermsAcceptanceError } from "./terms-acceptance-error-map.js";
@@ -16,7 +16,7 @@ export interface AgenticAskMappedError {
   threadId?: string;
 }
 
-/** Map transport-neutral Ask failures for both CLI and local MCP surfaces. */
+/** Map transport-neutral Ask failures for both CLI and MCP surfaces. */
 export function mapAgenticAskError(error: unknown): AgenticAskMappedError {
   const sessionError = mapSessionIdError(error);
   if (sessionError) return { mapped: sessionError };
@@ -42,6 +42,9 @@ export function mapAgenticAskError(error: unknown): AgenticAskMappedError {
             : {}),
           ...(error.retryAfterSeconds !== undefined
             ? { retryAfterSeconds: error.retryAfterSeconds }
+            : {}),
+          ...(error.rateLimitScope !== undefined
+            ? { rateLimitScope: error.rateLimitScope }
             : {}),
           ...(error.code === "AUTH_REQUIRED"
             ? { authSource: "server" as const }

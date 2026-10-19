@@ -432,11 +432,12 @@ Canary has `express-router` and
 `package-overview-vulnerabilities`; smoke adds `global-example`,
 `unified-search-investigation`, `docs-search-followup`,
 `package-upgrade-safety`, and the `code-diff` comparison; stable-full contains
-all 39 stable workloads.
+all 41 stable workloads, including the `research` workloads
+`question-only-research` and `research-version-followup`.
 `stateful-manual` contains only `githits-onboarding` and is dry-run-only in
-this phase. `experimental` contains only `ask-version-followup` and
-`experimental-question-only-ask`. The manifest therefore classifies
-42 workloads: 39 stable, one stateful, and two experimental. Canary is a
+this phase. `experimental` is empty while no local experiment is in dogfood;
+selecting it fails preflight. The manifest therefore classifies 42 workloads:
+41 stable and one stateful. Canary is a
 subset of smoke, smoke is a subset of stable-full, and stateful or experimental
 workloads never enter those stable suites.
 
@@ -941,7 +942,7 @@ surface under test.
 
 ### Workload Selection
 
-Use `ask-version-followup.md` for local `research` thread reuse across project and version changes.
+Use `research-version-followup.md` for `research` thread reuse across project and version changes.
 
 Use targeted workloads when a change affects a specific tool family. Use both
 Claude and Codex for instruction/tool-description/skill changes when practical;
@@ -1065,8 +1066,8 @@ add the workload from the table. Compare
 `tool-calls.json`, `metrics.json`, and the final JSON's answer/confidence across
 branches or against a published run.
 
-For question-only `research` parity, use `experimental-question-only-ask.md` with
-`--experimental-tools` and descriptor-only guidance. Inspect whether calls omit
+For question-only `research` parity, use `question-only-research.md` with
+descriptor-only guidance. Inspect whether calls omit
 both selectors and whether returned candidates remain choices for the user;
 do not count authentication failures as behavioral evidence.
 
