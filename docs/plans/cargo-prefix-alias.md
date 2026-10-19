@@ -203,3 +203,17 @@ violation artifact. Metrics and limits are retained in durable alias docs.
 Source CLI/MCP smokes passed (43/10 steps), with live cohorts skipped AUTH_REQUIRED.
 Built Node CLI and MCP registration/auth smokes passed too. Code review is next;
 no product decision emerged.
+
+Coordinator-reported dev state (2026-10-19, after local verification): canonical-dev
+GraphQL inspection of `cargo:serde` returned `VALIDATION_ERROR` / invalid target
+address, and the automatic backend dev deployment job failed. Canonical `crates`
+control and AKS dev/build availability are being checked in that owning session.
+These are coordinator reports, not authenticated calls from this worktree. Do not
+duplicate backend probes or infer deployment from the merge; publication remains
+gated on actual authenticated alias availability.
+
+Luna preflight: all locally provable behavior criteria met; authenticated live
+checks remain the documented publication gate. One accepted wording defect in
+tools.md split an existing sentence; restored it and moved the alias note to its
+own paragraph. Scanned the other touched README/CLI docs/help insertions for the
+same defect: no sibling instance. No interface or plan-conformance finding.

@@ -67,3 +67,11 @@ returned `AUTH_REQUIRED`. A prior default-storage probe returned no output and
 was stopped. No auth material was read or copied. Authenticated paired dev Rust
 metadata/search and forwarded list/read/grep, and actual backend alias deployment,
 remain unverified publication gates. Draft PR preparation is independent of them.
+
+Coordinator-reported dev state (2026-10-19, after local verification): canonical-dev
+GraphQL inspection of `cargo:serde` returned `VALIDATION_ERROR` / invalid target
+address, and the automatic backend dev deployment job failed. Canonical `crates`
+control and AKS dev/build availability are being checked in that owning session.
+These are coordinator reports, not authenticated calls from this worktree. Do not
+duplicate backend probes or infer deployment from the merge; publication remains
+gated on actual authenticated alias availability.

@@ -197,10 +197,6 @@ defaults to the GitHits-managed endpoint and can be overridden via
 `GITHITS_CODE_NAV_URL` for local development.
 
 `pkg_vulns`, `pkg_deps`, and `pkg_changelog` require
-Package input spelling accepts `cargo:` as an alias for `crates:` (public
-crates.io), including structured registry inputs. Canonical identities remain
-`crates` / `CRATES`; see [registry input aliases](package-registry-aliases.md).
-
 `target: "registry:name[@version]"`, for example `npm:express@5.2.1`; omit the
 pin for latest. `pkg_changelog` also accepts `@from..to` intervals.
 `pkg_info` requires an unpinned target such as `npm:express`. These tools accept
@@ -208,6 +204,10 @@ package coordinates, not repository, site, or read locators. Scoped npm and Mave
 names retain their `@` and `:` respectively. Their old separate coordinate inputs
 are removed, not aliases. `pkg_upgrade_review` still uses the structured inputs
 listed above; CLI positional specs and options for it are unchanged.
+
+Package input spelling accepts `cargo:` as an alias for `crates:` (public
+crates.io), including structured registry inputs. Canonical identities remain
+`crates` / `CRATES`; see [registry input aliases](package-registry-aliases.md).
 
 ## Transitive vulnerability audits
 

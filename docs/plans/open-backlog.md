@@ -103,3 +103,11 @@ this client handoff.
 
 At release, add the short alias note to public package/code skill guidance if
 useful; keep canonical examples and follow the public Agent Skill lifecycle.
+
+Coordinator-reported dev state (2026-10-19, after local verification): canonical-dev
+GraphQL inspection of `cargo:serde` returned `VALIDATION_ERROR` / invalid target
+address, and the automatic backend dev deployment job failed. Canonical `crates`
+control and AKS dev/build availability are being checked in that owning session.
+These are coordinator reports, not authenticated calls from this worktree. Do not
+duplicate backend probes or infer deployment from the merge; publication remains
+gated on actual authenticated alias availability.
