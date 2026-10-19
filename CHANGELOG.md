@@ -5,6 +5,36 @@ changes use independent files under [`changes/`](changes/README.md) and are
 consolidated here only during release preparation. Dated, versioned sections
 are historical records and change only to correct blatant factual errors.
 
+## [githits 0.32.0] - 2026-10-19
+
+Pre-1.0 minor release that accepts `cargo:` as a crates.io registry alias and
+makes cancelled local MCP tool calls stop their in-flight requests. No command,
+flag or configuration changes are required.
+
+### Added
+
+- **Cargo registry input alias** - Package targets accept `cargo:` (and the structured registry value `cargo`) as an alias for public crates.io `crates:` / `crates` across package, search, navigation, changelog and diff commands and the local MCP tools. Output and canonical registry identities remain `crates`. The `githits-package` and `githits-code` skills note the alias.
+
+### Fixed
+
+- **Cancelled MCP tool calls abort their requests** - When an MCP host cancels a tool call or the client disconnects, the local MCP `list`, `read`, `grep`, `resolve_target`, `code_diff`, `pkg_info`, `pkg_vulns`, `pkg_deps`, `pkg_changelog` and `pkg_upgrade_review` tools now abort their in-flight GitHits requests instead of running to completion, matching `get_example`, `search`, `search_status` and `research`. Cancelled calls are not retried after a credential refresh.
+
+## [@githits/mcp 0.32.0] - 2026-10-19
+
+Pre-1.0 minor release that accepts `cargo:` as a crates.io registry alias and
+forwards caller cancellation to every network-backed tool. Existing hosts and
+custom service implementations keep working unchanged. Hosted MCP clients
+receive these changes after adoption and deployment of the released MCP
+package.
+
+### Added
+
+- **Cargo registry input alias** - Package targets and structured registry inputs accept `cargo:` / `cargo` as an alias for public crates.io `crates:` / `crates`. Constructed requests, retry actions and canonical registry identities remain `crates` / `CRATES`; registry lists and type guards are unchanged.
+
+### Fixed
+
+- **Cancelled tool calls abort their requests** - `list`, `read`, `grep`, `resolve_target`, `code_diff`, `pkg_info`, `pkg_vulns`, `pkg_deps`, `pkg_changelog` and `pkg_upgrade_review` forward the MCP request's abort signal, so a cancelled call or closed connection aborts the in-flight GitHits request, matching `get_example`, `search`, `search_status` and `research`. Cancelled calls are not retried after a credential refresh. Service interfaces accept an optional trailing `{ signal }` argument, exported as `ServiceRequestOptions` from `@githits/mcp/client`; bundled implementations honor it, and custom implementations should forward `options?.signal` to their own requests. Calls without a signal keep their single-argument shape.
+
 ## [githits 0.31.0] - 2026-10-19
 
 Pre-1.0 minor release that makes research stable and adds unknown

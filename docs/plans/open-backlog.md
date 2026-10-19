@@ -139,6 +139,3 @@ backend. Revert the dependency for rollback; roll back forwarding clients before
 removing backend admission. Exact artifact and future deployed state remain
 unknown. No merge, release, publication, deployment or other repository edit is
 authorized by this client handoff.
-
-At release, review public package/code skill guidance for the short alias note;
-keep canonical examples and follow the public Agent Skill lifecycle.
