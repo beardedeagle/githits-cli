@@ -12,8 +12,9 @@ Assumptions: the user-approved contract in `/tmp/cargo-cli-handoff.md` governs;
 backend PR #3424 merged as `1eb8b98768c362668cac0bccaeca513dd388b012` (handoff
 evidence, deployment unproven). No open product decisions. Dependencies: existing
 core registry module and MCP shared builders; deployed backend alias admission is
-a publication gate, not a draft-PR gate. Unknown: actual dev deployment availability,
-to be measured with safe CLI source calls during verification; no fallback if absent.
+a publication gate, not a draft-PR gate. Unknown: canonical/production alias rollout timing. Authenticated AKS dev support
+is now verified through backend and current clients; canonical Fly dev still rejects
+raw cargo per coordinator checks. No fallback or deployment is authorized.
 
 ## Verified current state (2026-10-19)
 
@@ -90,7 +91,8 @@ only after clients that transparently forward alias strings have rolled back.
 
 Assumptions: verified boundaries above; no product decisions. Dependencies: none
 for implementation; credentials and dev deployment for live evidence. Unknown:
-dev alias availability. Missing live access is reported as a publication gate.
+intended release-time backend availability. AKS dev live access and alias support
+are now proven; canonical Fly dev raw alias support remains absent in reported checks.
 
 Ordered implementation sequence (one Luna worker, dispatch sequentially):
 1. Core spelling parser + core tests + browser export (one concern).
@@ -217,3 +219,50 @@ checks remain the documented publication gate. One accepted wording defect in
 tools.md split an existing sentence; restored it and moved the alias note to its
 own paragraph. Scanned the other touched README/CLI docs/help insertions for the
 same defect: no sibling instance. No interface or plan-conformance finding.
+
+## Review round 1 closure and new live evidence
+
+External code r1 direction sound. F1 accepted (medium): raw operand/structured
+registry matching in version-ref-recovery omitted Cargo missing-version actions.
+Recovery matching belongs to that existing module; core still owns spelling.
+Added one local canonical-prefix matcher at its three matching sites, preserving
+version/range/fragment offsets and suppressing changes based only on alias spelling.
+Sibling scan: all d.package/details.package/row.registry identity comparisons in
+shared code; follow-up-command-text and unified-search-response compare backend
+identities only, no verified extra caller-alias trigger. No new infrastructure.
+Regression tests initially reproduced 13 failures, then all 41 recovery tests
+passed (97 expectations), covering CLI argv/flags, compact MCP and structured
+single/batch upgrades and unmatched-version no-ops. F2/F3 accepted: removed private
+backend refs and transient cost/orchestration detail from permanent docs; neutral
+endpoint rollout evidence lives only in backlog; fixed doubled blank line.
+
+Current built happy paths (runtime 745070b, docs HEAD286c93c) authenticated through
+normal Node CLI/keychain on AKS using GITHITS_ENV=dev and process-only
+GITHITS_CODE_NAV_URL=https://oss-aks-dev.githits.dev after verifying config ownership
+in core config.ts and docs/config.md. Both current CLI and local stdio MCP passed
+20 paired metadata/search/list/read/grep calls. Metadata/search/read equal exactly;
+list only requestedTarget differs; grep only two raw targets[].target labels differ.
+All five payloads equal CLI/MCP per spelling. Source serde@1.0.228 SHA
+ a866b336f14aa57a07f0d0be9f8762746e64ecb4; metadata latest1.0.229; search5code hits
+hasMore; inventoryCURRENT3entries; Cargo.toml1–12 same hash; grepRESUMABLE_LIMIT3repo
++2site hits, no unavailable targets. Earlier coordinator direct GraphQL had5repo
+hits and docs publishing; these are bounded observations at different times.
+Own checker /tmp/cargo-current-client-check.py and independent coordinator checker
+/tmp/cargo-root-client-verify.py passed on the 20 saved payloads. Summaries
+/tmp/cargo-current-client-verification-summary.json and
+/tmp/cargo-root-client-verification-summary.json; backend record
+/tmp/cargo-dev-verification.md. Canonical Fly dev still rejects raw cargo while
+crates passes; AKS proof is not canonical dev or published/hosted availability.
+Preserve happy-path evidence after recovery-only fix; rebuild and attempt one
+paired missing-version CLI/MCP check, no broad rerun or deployment.
+
+F1 closure final evidence: 41 recovery tests /97 expectations pass after fixing the
+new table callback's Bun typing; typecheck and owned-file Biome pass. Root and MCP
+builds both passed on the recovery fix. One paired missing-version error check
+(4 client calls) against AKS on the rebuilt artifacts returned identical per-
+surface cargo/crates VERSION_NOT_FOUND JSON and canonical retry actions:
+CLI `Try: githits pkg deps crates:serde@1.0.229 --json`; MCP
+`Retry pkg_deps with target="crates:serde@1.0.229".`
+Runner /tmp/cargo-current-recovery-verify.mjs, proof
+/tmp/cargo-current-recovery-verification-summary.json. No broad happy-path rerun
+or direct GraphQL duplication. External code round2 and final delivery remain.

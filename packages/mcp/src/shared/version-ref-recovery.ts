@@ -1,4 +1,7 @@
-import type { VersionRefRecovery } from "@githits/core-internal";
+import {
+  parsePkgseerRegistryArg,
+  type VersionRefRecovery,
+} from "@githits/core-internal";
 import type { MappedError, MappedErrorDetails } from "./mapped-error.js";
 import { parseRepositoryTargetSpec } from "./repository-target.js";
 import { shellQuoteExact } from "./shell-quote.js";
@@ -115,6 +118,14 @@ function replaceVersion(
     .join("..");
 }
 
+/** Match caller registry spellings against canonical backend recovery identities. */
+function canonicalPackageOperand(value: string): string {
+  const colon = value.indexOf(":");
+  if (colon < 0) return value;
+  const registry = parsePkgseerRegistryArg(value.slice(0, colon));
+  return registry ? `${registry}${value.slice(colon)}` : value;
+}
+
 function replaceTarget(
   value: string,
   mapped: MappedError,
@@ -124,13 +135,18 @@ function replaceTarget(
   const normalized = value.trim();
   const hash = normalized.indexOf("#");
   const base = hash < 0 ? normalized : normalized.slice(0, hash);
+  const canonicalBase = canonicalPackageOperand(base);
   const fragment = hash < 0 ? "" : normalized.slice(hash);
   if (
     mapped.code === "VERSION_NOT_FOUND" &&
     d.package &&
-    base.toLowerCase().startsWith(`${d.package.toLowerCase()}@`)
+    canonicalBase.toLowerCase().startsWith(`${d.package.toLowerCase()}@`)
   ) {
-    return `${d.package}@${replaceVersion(base.slice(d.package.length + 1), d, suggestion)}${fragment}`;
+    const version = canonicalBase.slice(d.package.length + 1);
+    const replacement = replaceVersion(version, d, suggestion);
+    return replacement === version
+      ? value
+      : `${d.package}@${replacement}${fragment}`;
   }
   if (mapped.code === "REF_NOT_FOUND" && d.repoUrl && d.requestedRef) {
     // Parse only explicit repository operands; other argv entries may be patterns or paths.
@@ -211,7 +227,7 @@ function cliAction(
   argv = argv.slice(commandStart);
   const next = [...argv];
   const hasPackage = argv.some((arg) => {
-    const normalized = arg.trim().toLowerCase();
+    const normalized = canonicalPackageOperand(arg.trim()).toLowerCase();
     const pkg = d.package?.toLowerCase();
     return (
       pkg !== undefined &&
@@ -326,8 +342,9 @@ function mcpAction(
           visit(target as Record<string, unknown>, `${prefix}targets[${i}].`);
       });
     if (
-      `${row.registry}:${row.package_name}`.toLowerCase() ===
-      d.package?.toLowerCase()
+      canonicalPackageOperand(
+        `${row.registry}:${row.package_name}`,
+      ).toLowerCase() === d.package?.toLowerCase()
     ) {
       for (const key of ["current_version", "target_version"]) {
         if (

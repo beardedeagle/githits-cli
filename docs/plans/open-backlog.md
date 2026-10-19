@@ -80,34 +80,52 @@ usage inspection and before/after checks by the caller.
 
 ## Cargo alias rollout and hosted adoption — 2026-10-19
 
-Client implementation accepts `cargo:` / `cargo` as crates.io aliases while
-canonical identity stays `crates` / `CRATES`. See
+Client implementation accepts `cargo:` / `cargo` as crates.io aliases; canonical
+identity stays `crates` / `CRATES`. See
 [registry input aliases](../implementation/package-registry-aliases.md).
-Backend PR #3424 merged as `1eb8b98768c362668cac0bccaeca513dd388b012` (user handoff);
-that does not establish deployment. A dev source probe using explicit file auth
-storage returned `AUTH_REQUIRED`; authenticated backend alias availability has not
-been established from this worktree. Publication requires paired Rust metadata,
-search and byte-forwarded list/read/grep verification against the alias build.
-This deployment/access gate does not block preparation of the client draft PR.
+
+Authenticated dev verification distinguishes two endpoints:
+
+- Parallel AKS, `https://oss-aks-dev.githits.dev`, passes alias/canonical identity,
+  package metadata and forwarded inventory/read/grep (backend coordinator evidence).
+  Current built CLI and local MCP also passed 20 paired metadata/search/list/read/
+  grep calls using the existing dev credential profile. Metadata/search/read JSON
+  matched exactly; list differed only in requestedTarget, grep only in two raw
+  target labels. All five payloads matched CLI/MCP for each spelling.
+- Canonical dev, `https://oss-dev.githits.dev`, passed `crates` but rejected raw
+  `cargo` with `VALIDATION_ERROR` / invalid_format in the backend coordinator's
+  checks. Parallel AKS evidence does not establish canonical dev readiness or
+  production/hosted availability. A failed automatic dev deploy was reported;
+  no deployment or routing change was made by this client task.
+
+Client source evidence was pinned to `serde@1.0.228`, served SHA
+`a866b336f14aa57a07f0d0be9f8762746e64ecb4`: search had five code hits and hasMore;
+inventory was CURRENT with three entries; Cargo.toml lines 1–12 matched (SHA256
+`2310fd8f3fe22938fa967d07ce5434378cea7d439e7eaf2525a78a99a994e4a2`). Grep was a
+bounded RESUMABLE_LIMIT page: three repository and two hosted-doc hits, no
+unavailable targets in the client run. The earlier direct backend run had five
+repository hits while selected docs were documentation_publishing. Neither page
+is exhaustive. Latest-only metadata returned serde 1.0.229. After the recovery-only client fix,
+a further four paired missing-version CLI/MCP calls returned equal per-surface
+VERSION_NOT_FOUND payloads and canonical crates:serde@1.0.229 retry actions.
+
+Endpoint selection was process-local `GITHITS_ENV=dev` plus
+`GITHITS_CODE_NAV_URL=https://oss-aks-dev.githits.dev`; other service/token overrides
+were cleared. The current Node-built CLI/local stdio MCP used normal keychain
+credentials and refresh; no tokens were printed, copied or handled manually.
+Earlier file-storage source smokes had AUTH_REQUIRED and remain auth-only evidence;
+the neutral targeted eval made zero GitHits calls and remains separate evidence.
 
 After separately authorized publication and a full handoff, reorient the hosted
 repository on current main, released artifact version and consumer lockfile. Use
-its existing MCP dependency-bump workflow; update manifest/lockfile without
-copying package-owned alias logic. Acceptance: intended published artifact resolves,
-consumer checks pass and, after separate deployment approval, authenticated hosted
-paired metadata/search and forwarded list/read/grep verify alias parity. Revert the
-dependency for rollback; roll back forwarding clients before removing backend
-admission. Exact artifact/deployed state is unknown until that increment. No
-merge, release, publication, deployment or other repository edit is authorized by
-this client handoff.
+its existing dependency-bump workflow; update manifest/lockfile without copying
+package-owned alias logic. Acceptance: intended artifact resolves, consumer checks
+pass and, after separate deployment approval, authenticated paired metadata/search
+and forwarded list/read/grep verify alias parity against the intended deployed
+backend. Revert the dependency for rollback; roll back forwarding clients before
+removing backend admission. Exact artifact and future deployed state remain
+unknown. No merge, release, publication, deployment or other repository edit is
+authorized by this client handoff.
 
-At release, add the short alias note to public package/code skill guidance if
-useful; keep canonical examples and follow the public Agent Skill lifecycle.
-
-Coordinator-reported dev state (2026-10-19, after local verification): canonical-dev
-GraphQL inspection of `cargo:serde` returned `VALIDATION_ERROR` / invalid target
-address, and the automatic backend dev deployment job failed. Canonical `crates`
-control and AKS dev/build availability are being checked in that owning session.
-These are coordinator reports, not authenticated calls from this worktree. Do not
-duplicate backend probes or infer deployment from the merge; publication remains
-gated on actual authenticated alias availability.
+At release, review public package/code skill guidance for the short alias note;
+keep canonical examples and follow the public Agent Skill lifecycle.

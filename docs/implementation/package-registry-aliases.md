@@ -29,49 +29,30 @@ grammar in those request builders or rewrite evidence labels merely for spelling
 
 ## Delivery and rollout
 
-Backend PR #3424 merged as `1eb8b98768c362668cac0bccaeca513dd388b012` before this
-client increment (user handoff evidence). Merge is not deployment evidence.
-Publication requires an alias-capable backend and authenticated paired Rust
-metadata/search and forwarded list/read/grep checks. Permanent smoke alias cases
-exercise client-normalized metadata; forwarded alias checks are separate live
-verification until backend availability is established.
+Forwarded alias inputs require a backend build that admits Cargo spelling. A
+backend merge does not establish deployment. Permanent smoke alias cases exercise
+client-normalized metadata; verify forwarded aliases separately against the
+actual selected backend before publication.
+
+Configuration belongs to the client: `GITHITS_ENV=dev` selects dev services and
+the dev credential namespace; `GITHITS_CODE_NAV_URL` independently overrides only
+the package/source endpoint. Use the normal CLI credential store and refresh path,
+never a manually extracted token. A parallel backend can pass while canonical dev
+routing still serves an older build. Current rollout evidence belongs in the
+[rollout backlog](../plans/open-backlog.md#cargo-alias-rollout-and-hosted-adoption--2026-10-19).
 
 Hosted MCP receives this behavior only after the public MCP package is released,
 the hosted repository adopts it, and that server is deployed. Those are separate
-approval gates. Revert the client/package adoption for rollback; roll back clients
+approval gates. Revert client/package adoption for rollback; roll back clients
 that forward aliases before removing backend alias admission. Public Agent Skill
 alias notes follow the release lifecycle; this increment leaves their canonical
 examples and stable quick_start unchanged.
 
-## Verification (2026-10-19)
+## Verification
 
-Focused Bun verification passed 1,069 tests across 36 files (3,492 expectations):
-registry/spec/builders, compact navigation/search/changelog/diff, raw forwarding,
-presentation, CLI conflict errors, metadata parity and related regression cases.
-`bun run typecheck` and `bun run validate:packages` passed; the latter runs both
-root and MCP builds and validates packed consumers outside root path aliases.
-
-Source `smoke:cli` and `smoke:mcp` passed (43 and 10 steps); live cohorts
-skipped with `AUTH_REQUIRED`. Built Node CLI and MCP smoke modes also passed
-(auth handling and registration). These do not prove authenticated alias parity.
-
-The required local Codex package-overview-vulnerabilities workload completed in
-32.7 seconds in neutral descriptor discovery. Inspection found an empty
-`tool-calls.json`, a success/high-confidence final answer and no isolation-violation
-artifact. Metrics recorded 51,347 uncached input, 105,216 cached input and 1,661
-output tokens; the cost estimate was $0.00701736. No GitHits call occurred, so this
-run provides neither changed-path/alias evidence nor a graded quality claim.
-
-A dev source `list cargo:serde --limit 1 --json` probe with explicit file storage
-returned `AUTH_REQUIRED`. A prior default-storage probe returned no output and
-was stopped. No auth material was read or copied. Authenticated paired dev Rust
-metadata/search and forwarded list/read/grep, and actual backend alias deployment,
-remain unverified publication gates. Draft PR preparation is independent of them.
-
-Coordinator-reported dev state (2026-10-19, after local verification): canonical-dev
-GraphQL inspection of `cargo:serde` returned `VALIDATION_ERROR` / invalid target
-address, and the automatic backend dev deployment job failed. Canonical `crates`
-control and AKS dev/build availability are being checked in that owning session.
-These are coordinator reports, not authenticated calls from this worktree. Do not
-duplicate backend probes or infer deployment from the merge; publication remains
-gated on actual authenticated alias availability.
+Focused tests cover alias/canonical params, compact grammar, raw target forwarding,
+CLI/MCP parity and recovery actions, including missing-version failures. Root/MCP
+builds, packed external consumers and private import boundaries are validated.
+Unauthenticated smoke proves startup, registration and auth handling only; it
+does not establish live alias support. The required qualitative eval completed
+without GitHits calls and provides no alias-use or graded-quality evidence.
