@@ -2,7 +2,10 @@ import type {
   DiscoveryIndexingEstimate,
   IndexingDurationEstimate,
 } from "@githits/core-internal";
-import { formatRepositoryTarget } from "./repository-target.js";
+import {
+  formatRepositoryTarget,
+  isRepositoryTargetSpec,
+} from "./repository-target.js";
 import {
   formatProvenanceRow,
   preparationRequestedFacts,
@@ -139,9 +142,7 @@ export function renderPreparationSection(
         entry.targets.length === 1 &&
         preparationRequestedFacts(entry, options.resolutions ?? [])
           .observedHead &&
-        entry.targets.some((target) =>
-          /^(?:github:|gitlab:|codeberg:|https?:\/\/)/.test(target),
-        )
+        entry.targets.some((target) => isRepositoryTargetSpec(target))
       )
     )
       rows.push(

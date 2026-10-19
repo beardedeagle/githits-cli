@@ -123,7 +123,7 @@ function collectIntentHint(value: string, previous: string[] = []): string[] {
 
 const DESCRIPTION = `Resolve a human-provided name to ranked package, public repository, or standalone documentation-site targets.
 
-Pass canonical registry:name, github:owner/repo, codeberg:owner/repo, gitlab:group/subgroup/project, or site:<host[/path]> targets
+Pass canonical registry:name, github:owner/repo, codeberg:owner/repo, gitlab:group/subgroup/project, launchpad:~owner/+git/repo (lp: alias for complete paths), or site:<host[/path]> targets
 directly to the next GitHits command; resolve rejects them locally.
 
 The optional --query and --intent-hint values are sent to the service as ranking

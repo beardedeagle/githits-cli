@@ -9,12 +9,17 @@ import { buildResolveTargetParams } from "../../packages/mcp/src/shared/resolve-
 import { parseUnifiedSearchTargetSpec } from "../../packages/mcp/src/shared/unified-search-target.js";
 import { resolveCodeTarget } from "../../packages/mcp/src/tools/code-navigation-shared.js";
 import { resolveCliCodeNavTarget } from "../commands/code/code-nav-cli-helpers.js";
+import { grepAction } from "../commands/grep.js";
+import { listAction } from "../commands/list.js";
+import { readAction } from "../commands/read.js";
 import { searchAction } from "../commands/search.js";
 import {
   createMockCodeNavigationService,
   createMockGrepService,
+  createMockListService,
   createMockReadService,
   defaultGrepResult,
+  defaultListResult,
   defaultReadFileResult,
   defaultUnifiedSearchOutcome,
 } from "../services/test-helpers.js";
@@ -27,6 +32,16 @@ const targets = [
     "gitlab:group/subgroup/project",
     "https://gitlab.com/group/subgroup/project",
   ],
+  ["launchpad:~Owner/+git/Repo", "https://git.launchpad.net/~Owner/+git/Repo"],
+  [
+    "lp:~Owner/Project/+git/Repo",
+    "https://git.launchpad.net/~Owner/Project/+git/Repo",
+  ],
+  [
+    "LP:~Owner/Distro/+source/Source/+git/Repo",
+    "https://git.launchpad.net/~Owner/Distro/+source/Source/+git/Repo",
+  ],
+  ["lP:~Owner/+git/Repo%402", "https://git.launchpad.net/~Owner/+git/Repo@2"],
 ] as const;
 
 describe("provider target consumer parity", () => {
@@ -154,6 +169,51 @@ describe("provider target consumer parity", () => {
       }
     });
 
+    it(`${compact} keeps unified CLI/MCP list, grep and read target bytes`, async () => {
+      const target = `${compact}@release/v1@stable`;
+      const list = mock(() => Promise.resolve(defaultListResult));
+      const grep = mock(() => Promise.resolve(defaultGrepResult));
+      const read = mock(
+        (): Promise<ReadResult> =>
+          Promise.resolve({ source: "code", result: defaultReadFileResult }),
+      );
+      const deps = {
+        listService: createMockListService({ list }),
+        grepService: createMockGrepService({ grep }),
+        readService: createMockReadService({ read }),
+        codeNavigationService: createMockCodeNavigationService(),
+        codeNavigationUrl: "https://example.test",
+        hasValidToken: true,
+        mcpUrl: "https://mcp.githits.com",
+      };
+      const log = spyOn(console, "log").mockImplementation(() => {});
+      try {
+        await listAction(target, ["src/"], { json: true }, deps);
+        const result = await createParityMcpTool("list", deps).handler(
+          { target, paths: ["src/"], format: "json" },
+          {},
+        );
+        expect(result.isError).toBeUndefined();
+        await grepAction("import", [target], { json: true }, deps);
+        await readAction(target, "src/index.ts", { json: true }, deps);
+        expect(list).toHaveBeenCalledTimes(2);
+        for (const call of list.mock.calls as unknown as Array<
+          Array<{ target: string }>
+        >)
+          expect(call[0]?.target).toBe(target);
+        expect(grep).toHaveBeenCalledWith(
+          expect.objectContaining({
+            targets: [expect.objectContaining({ target })],
+          }),
+        );
+        expect(read).toHaveBeenCalledWith(
+          expect.objectContaining({ target, path: "src/index.ts" }),
+        );
+      } finally {
+        log.mockRestore();
+      }
+    });
+
     it(`${compact} follow-ups retain provider and exact commit`, () => {
       const hit = {
         type: "repository_code",
@@ -184,6 +244,83 @@ describe("provider target consumer parity", () => {
       expect(cli).not.toContain("--git-ref main");
     });
   }
+
+  it.each([
+    "https://git.launchpad.net/~Owner/+git/Repo",
+    "https://code.launchpad.net/~Owner/Project/+git/Repo",
+    "git://git.launchpad.net/~Owner/Distro/+source/Source/+git/Repo",
+  ])("admits Discovery and diff URL %s as canonical HTTPS", (target) => {
+    const expected = target
+      .replace("code.launchpad.net", "git.launchpad.net")
+      .replace(/^git:/, "https:");
+    expect(parseUnifiedSearchTargetSpec(`${target}@feature/a@b`)).toEqual({
+      repoUrl: expected,
+      gitRef: "feature/a@b",
+    });
+    expect(
+      buildCodeDiffParams({ repoUrl: target, range: "old..new" }).params.target,
+    ).toEqual({ repoUrl: expected });
+  });
+
+  it.each([
+    "launchpad:~Owner/+git/Repo%402@0123456789abcdef0123456789abcdef01234567/docs/Guide.md",
+    "LP:~Owner/Project/+git/Repo@release%2FKeepCase/docs/Guide.md#Heading",
+    "lP:~Owner/Distro/+source/Source/+git/Repo@main#Symbol",
+  ])(
+    "replays repository page IDs and semantic fragments unchanged: %s",
+    async (target) => {
+      const read = mock(
+        (): Promise<ReadResult> =>
+          Promise.resolve({ source: "code", result: defaultReadFileResult }),
+      );
+      const deps = {
+        readService: createMockReadService({ read }),
+        codeNavigationService: createMockCodeNavigationService(),
+        codeNavigationUrl: "https://example.test",
+        hasValidToken: true,
+        mcpUrl: "https://mcp.githits.com",
+      };
+      const log = spyOn(console, "log").mockImplementation(() => {});
+      try {
+        await readAction(target, undefined, { json: true }, deps);
+        const result = await createParityMcpTool("read", deps).handler(
+          { target, format: "json" },
+          {},
+        );
+        expect(result.isError).toBeUndefined();
+        expect(read).toHaveBeenCalledTimes(2);
+        expect(read).toHaveBeenNthCalledWith(1, {
+          target,
+          waitTimeoutMs: 30_000,
+        });
+        expect(read).toHaveBeenNthCalledWith(2, {
+          target,
+          waitTimeoutMs: 30_000,
+        });
+      } finally {
+        log.mockRestore();
+      }
+    },
+  );
+
+  it.each([
+    "lp:beautifulsoup",
+    "launchpad:beautifulsoup",
+    "LP:~Owner/beautifulsoup",
+    "https://code.launchpad.net/beautifulsoup",
+    "https://git.launchpad.net/beautifulsoup",
+    "https://code.launchpad.net/~Owner/beautifulsoup",
+    "https://git.launchpad.net/~Owner/beautifulsoup",
+  ])("keeps unsupported defaults %s unresolved", (target) => {
+    expect(() => parseUnifiedSearchTargetSpec(target)).toThrow();
+    expect(() =>
+      buildCodeDiffMcpParams({ target, from: "old", to: "new" }),
+    ).toThrow();
+    expect(
+      buildResolveTargetParams({ name: target, includeDetailedFields: false })
+        .name,
+    ).toBe(target);
+  });
 
   it.each([
     ["zig:gh/owner/repo", "ZIG", "gh/owner/repo"],

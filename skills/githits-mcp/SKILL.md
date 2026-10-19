@@ -67,9 +67,13 @@ unverified paths.
   `pypi:requests@2.32.3` (never the literal `registry:`); Swift
   `swift:github.com/<owner>/<repo>`, Zig `zig:gh/<owner>/<repo>`. A package target covers its package subpath,
   including in monorepos.
-- Repositories: `github:owner/repo@ref`, `codeberg:`, `gitlab:`, or a
+- Repositories: `github:owner/repo@ref`, `codeberg:`, `gitlab:`, `launchpad:`, or a
   supported full URL, for whole repositories or sibling packages. Never infer
-  a provider.
+  a provider. Launchpad requires a complete owner-qualified path:
+  `launchpad:~owner/+git/repo`, `launchpad:~owner/project/+git/repo`, or
+  `launchpad:~owner/distro/+source/source/+git/repo`. Case-insensitive
+  `lp:` is an alias for these complete paths. `lp:PROJECT` and short
+  `code.launchpad.net`/`git.launchpad.net` URLs are not supported yet.
 - Docs sites: `site:host[/path]`. Research takes the project's package or
   repository instead; it covers code and docs.
 - Omit the suffix for the latest package version or default branch. A ref may

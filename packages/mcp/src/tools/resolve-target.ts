@@ -46,7 +46,7 @@ const schema: ZodRawShape = {
   name: z
     .string()
     .describe(
-      "Human-friendly package, repository, or standalone documentation-site name to resolve. Do not use canonical registry:name, github:owner/repo, codeberg:owner/repo, gitlab:group/subgroup/project, or site:<host[/path]> targets.",
+      "Human-friendly package, repository, or standalone documentation-site name to resolve. Do not use canonical registry:name, github:owner/repo, codeberg:owner/repo, gitlab:group/subgroup/project, launchpad:~owner/+git/repo (lp: alias for complete paths), or site:<host[/path]> targets.",
     ),
   query: z
     .string()

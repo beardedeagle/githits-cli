@@ -164,7 +164,11 @@ swift:github.com/<owner>/<repo> or swift:gitlab.com/<group>/<project>;
 Zig packages use zig:gh/<owner>/<repo> or zig:cb/<owner>/<repo>.
 Use public repository targets for full repositories or sibling packages.
 Repository targets use github:org/repo[@ref], codeberg:owner/repo[@ref], gitlab:group[/subgroup...]/project[@ref],
-approved full HTTPS URLs on github.com, codeberg.org, or gitlab.com;
+launchpad:~owner/+git/repo[@ref], launchpad:~owner/project/+git/repo[@ref],
+or launchpad:~owner/distro/+source/source/+git/repo[@ref] (lp: alias for complete paths).
+Full HTTPS repository URLs are accepted on github.com, codeberg.org, gitlab.com, git.launchpad.net or code.launchpad.net.
+Launchpad URLs require the same complete owner-qualified path, including
+git://git.launchpad.net. Short lp:PROJECT and short code/git URLs are unsupported.
 GitHub also accepts github.com/org/repo and HTTP.
 Exact documentation sites use site:<host[/path]>. Missing or
 ambiguous sites may return advisory site targets to retry explicitly.
@@ -216,7 +220,7 @@ export function registerSearchCommand(program: Command) {
     .argument("<query>", "Search query")
     .requiredOption(
       "--in <target>",
-      "Search target: registry:name[@version] (artifact/manifest-root scope; Swift: swift:github.com/<owner>/<repo>, Zig: zig:gh/<owner>/<repo>), repository github:owner/repo, codeberg:owner/repo, gitlab:group/subgroup/project (optional @ref), or an approved full HTTPS URL for full/sibling-package scope, or site:<host[/path]>",
+      "Package, repository, or site target (repeatable; see addressing above)",
       collectRepeatable,
       [] as string[],
     )

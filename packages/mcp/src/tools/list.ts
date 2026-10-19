@@ -50,7 +50,7 @@ const schema: ZodRawShape = {
   target: z
     .string()
     .describe(
-      "Known package such as `npm:express@5.2.1`, repository such as `github:expressjs/express`, or hosted docs site such as `site:expressjs.com`.",
+      "Known package such as `npm:express@5.2.1`, repository such as `github:expressjs/express` or `launchpad:~owner/+git/repo` (`lp:` alias for complete paths), or hosted docs site such as `site:expressjs.com`.",
     ),
   paths: z
     .array(z.string())
@@ -173,6 +173,7 @@ export function createListTool(
         throwIfCallerCancellation(error, context?.signal);
         const mapped = mapListError(error, {
           hasAfter: builtParams?.after !== undefined,
+          target: builtParams?.target,
         });
         return mcpMappedErrorResult(
           withIndexingRetryAction(mapped, "list", "mcp", {

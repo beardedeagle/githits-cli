@@ -126,10 +126,57 @@ describe("mapListError", () => {
     },
   );
 
+  it("explains an invalid repository target before suggesting a cursor reset", () => {
+    const mapped = mapListError(
+      new ListGraphQLError(
+        "Only supported public repository targets are accepted",
+        "VALIDATION_ERROR",
+      ),
+      { hasAfter: true, target: "lp:beautifulsoup" },
+    );
+    expect(mapped.message).toContain("Launchpad shortcuts are not supported");
+    expect(mapped.message).toContain("complete Git target");
+    expect(mapped.message).not.toContain("Retry once without");
+    expect(mapped).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      retryable: false,
+      details: { graphqlCode: "VALIDATION_ERROR" },
+    });
+  });
+
+  it("preserves backend failures outside repository syntax validation", () => {
+    for (const code of ["NOT_FOUND", "TIMEOUT"]) {
+      expect(
+        mapListError(new ListGraphQLError("Backend message", code), {
+          hasAfter: false,
+          target: "lp:beautifulsoup",
+        }).message,
+      ).toBe("Backend message");
+    }
+  });
+
+  it.each([
+    "https://docs.example.com",
+    "github:owner",
+    "lp:~owner/+git",
+    "lp:~owner/project/+git/repo",
+    "site:docs.example.com",
+  ])(
+    "preserves backend validation guidance for unrelated target %s",
+    (target) => {
+      expect(
+        mapListError(
+          new ListGraphQLError("Specific backend advice.", "VALIDATION_ERROR"),
+          { hasAfter: false, target },
+        ).message,
+      ).toBe("Specific backend advice. Correct the request and try again.");
+    },
+  );
+
   it("uses cursor context for validation guidance without inspecting the message", () => {
     const cursorContext = mapListError(
       new ListGraphQLError("Generic validation failure", "VALIDATION_ERROR"),
-      { hasAfter: true },
+      { hasAfter: true, target: "lp:~owner/project/+git/repo" },
     );
     expect(cursorContext).toEqual({
       code: "INVALID_ARGUMENT",

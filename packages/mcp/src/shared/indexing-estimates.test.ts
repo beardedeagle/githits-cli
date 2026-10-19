@@ -308,3 +308,32 @@ it("keeps multiple requests' indexed alternatives attributed within preparation"
   expect(text).toContain("Indexed alternatives for npm:two@2: versions 1.9");
   expect(text).not.toContain("2.9");
 });
+
+it.each(["launchpad:", "lp:", "LP:"])(
+  "does not repeat an observed Launchpad HEAD request for %s",
+  (prefix) => {
+    const repoUrl = "https://git.launchpad.net/~Owner/+git/Repo";
+    const commitSha = "0123456789abcdef0123456789abcdef01234567";
+    const text = renderPreparationSection(
+      [
+        {
+          ...repository,
+          repositoryUrl: repoUrl,
+          commitSha,
+          targets: [`${prefix}~Owner/+git/Repo`],
+        },
+      ],
+      {
+        resolutions: [
+          {
+            requested: { kind: "repo_default_branch" },
+            resolvedRequested: { repoUrl, commitSha },
+          },
+        ],
+      },
+    ).join("\n");
+    expect(text).toContain("launchpad:~Owner/+git/Repo@01234567");
+    expect(text).toContain("observed HEAD");
+    expect(text).not.toContain("Requested:");
+  },
+);

@@ -453,6 +453,29 @@ describe("native version/ref recovery", () => {
   });
 });
 
+it("replays Launchpad ref recovery without changing prefix spelling or path escapes", () => {
+  const mapped: MappedError = {
+    code: "REF_NOT_FOUND",
+    message: "Ref missing",
+    retryable: false,
+    details: {
+      repoUrl: "https://git.launchpad.net/~Owner/Project/+git/Repo@2",
+      requestedRef: "bad@ref",
+      suggestedRefs: [{ ref: "Feature/KeepCase@next" }],
+    },
+  };
+  const target = "lP:~Owner/Project/+git/Repo%402@bad@ref#Symbol";
+  expect(
+    withVersionRefRecovery(mapped, {
+      syntax: "mcp",
+      tool: "read",
+      args: { target, path: "src/File.py" },
+    }).details?.action,
+  ).toBe(
+    'Retry read with target="lP:~Owner/Project/+git/Repo%402@Feature/KeepCase@next#Symbol".',
+  );
+});
+
 describe("cargo alias version recovery", () => {
   const mapped: MappedError = {
     code: "VERSION_NOT_FOUND",

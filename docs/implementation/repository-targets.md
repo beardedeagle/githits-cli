@@ -1,4 +1,4 @@
-# Repository target grammar (R3B)
+# Repository target grammar
 
 `packages/mcp/src/shared/repository-target.ts` owns direct repository recognition,
 validation, normalization, and compact formatting. Its frozen provider table
@@ -11,6 +11,7 @@ select providers or infer them from bare paths.
 | GitHub | `github:owner/repo` | `https://github.com/owner/repo` | `github.com/owner/repo` shorthand and HTTP |
 | Codeberg | `codeberg:owner/repo` | `https://codeberg.org/owner/repo` | Exactly two path components; HTTPS only |
 | GitLab | `gitlab:group[/subgroup...]/project` | `https://gitlab.com/group/subgroup/project` | Nested namespaces; HTTPS only |
+| Launchpad (owner-qualified Git only) | `launchpad:~owner/+git/repo` (see all forms below) | `https://git.launchpad.net/<complete-path>` | Case-insensitive `lp:`; HTTPS `code.launchpad.net` roots; `git://git.launchpad.net` on default/9418 port |
 
 Each form accepts an optional `@ref`. The first `@` in the repository path
 separates the repository identity from the ref; `/` and later `@` characters
@@ -20,9 +21,10 @@ repository revision delimiter. Legacy `#ref` input is rejected with the exact
 are rejected. Omitted refs retain default-branch intent. Output uses
 `provider:path@ref` and preserves repository path/ref case.
 
-The parser validates raw paths before URL normalization: dot traversal,
-percent-encoded components, backslashes, empty components, credentials,
-query strings, unsupported hosts/nondefault ports, and provider web subpaths are rejected.
+For GitHub, GitLab and Codeberg the parser validates raw paths before URL
+normalization: dot traversal, percent-encoded components, backslashes, empty
+components, credentials, query strings, unsupported hosts/nondefault ports,
+and provider web subpaths are rejected.
 GitLab's `/-/` separator and published reserved top-level/project routes
 (such as `tree`, `blob`, and `raw`) are rejected by its path validator.
 The reserved route rules come from [GitLab's path rules](https://docs.gitlab.com/user/reserved_names/).
@@ -38,6 +40,75 @@ Packages retain registry-native coordinates: `zig:gh/owner/repo`,
 `swift:gitlab.com/group/project`. They remain scoped to the package subpath,
 including within monorepos. Direct repositories retain full-repository scope.
 Bare `owner/repo` never selects a provider.
+
+## Launchpad Git targets
+
+This client admits complete owner-qualified Git paths only. Use an HTTPS URL
+containing that complete path, or one of these compact targets:
+
+| Repository | Target |
+| --- | --- |
+| Personal | `lp:~owner/+git/repo` |
+| Project | `lp:~owner/project/+git/repo` |
+| Distribution source | `lp:~owner/distro/+source/source/+git/repo` |
+
+For example:
+
+```sh
+githits list lp:~ubuntu-core-dev/software-properties/+git/software-properties
+```
+
+For these complete paths, `launchpad:` and case-insensitive `lp:` are
+interchangeable input prefixes; output uses `launchpad:`. Append `@ref` for a branch, tag or commit.
+Mutable shortcuts such as `lp:beautifulsoup`, `lp:~leonardr/beautifulsoup`,
+`https://code.launchpad.net/beautifulsoup` and
+`https://git.launchpad.net/beautifulsoup` are not supported yet. A URL advertised
+as a clone URL may itself be short, so copying it does not establish a complete
+repository identity.
+
+General Launchpad support must not be advertised until backend phase 2B and
+actual client shortcut admission are verified in the intended environment.
+The backend owns live `getByPath` acquisition; the CLI does not perform HTTP
+resolution or guess an owner. Resolver package suggestions do not establish a
+Git identity. Bazaar is unsupported.
+
+### Parsing and service boundaries
+
+Unified list reuses the parser's shortcut diagnostic after backend validation
+fails; other failures retain backend guidance and metadata.
+
+Paths preserve case. Namespace names begin with an ASCII letter/digit and may
+then contain letters/digits and `+._-`; repository names also allow `@`.
+A `.git` suffix is rejected.
+
+Accepted URLs contain a complete owner-qualified Git path: HTTPS roots on
+`git.launchpad.net` or `code.launchpad.net`, and Git transport roots on
+`git.launchpad.net`
+(default port 9418). HTTPS defaults to port 443. HTTP,
+SSH, nondefault ports, credentials and browse subpaths are rejected.
+
+Split the first raw path `@` before decoding Launchpad repository components
+once. Encoded separators, whitespace, unsafe/malformed escapes and traversal
+are rejected. Encoded `%40` becomes literal `@` in the canonical HTTPS URL;
+formatting a structured URL escapes that `@` back to `%40` before appending
+a ref. Later `@` and `/` in refs stay unchanged. Other providers retain their
+existing percent-encoding restrictions. Input correlation echoes may retain
+the typed prefix.
+
+Search, diff and legacy navigation translate compact inputs at the shared
+parser into URL-only service arguments; they never send `lp:` in a repository
+URL field. Unified read/list/grep preserve compact targets byte-for-byte, so
+the backend continues to own code/docs/page-ID and fragment classification.
+Repository page IDs preserve encoded refs and paths. List `canonicalTarget`
+uses the canonical URL plus full SHA; compact read actions use `launchpad:`.
+
+Dev verification on 2026-10-19 returned nonretryable `RAW_DIFF_UNAVAILABLE`
+for unequal raw diffs; the backend owns availability.
+The shared error mapper preserves that code and the resolved endpoint facts
+on both CLI and MCP rather than collapsing it to `BACKEND_ERROR`.
+Equal-SHA comparisons return a complete empty inventory. Structural comparison
+of indexed snapshots is separate and proves neither compatibility nor upgrade
+safety.
 
 ## Backend rollout dependency
 
@@ -88,14 +159,15 @@ the compact provider form. Both retain the exact commit.
 
 ## Packaging and release
 
-The canonical code and MCP skills are updated with the implementation under
-this handoff's explicit authorization. The MCP stable guide and public skill
-copy remain byte-for-byte aligned. Plugin generation/check runs from canonical
-inputs; generated manifests need no content change when their metadata is
-unchanged. One atomic fragment declares pending minor releases for both
-`githits` and `@githits/mcp`; this increment changes no consolidated versions
-or changelog. Hosted users receive the change only after the MCP package is
-released, adopted by remote-mcp, and deployed separately.
+The stable MCP guide and its public skill copy stay byte-for-byte aligned.
+Launchpad CLI skill/reference updates follow the release lifecycle in
+[the backlog](../backlog.md#launchpad-cli-skill-updates-at-release).
+Generate and check plugin assets from canonical inputs; no manifest content
+change is needed when metadata is unchanged.
+
+The qualified-input fragment records pending minor impact for `githits` and
+`@githits/mcp`; it does not close the shortcut advertising gate above. Hosted users receive MCP changes after the package is released,
+adopted by `remote-mcp`, and deployed there.
 
 ## Verification
 
@@ -136,6 +208,29 @@ and changelog. The corresponding Codeberg repository-doc reads passed too.
 on CLI and MCP. Fuzzy resolve calls completed but did not discover either
 fixture as a matching repository; these calls do not prove provider-specific
 fuzzy discovery. Direct canonical targets bypass fuzzy resolve by contract.
+
+## Launchpad verification (2026-10-19)
+
+Built CLI development checks used these indexed snapshots:
+
+| Repository | Commit |
+| --- | --- |
+| software-properties | `02bfa5ae3026843835e540bc507a517863e39c64` |
+| apport | `81be06ba7e01ac616921789ea99392258a58b2dd` |
+| GNU hello (distribution source) | `c80e07d07e4ea27e0847ed731da7138b9e1df5d0` |
+
+All three passed CURRENT list, positive grep/CODE/SYMBOL search, exact-SHA
+reads and unchanged replay of emitted read actions. Built stdio MCP passed
+hello navigation/replay and software-properties diff checks. Both surfaces
+returned an empty equal-SHA diff and nonretryable `RAW_DIFF_UNAVAILABLE` for
+tag `0.100` versus the pinned software-properties commit, preserving both
+resolved endpoints. Personal repository paths have parser/adapter coverage.
+
+Source smoke suites passed unauthenticated contracts. Their isolated homes
+could not access Keychain credentials, so authenticated checks used the built
+CLI/MCP with normal credential handling. The descriptor-only agent probe
+loaded `quick_start` and attempted Launchpad search, then hit `AUTH_REQUIRED`;
+this demonstrates routing only, not authenticated answer quality.
 
 ## Review disposition (2026-09-07)
 

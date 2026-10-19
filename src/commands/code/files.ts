@@ -241,9 +241,13 @@ and \`githits code grep\`.
 --glob) are OR-ed — a file matches if any selector matches. The other
 filters intersect on top.
 
-Addressing: <target> (registry:name[@version], github:org/repo[@ref], codeberg:owner/repo[@ref], gitlab:group[/subgroup...]/project[@ref],
-approved full HTTPS URLs on github.com, codeberg.org, or gitlab.com;
-GitHub also accepts github.com/org/repo and HTTP) OR
+Addressing: <target> accepts registry:name[@version], github:org/repo[@ref], codeberg:owner/repo[@ref], gitlab:group[/subgroup...]/project[@ref],
+launchpad:~owner/+git/repo[@ref], launchpad:~owner/project/+git/repo[@ref],
+or launchpad:~owner/distro/+source/source/+git/repo[@ref] (lp: alias for complete paths).
+Full HTTPS repository URLs are accepted on github.com, codeberg.org, gitlab.com, git.launchpad.net or code.launchpad.net.
+Launchpad URLs require the same complete owner-qualified path, including
+git://git.launchpad.net. Short lp:PROJECT and short code/git URLs are unsupported.
+GitHub also accepts github.com/org/repo and HTTP. Alternatively, use
 --repo-url <url> [--git-ref <ref>]. Omitted package version means latest release.
 Supported registries: ${PKGSEER_REGISTRY_LIST}. The cargo: prefix is an alias for crates: (public crates.io).
 

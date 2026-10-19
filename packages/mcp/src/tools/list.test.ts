@@ -503,6 +503,35 @@ describe("createListTool", () => {
     });
   });
 
+  it.each(["text", "json"] as const)(
+    "explains Launchpad shortcuts in MCP %s",
+    async (format) => {
+      const list = mock(async (_params: ListParams): Promise<ListResult> => {
+        throw new ListGraphQLError(
+          "Only supported public repository targets are accepted",
+          "VALIDATION_ERROR",
+        );
+      });
+      const result = await createListTool({ list }).handler(
+        { target: "LP:beautifulsoup", format },
+        {},
+      );
+      const output = result.content[0]?.text ?? "";
+      const message =
+        format === "json"
+          ? JSON.parse(output).error
+          : output.replace(/\s+/g, " ");
+      expect(result.isError).toBe(true);
+      expect(message).toContain("Launchpad shortcuts are not supported");
+      expect(message).toContain("complete Git target");
+      expect(message).toContain("lp:~owner/project/+git/repo");
+      expect(list).toHaveBeenCalledTimes(1);
+      expect(list.mock.calls[0]?.[0].target).toBe("LP:beautifulsoup");
+      if (format === "json")
+        expect(JSON.parse(output).code).toBe("INVALID_ARGUMENT");
+    },
+  );
+
   it("maps invalid input, adds cursor reset guidance, and propagates caller cancellation", async () => {
     const unusedList = mock(async (_params: ListParams) => listResult());
     const invalidTool = createListTool({ list: unusedList });

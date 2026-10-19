@@ -206,7 +206,25 @@ Unified search spans indexed dependency and repository code, docs, and explicit 
 
 **Decision guide.** Use `githits example` for canonical cross-project examples. Use `githits search` for indexed dependency/repository search. Use `githits search --source symbol` when you want symbol-shaped unified search.
 
-**Targets.** `--in <target>` is repeatable and required. Package targets require explicit `registry:name[@version]` (for example `npm:express`, `pypi:requests@2.32.3`) and inspect an indexed artifact/manifest root. Swift package targets use `swift:github.com/<owner>/<repo>`; Zig package targets use `zig:gh/<owner>/<repo>`. Use public repository targets for full repositories or sibling packages. Repo targets use `github:org/repo[@ref]`, `codeberg:owner/repo[@ref]`, `gitlab:group[/subgroup...]/project[@ref]`, `github.com/org/repo[@ref]`, or `https://github.com/org/repo[@ref]`; omitted refs request the backend default-branch intent. Exact standalone documentation sites use `site:<host[/path]>` and normally pair with `--source docs`. User-facing output canonicalizes repo targets as `provider:path@ref` so refs can contain `@` safely. Exact duplicate targets are deduplicated while preserving order. Mixing target kinds in the same request is supported.
+**Targets.** `--in <target>` is repeatable and required. Mix target kinds in
+one request; exact duplicates are removed while preserving order.
+
+| Scope | Target examples |
+| --- | --- |
+| Package artifact or manifest root | `npm:express`, `pypi:requests@2.32.3` |
+| Swift or Zig package subpath | `swift:github.com/owner/repo`, `zig:gh/owner/repo` |
+| Whole repository | `github:org/repo@ref`, `codeberg:owner/repo`, `gitlab:group/subgroup/project`, `lp:~owner/project/+git/repo` |
+| Hosted documentation | `site:host/path`, normally with `--source docs` |
+
+Packages require an explicit registry. Use a repository target for a full
+repository or sibling packages. Supported full repository URLs are accepted;
+GitHub also accepts `github.com/org/repo`. Launchpad requires a complete Git
+repository path. Short `lp:PROJECT`, `code.launchpad.net` and
+`git.launchpad.net` addresses are not supported yet.
+See [repository target grammar](repository-targets.md#launchpad-git-targets)
+for all Launchpad forms and URL rules. Omitted versions/refs request the latest
+package release or repository default branch. Output uses `provider:path@ref`;
+refs may contain later `@` characters.
 
 **Sources and filters.** `--source docs|code|symbol` restricts results to one evidence type; omit it to let GitHits select the best sources. Use `--source symbol` when you want symbol-shaped search results. `--category` is the broad filter (`callable`, `type`, `module`, `data`, `documentation`); `--kind` is the precise taxonomy. `--path-prefix`, `--intent`, and `--public` narrow the result set further. For docs-only search, code/symbol-only filters (`category`, `kind`, `file_intent`, `public_only`) are ignored client-side because the backend docs source rejects them. `--name` and `--lang` compile into query qualifiers instead of becoming separate backend fields.
 
@@ -1147,6 +1165,6 @@ commands in one step with a two-minute combined timeout.
 - [`mcp-cli-parity.md`](./mcp-cli-parity.md) — rules for dual-surface tools (CLI ↔ MCP)
 - `docs/guidelines/ARCHITECTURAL_GUIDELINES.md` — DI and testing patterns
 
-Direct repository targets accept approved full HTTPS URLs on github.com, codeberg.org, and gitlab.com. Codeberg requires exactly owner/repo; GitLab allows nested namespaces. Only GitHub supports host shorthand and HTTP compatibility. Never infer a provider from bare owner/repo. Repository refs use an @ suffix and may themselves contain / and @; # is reserved for semantic fragments. Empty refs and mixed suffixes are invalid. Credentials, queries, provider web subpaths, and unsupported/self-hosted hosts are rejected. Package targets keep registry-native coordinates, including `zig:cb/owner/repo` and `swift:gitlab.com/group/project`. Changelog repo URL fields remain full HTTPS URLs.
+Direct repository targets accept approved full HTTPS URLs on github.com, codeberg.org, gitlab.com, git.launchpad.net, and code.launchpad.net. Launchpad URL admission requires a complete owner-qualified Git path, including git://git.launchpad.net on the default port 9418; short lp:PROJECT and short code/git URLs remain unsupported. Codeberg requires exactly owner/repo; GitLab allows nested namespaces. Only GitHub supports host shorthand and HTTP compatibility. Never infer a provider from bare owner/repo. Repository refs use an @ suffix and may themselves contain / and @; # is reserved for semantic fragments. Empty refs and mixed suffixes are invalid. Credentials, queries, provider web subpaths, and unsupported/self-hosted hosts are rejected. Package targets keep registry-native coordinates, including `zig:cb/owner/repo` and `swift:gitlab.com/group/project`. Changelog repo URL fields remain full HTTPS URLs.
 
-See [Repository target grammar](repository-targets.md) for the shared GitHub, Codeberg, and GitLab addressing contract and provider-preserving response identity.
+See [Repository target grammar](repository-targets.md) for the shared GitHub, Codeberg, GitLab, and owner-qualified Launchpad addressing contract and provider-preserving response identity.

@@ -261,6 +261,54 @@ describe("code_diff parity", () => {
     });
   });
 
+  it("preserves nonretryable RAW_DIFF_UNAVAILABLE and resolved refs on CLI/MCP", async () => {
+    const partial = {
+      fromResolution: {
+        requested: "old",
+        ref: "old",
+        commitSha: "1".repeat(40),
+        refKind: "TAG" as const,
+      },
+      toResolution: {
+        requested: "new",
+        ref: "new",
+        commitSha: "2".repeat(40),
+        refKind: "SHA" as const,
+      },
+    };
+    const error = new CodeDiffError(
+      "Raw diffs are unavailable for this repository provider",
+      { code: "RAW_DIFF_UNAVAILABLE", retryable: false },
+      partial,
+    );
+    const service = createMockCodeNavigationService({
+      codeDiff: mock(() => Promise.reject(error)),
+    });
+    const target = "LP:~Owner/+git/Repo";
+    const cli = await cliJson(
+      target,
+      "old..new",
+      undefined,
+      { nameStatus: true },
+      cliDeps({ codeNavigationService: service }),
+    );
+    const mcp = await createParityMcpTool("code_diff", {
+      codeNavigationService: service,
+    }).handler({ target, from: "old", to: "new", format: "json" }, {});
+    expect(mcp.isError).toBe(true);
+    expect(cli).toEqual(JSON.parse(mcp.content[0]?.text ?? "{}"));
+    expect(cli).toMatchObject({
+      code: "RAW_DIFF_UNAVAILABLE",
+      retryable: false,
+      details: {
+        codeDiffResolution: {
+          from: partial.fromResolution,
+          to: partial.toResolution,
+        },
+      },
+    });
+  });
+
   it("PARITY-ERROR-ENVELOPE: version alternatives retain backend order and refs", async () => {
     const previousArgv = process.argv;
     process.argv = [

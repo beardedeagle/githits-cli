@@ -239,6 +239,8 @@ function classifyCodeDiffError(error: CodeDiffError): MappedError {
   });
 
   switch (source?.code) {
+    case "RAW_DIFF_UNAVAILABLE":
+      return build("RAW_DIFF_UNAVAILABLE", false);
     case "VALIDATION_ERROR":
       return build("INVALID_ARGUMENT", false);
     case "VERSION_NOT_FOUND":
