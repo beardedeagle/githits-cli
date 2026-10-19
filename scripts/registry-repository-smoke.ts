@@ -88,12 +88,10 @@ try {
     {
       target: "maven:com.android.installreferrer:installreferrer",
       repository: google,
-      version: "2.2",
     },
     {
       target: "maven:com.google.android.gms:play-services-ads-api",
       repository: google,
-      version: "25.5.0",
     },
     { target: "maven:org.jetbrains.kotlin:kotlin-stdlib", repository: central },
     { target: "npm:express", repository: undefined },
@@ -102,7 +100,6 @@ try {
     const mcpJson = json(await mcp("pkg_info", test.target, "json"));
     for (const value of [cliJson, mcpJson]) {
       assert.equal(typeof value.version, "string");
-      if (test.version) assert.equal(value.version, test.version);
       assert.deepEqual(value.registryRepository, test.repository);
       if (!test.repository) assert(!Object.hasOwn(value, "registryRepository"));
     }

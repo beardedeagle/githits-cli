@@ -432,12 +432,12 @@ Canary has `express-router` and
 `package-overview-vulnerabilities`; smoke adds `global-example`,
 `unified-search-investigation`, `docs-search-followup`,
 `package-upgrade-safety`, and the `code-diff` comparison; stable-full contains
-all 41 stable workloads, including the `research` workloads
+all 42 stable workloads, including the `research` workloads
 `question-only-research` and `research-version-followup`.
 `stateful-manual` contains only `githits-onboarding` and is dry-run-only in
 this phase. `experimental` is empty while no local experiment is in dogfood;
-selecting it fails preflight. The manifest therefore classifies 42 workloads:
-41 stable and one stateful. Canary is a
+selecting it fails preflight. The manifest therefore classifies 43 workloads:
+42 stable and one stateful. Canary is a
 subset of smoke, smoke is a subset of stable-full, and stateful or experimental
 workloads never enter those stable suites.
 
