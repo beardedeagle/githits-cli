@@ -887,14 +887,20 @@ const TRANSITIVE_AUDIT_BODY = {
       dependencies: {
         transitive: {
           vulnerabilitySummary: {
-            selected: { totalVulnerabilities: 2 },
+            affected: { totalVulnerabilities: 2 },
+            nonAffecting: { totalVulnerabilities: 0 },
+            unknown: { totalVulnerabilities: 0 },
+            combined: { totalVulnerabilities: 2 },
             totalPackagesAnalyzed: 4,
             calculatedAt: "2025-01-01T00:00:00Z",
             packages: [
               {
                 registry: "NPM",
                 name: "cookie",
-                selectedCount: 2,
+                affectedCount: 2,
+                nonAffectingCount: 0,
+                unknownCount: 0,
+                totalCount: 2,
                 advisoryOccurrences: [
                   {
                     version: "0.7.0",
@@ -933,7 +939,10 @@ const TRANSITIVE_AUDIT_BODY = {
               {
                 registry: "NPM",
                 name: "clean-package",
-                selectedCount: 0,
+                affectedCount: 0,
+                nonAffectingCount: 0,
+                unknownCount: 0,
+                totalCount: 0,
                 advisoryOccurrences: [],
               },
             ],
@@ -956,12 +965,18 @@ interface MutableTransitiveAuditOccurrence {
 }
 
 interface MutableTransitiveAuditPackage {
-  selectedCount: number;
+  affectedCount: number;
+  nonAffectingCount: number;
+  unknownCount: number;
+  totalCount: number;
   advisoryOccurrences: MutableTransitiveAuditOccurrence[];
 }
 
 interface MutableTransitiveAuditSummary {
-  selected: { totalVulnerabilities: number };
+  affected: { totalVulnerabilities: number };
+  nonAffecting: { totalVulnerabilities: number };
+  unknown: { totalVulnerabilities: number };
+  combined: { totalVulnerabilities: number };
   totalPackagesAnalyzed: number;
   packages: MutableTransitiveAuditPackage[];
 }
@@ -1118,8 +1133,22 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     "selects assessment status for UNKNOWN/ALL and conditional reasons otherwise: %s",
     async (scope) => {
       const body = mutableTransitiveAuditBody();
+      const summary = mutableTransitiveAuditSummary(body);
+      if (scope !== "AFFECTED") {
+        summary.affected.totalVulnerabilities = 0;
+        summary.nonAffecting.totalVulnerabilities =
+          scope === "NON_AFFECTING" ? 2 : 0;
+        summary.unknown.totalVulnerabilities =
+          scope === "UNKNOWN" || scope === "ALL" ? 2 : 0;
+      }
       for (const pkg of body.data.packageDependencies.dependencies.transitive
         .vulnerabilitySummary!.packages) {
+        if (pkg.totalCount > 0 && scope !== "AFFECTED")
+          Object.assign(pkg, {
+            affectedCount: 0,
+            nonAffectingCount: scope === "NON_AFFECTING" ? 2 : 0,
+            unknownCount: scope === "UNKNOWN" || scope === "ALL" ? 2 : 0,
+          });
         for (const row of pkg.advisoryOccurrences) {
           if (scope !== "AFFECTED") {
             Object.assign(row, {
@@ -1160,11 +1189,91 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     },
   );
 
+  it("rejects affected occurrences under UNKNOWN scope", async () => {
+    const body = mutableTransitiveAuditBody();
+    const summary = mutableTransitiveAuditSummary(body);
+    summary.affected.totalVulnerabilities = 0;
+    summary.unknown.totalVulnerabilities = 2;
+    Object.assign(summary.packages[0]!, { affectedCount: 0, unknownCount: 2 });
+    const { service } = createAuditService(body);
+    await expect(
+      service.packageVulnerabilities({
+        registry: "NPM",
+        packageName: "express",
+        includeTransitive: true,
+        advisoryScope: "UNKNOWN",
+      }),
+    ).rejects.toBeInstanceOf(MalformedPackageIntelligenceResponseError);
+  });
+
+  it("drops an unknown-only package in affected scope without dropping its summary count", async () => {
+    const body = mutableTransitiveAuditBody();
+    const summary = mutableTransitiveAuditSummary(body);
+    summary.unknown.totalVulnerabilities = 3;
+    summary.combined.totalVulnerabilities = 5;
+    Object.assign(summary.packages[1]!, {
+      affectedCount: 0,
+      nonAffectingCount: 0,
+      unknownCount: 3,
+      totalCount: 3,
+    });
+    const { service } = createAuditService(body);
+    const result = await service.packageVulnerabilities({
+      registry: "NPM",
+      packageName: "express",
+      includeTransitive: true,
+    });
+    expect(result.transitive).toMatchObject({
+      affectedCount: 2,
+      unknownCount: 3,
+      totalCount: 5,
+      packageCount: 1,
+      occurrenceCount: 2,
+    });
+    expect(result.transitive!.packages.map((pkg) => pkg.name)).toEqual([
+      "cookie",
+    ]);
+  });
+
+  it.each(["affected", "nonAffecting", "unknown", "combined"] as const)(
+    "requires the selected summary count field %s",
+    async (field) => {
+      const body = mutableTransitiveAuditBody();
+      Reflect.deleteProperty(mutableTransitiveAuditSummary(body), field);
+      const { service } = createAuditService(body);
+      await expect(
+        service.packageVulnerabilities({
+          registry: "NPM",
+          packageName: "express",
+          includeTransitive: true,
+        }),
+      ).rejects.toBeInstanceOf(MalformedPackageIntelligenceResponseError);
+    },
+  );
+  it.each([
+    "affectedCount",
+    "nonAffectingCount",
+    "unknownCount",
+    "totalCount",
+  ] as const)("requires the selected package count field %s", async (field) => {
+    const body = mutableTransitiveAuditBody();
+    Reflect.deleteProperty(mutableFirstAuditPackage(body), field);
+    const { service } = createAuditService(body);
+    await expect(
+      service.packageVulnerabilities({
+        registry: "NPM",
+        packageName: "express",
+        includeTransitive: true,
+      }),
+    ).rejects.toBeInstanceOf(MalformedPackageIntelligenceResponseError);
+  });
+
   it("keeps complete counts and unknown-only rows with future assessment evidence", async () => {
     const body = mutableTransitiveAuditBody();
     const summary = mutableTransitiveAuditSummary(body);
     Object.assign(summary, {
       affected: { totalVulnerabilities: 7 },
+      unknown: { totalVulnerabilities: 2 },
       nonAffecting: { totalVulnerabilities: 3 },
       combined: { totalVulnerabilities: 12 },
       futureCounter: 99,
@@ -1174,6 +1283,7 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
       affectedCount: 0,
       nonAffectingCount: 0,
       totalCount: 2,
+      unknownCount: 2,
     });
     for (const row of pkg.advisoryOccurrences)
       Object.assign(row, {
@@ -1229,8 +1339,8 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
       scope: "UNKNOWN",
       includeTransitiveAdvisoryDetails: true,
     });
-    expect(wire.query).toContain("selected: unknown");
-    expect(wire.query).toContain("selectedCount: unknownCount");
+    expect(wire.query).toContain("unknown { totalVulnerabilities }");
+    expect(wire.query).toContain("unknownCount");
     expect(wire.query.match(/totalVulnerabilities/g)).toHaveLength(4);
     expect(wire.query.match(/\bunknownCount\b/g)).toHaveLength(1);
     expect(wire.query).toContain("assessmentReasons");
@@ -1259,23 +1369,6 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     expect(wire.query).toContain(
       "assessmentReasons @include(if: $includeTransitiveAdvisoryDetails)",
     );
-  });
-
-  it("leaves missing transitive assessment and new count fields absent", async () => {
-    const { service } = createAuditService(TRANSITIVE_AUDIT_BODY);
-    const result = await service.packageVulnerabilities({
-      registry: "NPM",
-      packageName: "express",
-      includeTransitive: true,
-    });
-    expect(result.transitive?.affectedCount).toBe(2);
-    expect(result.transitive?.unknownCount).toBeUndefined();
-    expect(result.transitive?.nonAffectingCount).toBeUndefined();
-    expect(result.transitive?.totalCount).toBeUndefined();
-    expect(result.transitive?.packages[0]?.unknownCount).toBeUndefined();
-    expect(
-      result.transitive?.packages[0]?.occurrences[0]?.assessmentReasons,
-    ).toBeUndefined();
   });
 
   it("maps a happy-path response to VulnerabilityReport", async () => {
@@ -1765,8 +1858,8 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     expect(query).toContain("version");
     expect(query).toContain("totalVulnerabilities");
     expect(query).toContain("totalPackagesAnalyzed");
-    expect(query).toContain("selected: affected");
-    expect(query).toContain("selectedCount: affectedCount");
+    expect(query).toContain("affected { totalVulnerabilities }");
+    expect(query).toContain("affectedCount");
     expect(query).toContain("matchedAffectedVersionRanges");
     expect(query).toContain("fixVersionsAboveResolved");
     expect(query).toContain("nearestFixedVersion");
@@ -1777,9 +1870,7 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
       "fixedInVersions @include(if: $includeTransitiveAdvisoryDetails)",
     );
     expect(query).toMatch(/package \{\s*name\s+registry\s+version/s);
-    expect(query).toMatch(
-      /packages \{\s*registry\s+name\s+selectedCount: affectedCount/s,
-    );
+    expect(query).toMatch(/packages \{\s*registry\s+name\s+affectedCount/s);
     expect(query).not.toContain("limit");
     for (const forbidden of [
       "versions",
@@ -1923,6 +2014,12 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     secondOccurrence.matchedAffectedVersionRanges = [];
     secondOccurrence.fixVersionsAboveResolved = [];
     secondOccurrence.nearestFixedVersion = null;
+    summary.affected.totalVulnerabilities = 1;
+    summary.nonAffecting.totalVulnerabilities = 1;
+    Object.assign(mutableFirstAuditPackage(body), {
+      affectedCount: 1,
+      nonAffectingCount: 1,
+    });
     const { service, fetchFn } = createAuditService(body);
 
     const result = await service.packageVulnerabilities({
@@ -1936,8 +2033,8 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
       ((fetchFn.mock.calls as unknown as Array<[string, RequestInit]>)[1]?.[1]
         ?.body as string) ?? "{}",
     );
-    expect(captured.query).toContain("selected: combined");
-    expect(captured.query).toContain("selectedCount: totalCount");
+    expect(captured.query).toContain("combined { totalVulnerabilities }");
+    expect(captured.query).toContain("totalCount");
     expect(captured.variables.scope).toBe("ALL");
     expect(result.transitive).toMatchObject({
       advisoryScope: "ALL",
@@ -1960,6 +2057,12 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
       occurrence.fixVersionsAboveResolved = [];
       occurrence.nearestFixedVersion = null;
     }
+    summary.affected.totalVulnerabilities = 0;
+    summary.nonAffecting.totalVulnerabilities = 2;
+    Object.assign(mutableFirstAuditPackage(body), {
+      affectedCount: 0,
+      nonAffectingCount: 2,
+    });
     const { service, fetchFn } = createAuditService(body);
 
     const result = await service.packageVulnerabilities({
@@ -1973,8 +2076,8 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
       ((fetchFn.mock.calls as unknown as Array<[string, RequestInit]>)[1]?.[1]
         ?.body as string) ?? "{}",
     );
-    expect(captured.query).toContain("selected: nonAffecting");
-    expect(captured.query).toContain("selectedCount: nonAffectingCount");
+    expect(captured.query).toContain("nonAffecting { totalVulnerabilities }");
+    expect(captured.query).toContain("nonAffectingCount");
     expect(captured.variables.scope).toBe("NON_AFFECTING");
     expect(result.transitive?.advisoryScope).toBe("NON_AFFECTING");
     expect(
@@ -2023,7 +2126,8 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
   it("normalizes a checked clean transitive audit with an empty package list", async () => {
     const cleanBody = mutableTransitiveAuditBody();
     const summary = mutableTransitiveAuditSummary(cleanBody);
-    summary.selected.totalVulnerabilities = 0;
+    summary.affected.totalVulnerabilities = 0;
+    summary.combined.totalVulnerabilities = 0;
     summary.packages = [];
     summary.totalPackagesAnalyzed = 0;
     const { service } = createAuditService(cleanBody);
@@ -2037,9 +2141,9 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     expect(result.transitive).toEqual({
       advisoryScope: "AFFECTED",
       affectedCount: 0,
-      nonAffectingCount: undefined,
-      unknownCount: undefined,
-      totalCount: undefined,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 0,
       totalPackagesAnalyzed: 0,
       packageCount: 0,
       occurrenceCount: 0,
@@ -2061,7 +2165,7 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
       const body = mutableTransitiveAuditBody();
       const summary = mutableTransitiveAuditSummary(body);
       if (field === "totalVulnerabilities") {
-        summary.selected.totalVulnerabilities = -1;
+        summary.affected.totalVulnerabilities = -1;
       } else {
         summary.totalPackagesAnalyzed = -1;
       }
@@ -2074,8 +2178,8 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     const summary = mutableTransitiveAuditSummary(body);
     const firstPackage = summary.packages[0];
     if (!firstPackage) throw new Error("fixture missing transitive package");
-    summary.selected.totalVulnerabilities = 0;
-    firstPackage.selectedCount = -1;
+    summary.affected.totalVulnerabilities = 0;
+    firstPackage.affectedCount = -1;
     firstPackage.advisoryOccurrences = [];
     await expectMalformedAudit(body);
   });
@@ -2158,14 +2262,14 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
 
   it("fails closed when a package occurrence count differs from selectedCount", async () => {
     const body = mutableTransitiveAuditBody();
-    mutableFirstAuditPackage(body).selectedCount = 1;
+    mutableFirstAuditPackage(body).affectedCount = 1;
     await expectMalformedAudit(body);
   });
 
   it("fails closed when occurrence sum differs from selected total", async () => {
     const body = mutableTransitiveAuditBody();
     const summary = mutableTransitiveAuditSummary(body);
-    summary.selected.totalVulnerabilities = 1;
+    summary.affected.totalVulnerabilities = 1;
     await expectMalformedAudit(body);
   });
 

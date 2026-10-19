@@ -137,8 +137,6 @@ export type VulnerabilityScope =
   | "UNKNOWN"
   | "ALL";
 
-type TransitiveVulnerabilityScope = VulnerabilityScope;
-
 export interface PackageVersionIdentity {
   name: string;
   registry?: string;
@@ -187,16 +185,16 @@ export interface VulnerabilityReport {
 }
 
 export interface TransitiveVulnerabilityAuditCounts {
-  affectedCount?: number;
-  nonAffectingCount?: number;
-  unknownCount?: number;
-  totalCount?: number;
+  affectedCount: number;
+  nonAffectingCount: number;
+  unknownCount: number;
+  totalCount: number;
 }
 
 export interface TransitiveVulnerabilityAudit
   extends TransitiveVulnerabilityAuditCounts {
   /** Advisory scope applied to dependency-package occurrences. */
-  advisoryScope: TransitiveVulnerabilityScope;
+  advisoryScope: VulnerabilityScope;
   /** Number of resolved package-version graph nodes checked. */
   totalPackagesAnalyzed: number;
   /** Number of dependency package rows with occurrences in the selected scope. */
@@ -1285,31 +1283,25 @@ const transitiveAuditOccurrenceSchema = z.object({
 const transitiveAuditPackageSchema = z.object({
   registry: z.string(),
   name: z.string(),
-  selectedCount: z.number().int().nonnegative(),
-  affectedCount: z.number().int().nonnegative().optional(),
-  nonAffectingCount: z.number().int().nonnegative().optional(),
-  unknownCount: z.number().int().nonnegative().optional(),
-  totalCount: z.number().int().nonnegative().optional(),
+  affectedCount: z.number().int().nonnegative(),
+  nonAffectingCount: z.number().int().nonnegative(),
+  unknownCount: z.number().int().nonnegative(),
+  totalCount: z.number().int().nonnegative(),
   advisoryOccurrences: z
     .array(transitiveAuditOccurrenceSchema)
     .nullable()
     .optional(),
 });
 
+const transitiveAuditCountSchema = z.object({
+  totalVulnerabilities: z.number().int().nonnegative(),
+});
+
 const transitiveAuditSummarySchema = z.object({
-  selected: z.object({ totalVulnerabilities: z.number().int().nonnegative() }),
-  affected: z
-    .object({ totalVulnerabilities: z.number().int().nonnegative() })
-    .optional(),
-  nonAffecting: z
-    .object({ totalVulnerabilities: z.number().int().nonnegative() })
-    .optional(),
-  unknown: z
-    .object({ totalVulnerabilities: z.number().int().nonnegative() })
-    .optional(),
-  combined: z
-    .object({ totalVulnerabilities: z.number().int().nonnegative() })
-    .optional(),
+  affected: transitiveAuditCountSchema,
+  nonAffecting: transitiveAuditCountSchema,
+  unknown: transitiveAuditCountSchema,
+  combined: transitiveAuditCountSchema,
   totalPackagesAnalyzed: z.number().int().nonnegative(),
   packages: z.array(transitiveAuditPackageSchema),
   calculatedAt: z.string().nullable().optional(),
@@ -1403,12 +1395,7 @@ query PackageVulnerabilities(
   }
 }`;
 
-const TRANSITIVE_AUDIT_SCOPE_FIELDS: Readonly<
-  Record<
-    TransitiveVulnerabilityScope,
-    { summary: string; packageCount: string }
-  >
-> = {
+const TRANSITIVE_AUDIT_SCOPE_FIELDS = {
   AFFECTED: { summary: "affected", packageCount: "affectedCount" },
   NON_AFFECTING: {
     summary: "nonAffecting",
@@ -1416,15 +1403,11 @@ const TRANSITIVE_AUDIT_SCOPE_FIELDS: Readonly<
   },
   UNKNOWN: { summary: "unknown", packageCount: "unknownCount" },
   ALL: { summary: "combined", packageCount: "totalCount" },
-};
+} as const;
 
 function buildPackageTransitiveVulnerabilityAuditQuery(
-  scope: TransitiveVulnerabilityScope,
+  scope: VulnerabilityScope,
 ): string {
-  const fields = TRANSITIVE_AUDIT_SCOPE_FIELDS[scope];
-  const otherFields = Object.entries(TRANSITIVE_AUDIT_SCOPE_FIELDS)
-    .filter(([candidate]) => candidate !== scope)
-    .map(([, fields]) => fields);
   return `
 query PackageTransitiveVulnerabilityAudit(
   $registry: Registry!
@@ -1448,17 +1431,19 @@ query PackageTransitiveVulnerabilityAudit(
     dependencies {
       transitive {
         vulnerabilitySummary(minSeverity: $minSeverity) {
-          selected: ${fields.summary} {
-            totalVulnerabilities
-          }
-          ${otherFields.map(({ summary }) => `${summary} { totalVulnerabilities }`).join("\n          ")}
+          affected { totalVulnerabilities }
+          nonAffecting { totalVulnerabilities }
+          unknown { totalVulnerabilities }
+          combined { totalVulnerabilities }
           totalPackagesAnalyzed
           calculatedAt
           packages {
             registry
             name
-            selectedCount: ${fields.packageCount}
-            ${otherFields.map(({ packageCount }) => packageCount).join("\n            ")}
+            affectedCount
+            nonAffectingCount
+            unknownCount
+            totalCount
             advisoryOccurrences(scope: $scope, minSeverity: $minSeverity) {
               version
               affectsResolvedVersion
@@ -3541,7 +3526,7 @@ export class PackageIntelligenceServiceImpl
     token: string,
     directIdentity: PackageVersionIdentity,
     minSeverity: number | undefined,
-    advisoryScope: TransitiveVulnerabilityScope,
+    advisoryScope: VulnerabilityScope,
     params: PackageVulnerabilitiesParams,
   ): Promise<TransitiveVulnerabilityAudit> {
     if (!directIdentity.registry) {
@@ -3631,29 +3616,28 @@ export class PackageIntelligenceServiceImpl
 
   private normaliseTransitiveVulnerabilityAudit(
     summary: z.infer<typeof transitiveAuditSummarySchema>,
-    advisoryScope: TransitiveVulnerabilityScope,
+    advisoryScope: VulnerabilityScope,
   ): TransitiveVulnerabilityAudit {
     const fields = TRANSITIVE_AUDIT_SCOPE_FIELDS[advisoryScope];
-    const counts = { ...summary, [fields.summary]: summary.selected };
     const packages = summary.packages
-      .filter((pkg) => pkg.selectedCount > 0)
+      .filter((pkg) => pkg[fields.packageCount] > 0)
       .map((pkg) => {
+        const selectedCount = pkg[fields.packageCount];
         const occurrences = pkg.advisoryOccurrences ?? [];
-        if (occurrences.length !== pkg.selectedCount) {
+        if (occurrences.length !== selectedCount) {
           throw new MalformedPackageIntelligenceResponseError(
             "Transitive vulnerability audit package occurrence count differs from selected count.",
           );
         }
 
-        const counts = { ...pkg, [fields.packageCount]: pkg.selectedCount };
         return {
           registry: pkg.registry,
           name: pkg.name,
-          affectedCount: counts.affectedCount,
-          nonAffectingCount: counts.nonAffectingCount,
-          unknownCount: counts.unknownCount,
-          totalCount: counts.totalCount,
-          occurrenceCount: pkg.selectedCount,
+          affectedCount: pkg.affectedCount,
+          nonAffectingCount: pkg.nonAffectingCount,
+          unknownCount: pkg.unknownCount,
+          totalCount: pkg.totalCount,
+          occurrenceCount: selectedCount,
           occurrences: occurrences.map((occurrence) => {
             const isAffected = occurrence.affectsResolvedVersion;
             if (
@@ -3711,7 +3695,7 @@ export class PackageIntelligenceServiceImpl
       (total, pkg) => total + pkg.occurrences.length,
       0,
     );
-    const occurrenceCount = summary.selected.totalVulnerabilities;
+    const occurrenceCount = summary[fields.summary].totalVulnerabilities;
     if (normalisedOccurrenceCount !== occurrenceCount) {
       throw new MalformedPackageIntelligenceResponseError(
         "Transitive vulnerability audit occurrence count differs from selected total.",
@@ -3720,10 +3704,10 @@ export class PackageIntelligenceServiceImpl
 
     return {
       advisoryScope,
-      affectedCount: counts.affected?.totalVulnerabilities,
-      nonAffectingCount: counts.nonAffecting?.totalVulnerabilities,
-      unknownCount: counts.unknown?.totalVulnerabilities,
-      totalCount: counts.combined?.totalVulnerabilities,
+      affectedCount: summary.affected.totalVulnerabilities,
+      nonAffectingCount: summary.nonAffecting.totalVulnerabilities,
+      unknownCount: summary.unknown.totalVulnerabilities,
+      totalCount: summary.combined.totalVulnerabilities,
       totalPackagesAnalyzed: summary.totalPackagesAnalyzed,
       packageCount: packages.length,
       occurrenceCount,

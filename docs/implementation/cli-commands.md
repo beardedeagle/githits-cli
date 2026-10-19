@@ -623,32 +623,34 @@ surface in a separate `MALWARE` bucket that sorts above all CVE advisories.
 vulnerabilities affecting dependency versions resolved in the package graph. It
 adds graph-analysis cost and is separate from package-wide advisory history.
 Without it, the command remains direct-only. `--severity` and `--scope` apply
-to both direct and transitive evidence. `--scope all` therefore includes
-historical and unknown advisories for dependency packages as well as advisories
-affecting their resolved versions. `--scope unknown` lists advisories whose effect
-could not be determined, including unknown-only dependency packages, with human
-reasons. Default output lists affected rows and, when unknowns exist, adds a
-count reconciliation and an unknown-scope hint. `--include-withdrawn` applies only to direct package
-rows, and transitive withdrawn advisories remain excluded.
+to both direct and transitive evidence. `--scope all` includes non-affecting
+and unknown advisories for dependency packages as well as advisories affecting
+their resolved versions. `--scope unknown` lists advisories whose effect could
+not be determined, including unknown-only dependency packages, with human
+reasons. When unknowns exist, affected/non-affecting output adds a count
+reconciliation and an unknown-scope hint. `--include-withdrawn` applies only to
+direct package rows; transitive withdrawn advisories remain excluded.
 
 Transitive `--json` output adds a complete `transitive` object with
 `scope: "resolved_dependencies"`, `advisoryScope`,
-`withdrawnAdvisoriesIncluded: false`, and a numeric summary of
-`totalPackagesAnalyzed`, selected `packageCount` / `occurrenceCount`, complete
-`affectedCount` / `nonAffectingCount` / `unknownCount` / `totalCount`, and an optional
-`bySeverity` partition of all rows selected by `advisoryScope`, followed by
-`packages[]` containing complete per-package counts, resolved dependency versions,
-explicit affectedness,
-matched affected ranges, and all higher-fix candidates when applicable. The
-severity partition is not affected-only under `all`, `unknown` or `non_affecting`.
-False `affectsResolvedVersion` means no confirmed match; explicit assessment
-status distinguishes unknown from confirmed non-affecting. JSON omits only
-implied statuses and empty reason arrays, keeping uncertainty and raw reason
-strings. Missing new fields stay absent. See
-[assessment contracts](package-vulnerability-assessments.md). The
-occurrence-specific `matchedAffectedVersionRanges` and
-`fixVersionsAboveResolved` fields remain distinct from optional advisory-wide
-`affectedRanges` and `fixedIn` arrays; the latter are omitted when unavailable.
+`withdrawnAdvisoriesIncluded: false`, and a numeric summary containing
+`totalPackagesAnalyzed`, selected `packageCount` / `occurrenceCount`, and complete
+`affectedCount` / `nonAffectingCount` / `unknownCount` / `totalCount`, including
+zeros. Optional `bySeverity` partitions all selected occurrence rows. Each
+`packages[]` row includes resolved versions, explicit affectedness, matched
+ranges and all higher-fix candidates. New package count fields omit zeros and
+the selected count implied by `occurrenceCount`; `totalCount` is never emitted.
+Under `all`, package count fields are omitted. Existing occurrence fields keep
+their published shape, including empty matched-range and fix arrays.
+
+The severity partition is not affected-only under `all`, `unknown` or
+`non_affecting`. False `affectsResolvedVersion` means no confirmed match;
+assessment status distinguishes unknown from confirmed non-affecting. JSON
+omits implied statuses and empty reason arrays while retaining uncertainty and
+nonempty raw reasons. See [assessment contracts](package-vulnerability-assessments.md).
+Occurrence-specific `matchedAffectedVersionRanges` and
+`fixVersionsAboveResolved` stay distinct from optional advisory-wide
+`affectedRanges` and `fixedIn`; the latter are omitted when unavailable.
 The service performs one field-minimal query after direct pagination using the
 resolved root version and fails closed on malformed identity/count/fix evidence;
 there is no graph payload, occurrence cap, or partial direct-only fallback.

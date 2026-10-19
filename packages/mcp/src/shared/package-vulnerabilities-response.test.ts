@@ -55,6 +55,10 @@ function transitiveVulnerabilityFixture(): VulnerabilityReport {
       upgradePaths: [],
     },
     transitive: {
+      affectedCount: 7,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 7,
       advisoryScope: "AFFECTED",
       totalPackagesAnalyzed: 49,
       packageCount: 3,
@@ -62,6 +66,10 @@ function transitiveVulnerabilityFixture(): VulnerabilityReport {
       calculatedAt: "2025-01-01T12:00:00Z",
       packages: [
         {
+          affectedCount: 2,
+          nonAffectingCount: 0,
+          unknownCount: 0,
+          totalCount: 2,
           registry: "PYPI",
           name: "zeta",
           occurrenceCount: 2,
@@ -98,6 +106,10 @@ function transitiveVulnerabilityFixture(): VulnerabilityReport {
           ],
         },
         {
+          affectedCount: 3,
+          nonAffectingCount: 0,
+          unknownCount: 0,
+          totalCount: 3,
           registry: "NPM",
           name: "body-parser",
           occurrenceCount: 3,
@@ -147,6 +159,10 @@ function transitiveVulnerabilityFixture(): VulnerabilityReport {
           ],
         },
         {
+          affectedCount: 2,
+          nonAffectingCount: 0,
+          unknownCount: 0,
+          totalCount: 2,
           registry: "NPM",
           name: "accepts",
           occurrenceCount: 2,
@@ -319,6 +335,10 @@ describe("buildPackageVulnerabilitiesSuccessPayload — transitive audit", () =>
         totalPackagesAnalyzed: 49,
         packageCount: 3,
         occurrenceCount: 7,
+        affectedCount: 7,
+        nonAffectingCount: 0,
+        unknownCount: 0,
+        totalCount: 7,
         bySeverity: {
           malware: 1,
           critical: 1,
@@ -499,6 +519,10 @@ describe("buildPackageVulnerabilitiesSuccessPayload — transitive audit", () =>
   it("emits an exact checked-clean transitive block with an empty package list", () => {
     const fixture = transitiveVulnerabilityFixture();
     fixture.transitive = {
+      affectedCount: 0,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 0,
       advisoryScope: "AFFECTED",
       totalPackagesAnalyzed: 101,
       packageCount: 0,
@@ -515,6 +539,10 @@ describe("buildPackageVulnerabilitiesSuccessPayload — transitive audit", () =>
         totalPackagesAnalyzed: 101,
         packageCount: 0,
         occurrenceCount: 0,
+        affectedCount: 0,
+        nonAffectingCount: 0,
+        unknownCount: 0,
+        totalCount: 0,
       },
       packages: [],
     });
@@ -530,12 +558,20 @@ describe("buildPackageVulnerabilitiesSuccessPayload — transitive audit", () =>
     historical.fixVersionsAboveResolved = [];
     delete historical.nearestFixedVersion;
     fixture.transitive = {
+      affectedCount: 0,
+      nonAffectingCount: 1,
+      unknownCount: 0,
+      totalCount: 1,
       advisoryScope: "ALL",
       totalPackagesAnalyzed: 49,
       packageCount: 1,
       occurrenceCount: 1,
       packages: [
         {
+          affectedCount: 0,
+          nonAffectingCount: 1,
+          unknownCount: 0,
+          totalCount: 1,
           registry: "NPM",
           name: "body-parser",
           occurrenceCount: 1,
@@ -566,7 +602,9 @@ describe("buildPackageVulnerabilitiesSuccessPayload — transitive audit", () =>
       useColors: false,
       terminalWidth: 120,
     });
-    expect(output).toContain("1 advisory occurrence in 1 dependency package");
+    expect(output).toContain(
+      "1 advisory occurrence (0 affected, 1 non-affecting) in 1 dependency package",
+    );
     expect(output).toContain("body-parser@1.19.0  [historical]");
   });
 });
@@ -1280,6 +1318,10 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
   it("renders exact zero and singular transitive wording", () => {
     const zero = transitiveVulnerabilityFixture();
     zero.transitive = {
+      affectedCount: 0,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 0,
       advisoryScope: "AFFECTED",
       totalPackagesAnalyzed: 1,
       packageCount: 0,
@@ -1301,6 +1343,10 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       throw new Error("fixture missing singular transitive occurrence");
     }
     singular.transitive = {
+      affectedCount: 1,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 1,
       advisoryScope: "AFFECTED",
       totalPackagesAnalyzed: 1,
       packageCount: 1,
@@ -1308,6 +1354,10 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       packages: [
         {
           ...firstPackage,
+          affectedCount: 1,
+          nonAffectingCount: 0,
+          unknownCount: 0,
+          totalCount: 1,
           occurrenceCount: 1,
           occurrences: [firstOccurrence],
         },
@@ -1473,12 +1523,20 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
     historical.advisory.fixedInVersions = ["1.20.3", "2.0.0"];
     historical.advisory.aliases = ["CVE-history", "GHSA-history"];
     fixture.transitive = {
+      affectedCount: 0,
+      nonAffectingCount: 1,
+      unknownCount: 0,
+      totalCount: 1,
       advisoryScope: "ALL",
       totalPackagesAnalyzed: 49,
       packageCount: 1,
       occurrenceCount: 1,
       packages: [
         {
+          affectedCount: 0,
+          nonAffectingCount: 1,
+          unknownCount: 0,
+          totalCount: 1,
           registry: "NPM",
           name: "body-parser",
           occurrenceCount: 1,
@@ -1553,12 +1611,20 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
     const coordinateIndent = "  ".length + "critical".length + "  ".length;
     const valueIndent = coordinateIndent + "advisory ranges".length + 1;
     fixture.transitive = {
+      affectedCount: 1,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 1,
       advisoryScope: "AFFECTED",
       totalPackagesAnalyzed: 1,
       packageCount: 1,
       occurrenceCount: 1,
       packages: [
         {
+          affectedCount: 1,
+          nonAffectingCount: 0,
+          unknownCount: 0,
+          totalCount: 1,
           registry: "NPM",
           name: "x",
           occurrenceCount: 1,
@@ -2493,7 +2559,7 @@ describe("reviewed assessment presentation", () => {
       filter: { advisoryScope: "all" },
       terminalWidth: 250,
     });
-    expect(text).toContain("6 affected, 0 historical, 1 unknown");
+    expect(text).toContain("6 affected, 0 non-affecting, 1 unknown");
     expect(text).toContain("zeta@2.0.0  [unknown]");
     expect(text).not.toContain("[historical]");
     expect(
@@ -2678,10 +2744,6 @@ describe("complete transitive unknown evidence", () => {
       },
       packages: [
         {
-          affectedCount: 0,
-          nonAffectingCount: 0,
-          unknownCount: 1,
-          totalCount: 1,
           occurrences: [
             {
               assessmentStatus: "UNKNOWN",
@@ -2697,9 +2759,7 @@ describe("complete transitive unknown evidence", () => {
         terminalWidth: 80,
       });
       expect(text).toContain("1 unknown advisory occurrence");
-      expect(text).toContain(
-        "unknown-only: 0 affected | 0 non-affecting | 1 unknown | 1 all",
-      );
+      expect(text).not.toContain("unknown-only:");
       expect(text).toContain("Advisory range could not be evaluated");
       expect(text).toContain("FUTURE_REASON");
       expect(text).toContain("[unknown]");
@@ -2722,22 +2782,12 @@ describe("complete transitive unknown evidence", () => {
         surface === "cli" ? "--scope unknown" : 'advisory_scope="unknown"',
       );
       expect(text.replace(/\s+/g, " ")).toContain(
-        "19 affected | 115 non-affecting | 1 unknown | 135 all",
+        "115 non-affecting | 1 unknown | 135 all",
       );
       expect(text).toContain("unknown = not evaluable");
     }
   });
-  it("shows known package unknown totals when the summary field is absent", () => {
-    const report = unknownReport();
-    delete report.transitive!.unknownCount;
-    expect(formatPackageVulnerabilitiesTerminal(report)).toContain(
-      "unknown-only: 0 affected | 0 non-affecting | 1 unknown | 1 all",
-    );
-    expect(
-      buildPackageVulnerabilitiesSuccessPayload(report).transitive!.summary
-        .unknownCount,
-    ).toBeUndefined();
-  });
+
   it("retains nonempty reasons in JSON while omitting affected reason prose", () => {
     const report = transitiveVulnerabilityFixture();
     const row = report.transitive!.packages[0]!.occurrences[0]!;
@@ -2769,7 +2819,7 @@ describe("complete transitive unknown evidence", () => {
       packages: [],
     });
     expect(formatPackageVulnerabilitiesTerminal(report)).toContain(
-      "No affected or historical advisory occurrences found;",
+      "No advisory occurrences found.",
     );
   });
   it("keeps zero-unknown text unchanged while retaining zero in JSON", () => {
@@ -2790,7 +2840,7 @@ describe("complete transitive unknown evidence", () => {
     expect(payload.transitive.summary.unknownCount).toBe(0);
     expect(
       payload.transitive.packages.every(
-        (pkg: { unknownCount: number }) => pkg.unknownCount === 0,
+        (pkg: { unknownCount?: number }) => pkg.unknownCount === undefined,
       ),
     ).toBe(true);
   });
@@ -2810,5 +2860,142 @@ describe("complete transitive unknown evidence", () => {
     expect(
       JSON.stringify(buildPackageVulnerabilitiesSuccessPayload(report)),
     ).not.toContain('"assessmentReasons":[]');
+  });
+});
+
+describe("round 1 transitive count projection", () => {
+  function countedReport(
+    scope: "AFFECTED" | "NON_AFFECTING" | "UNKNOWN" | "ALL",
+  ): VulnerabilityReport {
+    const report = transitiveVulnerabilityFixture();
+    const source = report.transitive!.packages[0]!.occurrences[0]!;
+    const counts = {
+      affectedCount: 2,
+      nonAffectingCount: 3,
+      unknownCount: 4,
+      totalCount: 9,
+    };
+    const rows = Array.from({ length: 9 }, (_, i) => ({
+      ...structuredClone(source),
+      version: `1.${i}`,
+      affectsResolvedVersion: i < 2,
+      assessmentStatus:
+        i < 2 ? "AFFECTED" : i < 5 ? "NON_AFFECTING" : "UNKNOWN",
+      matchedAffectedVersionRanges: i < 2 ? ["<2.0"] : [],
+      fixVersionsAboveResolved: [],
+      nearestFixedVersion: undefined,
+      advisory: { ...source.advisory, osvId: `ADVISORY-${i}` },
+    })).filter((row) => scope === "ALL" || row.assessmentStatus === scope);
+    report.transitive = {
+      ...counts,
+      advisoryScope: scope,
+      totalPackagesAnalyzed: 9,
+      packageCount: 1,
+      occurrenceCount: rows.length,
+      packages: [
+        {
+          ...counts,
+          registry: "PYPI",
+          name: "torch",
+          occurrenceCount: rows.length,
+          occurrences: rows,
+        },
+      ],
+    };
+    return report;
+  }
+  it.each([
+    ["AFFECTED", { nonAffectingCount: 3, unknownCount: 4 }],
+    ["NON_AFFECTING", { affectedCount: 2, unknownCount: 4 }],
+    ["UNKNOWN", { affectedCount: 2, nonAffectingCount: 3 }],
+    ["ALL", {}],
+  ] as const)(
+    "omits only implied new package counts in %s",
+    (scope, expected) => {
+      const payload = JSON.parse(
+        JSON.stringify(
+          buildPackageVulnerabilitiesSuccessPayload(countedReport(scope)),
+        ),
+      );
+      expect(payload.transitive.summary).toMatchObject({
+        affectedCount: 2,
+        nonAffectingCount: 3,
+        unknownCount: 4,
+        totalCount: 9,
+      });
+      const pkg = payload.transitive.packages[0];
+      expect(
+        Object.fromEntries(
+          Object.entries(pkg).filter(([key]) =>
+            [
+              "affectedCount",
+              "nonAffectingCount",
+              "unknownCount",
+              "totalCount",
+            ].includes(key),
+          ),
+        ),
+      ).toEqual(expected);
+      for (const row of pkg.occurrences) {
+        expect(Object.hasOwn(row, "matchedAffectedVersionRanges")).toBe(true);
+        expect(Object.hasOwn(row, "fixVersionsAboveResolved")).toBe(true);
+        if (!row.affectsResolvedVersion) {
+          expect(row.matchedAffectedVersionRanges).toEqual([]);
+          expect(row.fixVersionsAboveResolved).toEqual([]);
+        }
+      }
+    },
+  );
+  it.each(["AFFECTED", "NON_AFFECTING", "UNKNOWN", "ALL"] as const)(
+    "uses shared hint wording and package-line policy for %s",
+    (scope) => {
+      for (const surface of ["cli", "mcp"] as const) {
+        const text = formatPackageVulnerabilitiesTerminal(
+          countedReport(scope),
+          { surface, terminalWidth: 80 },
+        );
+        const transitive = text.split("Resolved dependencies")[1]!;
+        if (scope === "AFFECTED" || scope === "NON_AFFECTING") {
+          expect(transitive).toContain("\n  torch: ");
+          expect(transitive).toContain(
+            surface === "cli" ? "--scope unknown" : 'advisory_scope="unknown"',
+          );
+          expect(transitive.replace(/\s+/g, " ")).toContain(
+            "3 non-affecting | 4 unknown | 9 all; unknown = not evaluable, list with",
+          );
+          expect(transitive).not.toContain(
+            "2 affected | 3 non-affecting | 4 unknown | 9 all; unknown =",
+          );
+        } else {
+          expect(transitive).not.toContain("\n  torch: ");
+          if (scope === "UNKNOWN")
+            expect(transitive).toContain(
+              "unknown = not evaluable; reasons below",
+            );
+          else {
+            expect(transitive).toContain(
+              "2 affected, 3 non-affecting, 4 unknown",
+            );
+            expect(transitive).not.toContain("list with");
+            expect(transitive).not.toContain("reasons below");
+          }
+        }
+        expect(transitive.split("\n").every((line) => line.length <= 80)).toBe(
+          true,
+        );
+      }
+    },
+  );
+  it("namespaces count lines when returned package registries differ", () => {
+    const report = countedReport("AFFECTED");
+    const pkg = report.transitive!.packages[0]!;
+    report.transitive!.packages.push({
+      ...structuredClone(pkg),
+      registry: "NPM",
+    });
+    report.transitive!.packageCount = 2;
+    const text = formatPackageVulnerabilitiesTerminal(report);
+    expect(text).toContain("\n  pypi:torch: ");
+    expect(text).toContain("\n  npm:torch: ");
   });
 });

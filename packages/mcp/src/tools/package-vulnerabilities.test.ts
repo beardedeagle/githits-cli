@@ -14,12 +14,20 @@ function parseText(result: { content: Array<{ text: string }> }): unknown {
 function transitiveVulnerabilityReport(): VulnerabilityReport {
   const report = structuredClone(defaultVulnerabilityReport);
   report.transitive = {
+    affectedCount: 1,
+    nonAffectingCount: 0,
+    unknownCount: 0,
+    totalCount: 1,
     advisoryScope: "AFFECTED",
     totalPackagesAnalyzed: 2,
     packageCount: 1,
     occurrenceCount: 1,
     packages: [
       {
+        affectedCount: 1,
+        nonAffectingCount: 0,
+        unknownCount: 0,
+        totalCount: 1,
         registry: "NPM",
         name: "body-parser",
         occurrenceCount: 1,
@@ -530,6 +538,10 @@ describe("createPackageVulnerabilitiesTool — happy path", () => {
   it("applies advisory scope to direct and transitive rows while withdrawal remains direct-only", async () => {
     const report = transitiveVulnerabilityReport();
     report.transitive = {
+      affectedCount: 0,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 0,
       advisoryScope: "ALL",
       totalPackagesAnalyzed: 0,
       packageCount: 0,

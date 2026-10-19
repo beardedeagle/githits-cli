@@ -119,12 +119,20 @@ function zeroVulnsReport(): VulnerabilityReport {
 function transitiveVulnerabilityReport(): VulnerabilityReport {
   const report = structuredClone(defaultVulnerabilityReport);
   report.transitive = {
+    affectedCount: 1,
+    nonAffectingCount: 0,
+    unknownCount: 0,
+    totalCount: 1,
     advisoryScope: "AFFECTED",
     totalPackagesAnalyzed: 2,
     packageCount: 1,
     occurrenceCount: 1,
     packages: [
       {
+        affectedCount: 1,
+        nonAffectingCount: 0,
+        unknownCount: 0,
+        totalCount: 1,
         registry: "NPM",
         name: "body-parser",
         occurrenceCount: 1,
@@ -875,7 +883,6 @@ describe("direct unknown JSON parity", () => {
         summary: { unknownCount: 1, totalCount: 1 },
         packages: [
           {
-            unknownCount: 1,
             occurrences: [
               {
                 assessmentStatus: "UNKNOWN",
