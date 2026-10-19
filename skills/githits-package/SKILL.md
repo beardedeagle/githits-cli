@@ -33,6 +33,7 @@ githits pkg vulns npm:lodash@4.17.20 --severity high
 githits pkg vulns npm:lodash --scope all --include-withdrawn
 githits pkg vulns npm:lodash@4.17.21 --scope non_affecting
 githits pkg vulns npm:express@4.17.1 --transitive --scope all
+githits pkg vulns npm:express@4.17.1 --scope unknown
 
 githits pkg deps npm:express
 githits pkg deps npm:express --lifecycle all
@@ -69,7 +70,8 @@ and unverified paths.
 - Need current package health: start with `githits pkg info <registry:name>`.
 - Need security status for a specific installed version: use `githits pkg vulns <registry:name@version>`.
 - Need vulnerabilities in resolved dependency versions: add `pkg vulns --transitive`; this opt-in adds graph-analysis cost and audits the resolved graph, not a local application lockfile.
-- Need historical advisories that do not affect the inspected version: use `pkg vulns --scope non_affecting`; use `--scope all` for affected plus historical rows.
+- Need historical advisories that do not affect the inspected version: use `pkg vulns --scope non_affecting`; use `--scope all` for affected, historical and unknown rows.
+- Need advisories GitHits could not evaluate for the inspected version: use `pkg vulns --scope unknown` (also with `--transitive`); report unknown assessments as unresolved, with their reasons, rather than as affected or safe.
 - Need dependency footprint: start with `pkg deps`; add `--lifecycle all` for non-runtime groups and `--depth <n>` for aggregate transitive graph data.
 - Need upgrade evidence for dependency updates, outdated package bumps, or lockfile changes: prefer `pkg upgrade-review` because it compares current vs target vulnerabilities, changelog range evidence, deprecation metadata, peer changes, dependency changes, and transitive security evidence by default. It reports facts only; you still own the final assessment. Use signals as a starting point to evaluate the impact of changes on the codebase. You can use `pkg changelog` and `code diff` to obtain full release-note and source-change details. Use `--verbose` when you need expanded per-package evidence in batch output before assessing individual upgrades.
 - Need release notes without a current-to-target comparison: use `pkg changelog` for all parsed statements with available agent classifications and nearby sources. Use `--changes actionable|important|all` to select statements, `--verbatim` for full original notes, or `--no-body` for compact timelines. Changelog `--verbose` is a deprecated alias for `--verbatim`; original bodies require `--verbatim` even with `--json`.

@@ -5,6 +5,63 @@ changes use independent files under [`changes/`](changes/README.md) and are
 consolidated here only during release preparation. Dated, versioned sections
 are historical records and change only to correct blatant factual errors.
 
+## [githits 0.31.0] - 2026-10-19
+
+Pre-1.0 minor release that makes research stable and adds unknown
+vulnerability assessments. Breaking: `githits ask` is removed; use
+`githits research` with the same arguments and options. Research no longer
+requires `[experimental] tools = true`. Vulnerability reports gain an `unknown`
+advisory scope and unknown counts in text and JSON.
+
+### Added
+
+- **Stable research** - `githits research` and the local MCP `research` tool are available by default; `[experimental] tools = true` is no longer needed and can be removed. Routing guidance is included in `quick_start` and the `githits-mcp` skill. Research rate-limit errors distinguish a short-term limit (retry after the given seconds) from the daily limit, which resets at 00:00 UTC.
+
+- **Unknown vulnerability assessments** - `pkg vulns` and `pkg_vulns` accept `--scope unknown` / `scope:"unknown"` for advisories that could not be evaluated, with readable reasons, for direct and `--transitive` reports. Reports show unknown counts and explain the uncertainty in text; JSON retains assessment status, complete count partitions and unknown-only packages. Transitive text labels confirmed negatives as non-affecting and sorts package count lines by registry, then name. Upgrade reviews retain direct unknown counts.
+
+### Changed
+
+- **Research question guidance** - Research guidance tells agents to ask the question directly, since answers always include their sources, and to pass a package or repository target rather than a documentation site; research covers both code and docs.
+
+- **Public skill guidance** - The `githits-code` skill covers `githits research` and its MCP mapping; the `githits-package` skill and reference cover the `unknown` vulnerability scope.
+
+### Removed
+
+- **Removed `githits ask`** - Breaking: the `ask` alias of `githits research` is gone and `githits ask` now fails as an unknown command. Scripts and agent instructions that call `githits ask` must switch to `githits research`, which takes the same arguments and options.
+
+### Fixed
+
+- **Concrete package target examples** - MCP target guidance writes packages as `<registry>:<name>@version` with `npm:express` and `pypi:requests@2.32.3` examples, so agents no longer send the placeholder `registry:` prefix literally.
+
+- **Version and ref recovery** - Version-not-found and ref-not-found errors keep registry version and repository ref suggestions in CLI/MCP JSON and render concise messages with retry actions in native CLI or MCP syntax.
+
+## [@githits/mcp 0.31.0] - 2026-10-19
+
+Pre-1.0 minor release that adds `research` to the stable public tool inventory
+and unknown vulnerability assessments. Breaking for custom hosts:
+`McpToolServices` now requires `agenticAskService`. Construct
+`AgenticAskServiceImpl` from `@githits/mcp/client` with the GitHits REST API
+base URL (the same `apiUrl` used by `GitHitsServiceImpl`), the request's token
+provider, client headers and user agent; see the package README. Hosted MCP
+clients receive these changes after adoption and deployment of the released
+MCP package.
+
+### Added
+
+- **Stable research** - The public inventory registers the `research` tool by default, with routing guidance in `quick_start`. `@githits/mcp/client` exports `AgenticAskServiceImpl`, `AGENTIC_ASK_REQUEST_TIMEOUT_MS` and the research request/response types; `@githits/mcp/tools` exports `createResearchTool` and `ResearchMcpArgs`. Research answers can take a few minutes, so hosts should keep request and MCP client timeouts above the service deadline or pass a lower `timeoutMs`. Rate limits map to `RATE_LIMITED`: the short-term limit is retryable after `retryAfterSeconds`, while the daily limit sets `details.rateLimitScope: "daily"` and is not retryable before 00:00 UTC. Breaking: providers must supply `agenticAskService` in `McpToolServices`.
+
+- **Unknown vulnerability assessments** - `pkg_vulns` accepts `scope:"unknown"` for advisories that could not be evaluated, with readable reasons, for direct and transitive reports. Reports show unknown counts and explain the uncertainty in text; JSON retains assessment status, complete count partitions and unknown-only packages. Transitive text labels confirmed negatives as non-affecting and sorts package count lines by registry, then name. Upgrade reviews retain direct unknown counts.
+
+### Changed
+
+- **Research question guidance** - Research guidance tells agents to ask the question directly, since answers always include their sources, and to pass a package or repository target rather than a documentation site; research covers both code and docs.
+
+### Fixed
+
+- **Concrete package target examples** - Target guidance writes packages as `<registry>:<name>@version` with `npm:express` and `pypi:requests@2.32.3` examples, so agents no longer send the placeholder `registry:` prefix literally.
+
+- **Version and ref recovery** - Version-not-found and ref-not-found errors keep registry version and repository ref suggestions in JSON and render concise messages with MCP retry actions.
+
 ## [githits 0.30.0] - 2026-10-15
 
 Pre-1.0 minor release with complete parsed changelog statements and shared
