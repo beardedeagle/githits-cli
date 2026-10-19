@@ -20,6 +20,7 @@ Use GitHits package intelligence before making dependency claims from memory.
 ## Package Spec
 
 - Most package commands use `<registry>:<name>[@<version>]`, for example `npm:lodash@4.17.20` or `pypi:requests`.
+- `cargo:` is accepted as an input alias for `crates:` (public crates.io); output and canonical identities use `crates`.
 - `pkg info` always reports the latest published version and does not accept a version pin.
 - `pkg changelog` is package-only. Pin `@version` for one release; use `@from..to` or `--from`/`--to` for ranges. Repository and site targets are rejected.
 
