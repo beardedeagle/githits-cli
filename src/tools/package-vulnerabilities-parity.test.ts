@@ -18,6 +18,7 @@
 // envelopes, and permissive validation cases.
 
 import { describe, expect, it, mock, spyOn } from "bun:test";
+import { stripVTControlCharacters } from "node:util";
 import type {
   PackageIntelligenceService,
   VulnerabilityReport,
@@ -157,6 +158,80 @@ function transitiveVulnerabilityReport(): VulnerabilityReport {
 }
 
 describe("package_vulnerabilities parity", () => {
+  it("uses identical non-affecting wording in CLI and MCP text", async () => {
+    const report = transitiveVulnerabilityReport();
+    report.security = {
+      affectedVulnerabilityCount: 0,
+      nonAffectingVulnerabilityCount: 1,
+      allVulnerabilityCount: 1,
+      currentVersionAffected: false,
+      vulnerabilities: [
+        {
+          osvId: "GHSA-direct-fixed",
+          affectsInspectedVersion: false,
+          assessmentStatus: "NON_AFFECTING",
+        },
+      ],
+    };
+    const audit = report.transitive!;
+    audit.advisoryScope = "NON_AFFECTING";
+    audit.affectedCount = 0;
+    audit.nonAffectingCount = 1;
+    const pkg = audit.packages[0]!;
+    pkg.affectedCount = 0;
+    pkg.nonAffectingCount = 1;
+    const occurrence = pkg.occurrences[0]!;
+    occurrence.affectsResolvedVersion = false;
+    occurrence.assessmentStatus = "NON_AFFECTING";
+    occurrence.matchedAffectedVersionRanges = [];
+    occurrence.fixVersionsAboveResolved = [];
+    delete occurrence.nearestFixedVersion;
+    const service = createMockPackageIntelligenceService({
+      packageVulnerabilities: mock(() => Promise.resolve(report)),
+    });
+    const writes: string[] = [];
+    const writeSpy = spyOn(process.stdout, "write").mockImplementation(
+      (chunk) => {
+        writes.push(String(chunk));
+        return true;
+      },
+    );
+    let cli: string;
+    try {
+      await pkgVulnsAction(
+        "npm:express",
+        { scope: "non_affecting", transitive: true, verbose: true },
+        cliDeps({ packageIntelligenceService: service }),
+      );
+      cli = stripVTControlCharacters(writes.join(""));
+    } finally {
+      writeSpy.mockRestore();
+    }
+    const tool = createParityMcpTool("pkg_vulns", {
+      packageIntelligenceService: service,
+    });
+    const result = await tool.handler(
+      {
+        target: "npm:express",
+        advisory_scope: "non_affecting",
+        include_transitive: true,
+        verbose: true,
+      },
+      {},
+    );
+    const mcp = result.content[0]?.text ?? "";
+    expect(result.isError).toBeUndefined();
+    expect(cli.replace(/\s+/g, " ").trim()).toBe(
+      mcp.replace(/\s+/g, " ").trim(),
+    );
+    for (const text of [cli, mcp]) {
+      expect(text).toContain("Scope   non-affecting advisories only");
+      expect(text).toContain("1 non-affecting advisory occurrence");
+      expect(text.match(/\[non-affecting\]/g)).toHaveLength(2);
+      expect(text).not.toContain("historical");
+    }
+  });
+
   it("PARITY-JSON-KEYS: happy path CLI === MCP", async () => {
     const packageVulnerabilities = mock(
       (

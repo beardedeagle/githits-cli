@@ -637,8 +637,11 @@ When a new tool lands with both MCP and CLI surfaces:
   every selected direct and transitive row, while MCP compact text shows at most
   five rows and uses `use verbose=true or format=json` when rows are hidden.
   Verbose text adds detail without changing CLI row completeness and shows all
-  MCP rows. The parity test deep-compares equivalent direct and transitive JSON
-  payloads across both surfaces.
+  MCP rows. Both surfaces use "non-affecting" in scope labels, headlines and
+  occurrence badges, with unchanged JSON field names and scope values. Package
+  count lines sort by registry then name, like JSON rows. The parity test
+  deep-compares equivalent direct and transitive JSON payloads and checks
+  non-affecting text wording across both surfaces.
 - **Unknown assessments.** Both surfaces accept unknown scope in direct and
   transitive modes. Complete backend totals include unknown-only packages;
   counts are never inferred from selected rows. Nonzero unknowns add native

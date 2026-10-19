@@ -128,7 +128,7 @@ Severity filter (--severity) and withdrawn-advisory visibility
 (--include-withdrawn) are passed through to the backend; the
 returned count reflects whatever survived the filter and active filters
 are echoed in text and JSON output. Use --scope non_affecting to list
-historical advisories that do not affect the inspected version, or --scope all
+non-affecting advisories that do not affect the inspected version, or --scope all
 to list all package advisories, including unknown assessments. Use --scope unknown
 to list advisories that could not be evaluated, with reasons.
 

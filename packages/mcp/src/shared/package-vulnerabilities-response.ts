@@ -471,8 +471,8 @@ function trimSeverityBuckets(
 }
 
 function compareTransitivePackages(
-  a: LeanTransitiveVulnerablePackage,
-  b: LeanTransitiveVulnerablePackage,
+  a: Pick<LeanTransitiveVulnerablePackage, "registry" | "name">,
+  b: Pick<LeanTransitiveVulnerablePackage, "registry" | "name">,
 ): number {
   const registry = compareStrings(a.registry, b.registry);
   return registry !== 0 ? registry : compareStrings(a.name, b.name);
@@ -1195,7 +1195,7 @@ function formatFilterLines(
 }
 
 function formatAdvisoryScope(scope: string): string {
-  if (scope === "non_affecting") return "historical advisories only";
+  if (scope === "non_affecting") return "non-affecting advisories only";
   if (scope === "all") return "all package advisories";
   return scope;
 }
@@ -1298,9 +1298,9 @@ function formatNoAffectedVulnerabilitiesLine(
   }
   if (payload.filter?.advisoryScope === "non_affecting") {
     if (selectedAdvisoryCount > 0) {
-      return "No active vulnerabilities affect this version; historical advisories are listed below.";
+      return "No active vulnerabilities affect this version; non-affecting advisories are listed below.";
     }
-    return "No active vulnerabilities affect this version; no historical advisories match the current filter.";
+    return "No active vulnerabilities affect this version; no non-affecting advisories match the current filter.";
   }
   if (payload.filter?.advisoryScope === "all") {
     if (selectedAdvisoryCount > 0) {
@@ -1311,12 +1311,14 @@ function formatNoAffectedVulnerabilitiesLine(
   if (payload.filter !== undefined) {
     return "No vulnerabilities matching the filter affect this version.";
   }
-  const historical = payload.summary.nonAffectingVulnerabilityCount ?? 0;
-  if (historical > 0) {
+  const nonAffecting = payload.summary.nonAffectingVulnerabilityCount ?? 0;
+  if (nonAffecting > 0) {
     const noun =
-      historical === 1 ? "historical advisory" : "historical advisories";
-    const verb = historical === 1 ? "does" : "do";
-    return `No active vulnerabilities affect this version (${historical} ${noun} ${verb} not apply).`;
+      nonAffecting === 1
+        ? "non-affecting advisory"
+        : "non-affecting advisories";
+    const verb = nonAffecting === 1 ? "does" : "do";
+    return `No active vulnerabilities affect this version (${nonAffecting} ${noun} ${verb} not apply).`;
   }
   return "No active vulnerabilities affect this version.";
 }
@@ -1328,7 +1330,7 @@ function formatSelectedAdvisoryCountLine(
   if (scope === undefined) return undefined;
   const noun = count === 1 ? "advisory" : "advisories";
   if (scope === "non_affecting") {
-    return `  showing ${count} historical ${noun} that do not affect this version`;
+    return `  showing ${count} non-affecting ${noun} that do not affect this version`;
   }
   if (scope === "all") {
     return `  showing ${count} package ${noun} across affected, non-affecting and unknown scopes`;
@@ -1704,7 +1706,7 @@ function formatTransitiveAuditTerminal(
     const mixedRegistries =
       new Set(fullAudit.packages.map((pkg) => lowerRegistry(pkg.registry)))
         .size > 1;
-    for (const pkg of fullAudit.packages) {
+    for (const pkg of [...fullAudit.packages].sort(compareTransitivePackages)) {
       if (pkg.unknownCount > 0) {
         const identity = mixedRegistries
           ? `${lowerRegistry(pkg.registry)}:${pkg.name}`
@@ -1746,7 +1748,7 @@ function formatTransitiveSummaryLine(
       ? "unknown"
       : audit.advisoryScope === "affected"
         ? "affected"
-        : "historical";
+        : "non-affecting";
   const occurrenceNoun = `${scopeLabel} advisory ${summary.occurrenceCount === 1 ? "occurrence" : "occurrences"}`;
   const packageNoun =
     summary.packageCount === 1 ? "dependency package" : "dependency packages";

@@ -751,10 +751,10 @@ export function assertTransitiveVulnerabilityText(
   );
   const resolvedText = text.slice(resolvedIndex);
   const summaryMatch = resolvedText.match(
-    /(?:^|\n)\s*(\d+)\s+(?:(?:affected|historical)\s+)?advisory\s+occurrences?\b/,
+    /(?:^|\n)\s*(\d+)\s+(?:(?:affected|non-affecting|unknown)\s+)?advisory\s+occurrences?\b/,
   );
   const headlinePattern =
-    /^ {2}(?:MALWARE(?: \| (?:critical|high|medium|low|unrated))?|critical|high|medium|low|unrated)\s+\S+@\S+(?:\s+\[(?:affected|historical)\])?/gm;
+    /^ {2}(?:MALWARE(?: \| (?:critical|high|medium|low|unrated))?|critical|high|medium|low|unrated)\s+\S+@\S+(?:\s+\[(?:affected|non-affecting|unknown)\])?/gm;
   const renderedRows = [...resolvedText.matchAll(headlinePattern)].length;
   if (summaryMatch !== null) {
     const expectedRows = Number(summaryMatch[1]);
@@ -766,7 +766,7 @@ export function assertTransitiveVulnerabilityText(
   }
 
   assert(
-    /(?:^|\n)\s*No\s+(?:affected|historical|affected\s+or\s+historical)\s+advisory\s+occurrences\s+found;\s+\d+\s+resolved\s+package\s+versions?\s+checked\./.test(
+    /(?:^|\n)\s*No\s+(?:(?:affected|non-affecting|unknown)\s+advisory\s+occurrences\s+found;|advisory\s+occurrences\s+found\.)\s+\d+\s+resolved\s+package\s+versions?\s+checked\./.test(
       resolvedText,
     ),
     `${context}: missing recognized advisory occurrence summary`,
@@ -2005,7 +2005,7 @@ async function runLiveSmoke(env: Record<string, string>): Promise<void> {
     "pkg vulns scoped terminal",
   );
   assert(
-    scopedVulnsText.includes("Scope   historical advisories only"),
+    scopedVulnsText.includes("Scope   non-affecting advisories only"),
     "pkg vulns scoped terminal missing scope echo",
   );
   assert(

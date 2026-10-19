@@ -56,7 +56,7 @@ const schema: ZodRawShape = {
     .string()
     .optional()
     .describe(
-      "Advisory rows to return: `affected` (default), `non_affecting` for historical advisories that do not affect the inspected version, `unknown` for advisories that could not be evaluated, or `all` for every outcome. Counts always include affected/non-affecting/unknown/all totals.",
+      "Advisory rows to return: `affected` (default), `non_affecting` for non-affecting advisories that do not affect the inspected version, `unknown` for advisories that could not be evaluated, or `all` for every outcome. Counts always include affected/non-affecting/unknown/all totals.",
     ),
   verbose: z
     .boolean()

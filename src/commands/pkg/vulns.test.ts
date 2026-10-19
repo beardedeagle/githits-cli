@@ -468,7 +468,7 @@ describe("pkgVulnsAction", () => {
       [{ advisoryScope?: string }]
     >;
     expect(calls[0]?.[0]?.advisoryScope).toBe("NON_AFFECTING");
-    expect(writes.join("")).toContain("Scope   historical advisories only");
+    expect(writes.join("")).toContain("Scope   non-affecting advisories only");
     writeSpy.mockRestore();
   });
 

@@ -1266,7 +1266,7 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
     "pkg_vulns scoped default",
   );
   assert(
-    scopedVulnsText.includes("Scope   historical advisories only"),
+    scopedVulnsText.includes("Scope   non-affecting advisories only"),
     "pkg_vulns scoped default missing scope echo",
   );
   assert(

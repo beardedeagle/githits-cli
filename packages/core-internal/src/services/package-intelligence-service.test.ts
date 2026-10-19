@@ -1236,7 +1236,7 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
   });
 
   it.each(["affected", "nonAffecting", "unknown", "combined"] as const)(
-    "requires the selected summary count field %s",
+    "requires all four summary count fields, including %s",
     async (field) => {
       const body = mutableTransitiveAuditBody();
       Reflect.deleteProperty(mutableTransitiveAuditSummary(body), field);
@@ -1255,18 +1255,21 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     "nonAffectingCount",
     "unknownCount",
     "totalCount",
-  ] as const)("requires the selected package count field %s", async (field) => {
-    const body = mutableTransitiveAuditBody();
-    Reflect.deleteProperty(mutableFirstAuditPackage(body), field);
-    const { service } = createAuditService(body);
-    await expect(
-      service.packageVulnerabilities({
-        registry: "NPM",
-        packageName: "express",
-        includeTransitive: true,
-      }),
-    ).rejects.toBeInstanceOf(MalformedPackageIntelligenceResponseError);
-  });
+  ] as const)(
+    "requires all four package count fields, including %s",
+    async (field) => {
+      const body = mutableTransitiveAuditBody();
+      Reflect.deleteProperty(mutableFirstAuditPackage(body), field);
+      const { service } = createAuditService(body);
+      await expect(
+        service.packageVulnerabilities({
+          registry: "NPM",
+          packageName: "express",
+          includeTransitive: true,
+        }),
+      ).rejects.toBeInstanceOf(MalformedPackageIntelligenceResponseError);
+    },
+  );
 
   it("keeps complete counts and unknown-only rows with future assessment evidence", async () => {
     const body = mutableTransitiveAuditBody();
@@ -2260,7 +2263,7 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     ).toBeUndefined();
   });
 
-  it("fails closed when a package occurrence count differs from selectedCount", async () => {
+  it("fails closed when a package occurrence count differs from its scoped count", async () => {
     const body = mutableTransitiveAuditBody();
     mutableFirstAuditPackage(body).affectedCount = 1;
     await expectMalformedAudit(body);

@@ -1480,7 +1480,7 @@ function smokeResponse(
       }
       if (args.advisory_scope === "non_affecting") {
         return textResult(
-          "Scope   historical advisories only\nNo active vulnerabilities affect this version",
+          "Scope   non-affecting advisories only\nNo active vulnerabilities affect this version",
         );
       }
       return textResult("express vulnerabilities");

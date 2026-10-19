@@ -605,7 +605,7 @@ describe("buildPackageVulnerabilitiesSuccessPayload — transitive audit", () =>
     expect(output).toContain(
       "1 advisory occurrence (0 affected, 1 non-affecting) in 1 dependency package",
     );
-    expect(output).toContain("body-parser@1.19.0  [historical]");
+    expect(output).toContain("body-parser@1.19.0  [non-affecting]");
   });
 });
 
@@ -625,7 +625,7 @@ describe("buildPackageVulnerabilitiesSuccessPayload — omission rules", () => {
     expect(payload.upgradePaths).toBeUndefined();
   });
 
-  it("reports historical advisories separately from active version risk", () => {
+  it("reports non-affecting advisories separately from active version risk", () => {
     const fixture = zeroVulnsFixture();
     if (fixture.security) {
       fixture.security.nonAffectingVulnerabilityCount = 2;
@@ -638,7 +638,7 @@ describe("buildPackageVulnerabilitiesSuccessPayload — omission rules", () => {
     expect(payload.advisories).toBeUndefined();
   });
 
-  it("can return historical advisory rows while preserving zero active risk", () => {
+  it("can return non-affecting advisory rows while preserving zero active risk", () => {
     const fixture = zeroVulnsFixture();
     if (fixture.security) {
       fixture.security.nonAffectingVulnerabilityCount = 1;
@@ -1260,7 +1260,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
         filter: { advisoryScope: "all" },
       });
       expect(output).toContain("1 vulnerability affects this version");
-      expect(output).toMatch(/GHSA-historical\s+\[historical\]/);
+      expect(output).toMatch(/GHSA-historical\s+\[non-affecting\]/);
       expect(output).toMatch(/GHSA-affecting\s+\[affects this version\]/);
       expect(
         buildPackageVulnerabilitiesSuccessPayload(fixture).advisories,
@@ -1288,7 +1288,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       filter: { advisoryScope: "all" },
       verbose: true,
     });
-    expect(output).not.toContain("[historical]");
+    expect(output).not.toContain("[non-affecting]");
     expect(output).not.toContain("[affects this version]");
   });
 
@@ -1510,7 +1510,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
     expect(output).toContain("higher fixes    2.1.0, 3.0.0");
   });
 
-  it("renders aligned verbose historical advisory evidence", () => {
+  it("renders aligned verbose non-affecting advisory evidence", () => {
     const fixture = transitiveVulnerabilityFixture();
     const sourceOccurrence = fixture.transitive?.packages[1]?.occurrences[1];
     if (!sourceOccurrence) throw new Error("fixture missing occurrence");
@@ -1552,7 +1552,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
     });
     const lines = output.split("\n");
     const headlineIndex = lines.findIndex((line) =>
-      line.includes("body-parser@1.19.0  [historical]"),
+      line.includes("body-parser@1.19.0  [non-affecting]"),
     );
     expect(headlineIndex).toBeGreaterThan(-1);
     const historicalLines = lines.slice(headlineIndex + 1).filter(Boolean);
@@ -1830,7 +1830,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
     expect(output).toContain("(requested 5.0.0)");
   });
 
-  it("sanitizes historical advisory-wide details", () => {
+  it("sanitizes non-affecting advisory-wide details", () => {
     const fixture = transitiveVulnerabilityFixture();
     const sourceOccurrence = fixture.transitive?.packages[1]?.occurrences[1];
     if (!sourceOccurrence)
@@ -1886,11 +1886,11 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       useColors: false,
     });
     expect(output).toBe(
-      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (2 historical advisories do not apply).\n",
+      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (2 non-affecting advisories do not apply).\n",
     );
   });
 
-  it("uses singular grammar for one historical advisory", () => {
+  it("uses singular grammar for one non-affecting advisory", () => {
     const fixture = zeroVulnsFixture();
     if (fixture.security) {
       fixture.security.nonAffectingVulnerabilityCount = 1;
@@ -1900,7 +1900,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       useColors: false,
     });
     expect(output).toBe(
-      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (1 historical advisory does not apply).\n",
+      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (1 non-affecting advisory does not apply).\n",
     );
   });
 
@@ -1914,7 +1914,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
     );
   });
 
-  it("renders selected historical advisory rows under non-affecting scope", () => {
+  it("renders selected non-affecting advisory rows under non-affecting scope", () => {
     const fixture = zeroVulnsFixture();
     if (fixture.security) {
       fixture.security.nonAffectingVulnerabilityCount = 1;
@@ -1939,9 +1939,9 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       useColors: false,
       filter: { advisoryScope: "non_affecting" },
     });
-    expect(output).toContain("Scope   historical advisories only");
+    expect(output).toContain("Scope   non-affecting advisories only");
     expect(output).toContain(
-      "No active vulnerabilities affect this version; historical advisories are listed below.",
+      "No active vulnerabilities affect this version; non-affecting advisories are listed below.",
     );
     expect(output).toContain("GHSA-old-old-old");
     expect(output).toContain("affected < 1.0.0");
@@ -2422,7 +2422,7 @@ describe("direct assessment evidence", () => {
     expect(text).toContain("No confirmed vulnerabilities affect this version");
     expect(text).not.toContain("No active vulnerabilities");
     expect(text).toContain("[unknown]");
-    expect(text).not.toContain("[historical]");
+    expect(text).not.toContain("[non-affecting]");
     expect(text).toContain("Advisory range could not be evaluated");
     expect(text).toContain("Advisory has no affected ranges");
     expect(text).toContain("FUTURE_REASON");
@@ -2437,7 +2437,7 @@ describe("direct assessment evidence", () => {
     });
     expect(text).toContain("FUTURE_STATUS");
     expect(text).toContain("[FUTURE_ADVISORY_STATUS]");
-    expect(text).not.toContain("[historical]");
+    expect(text).not.toContain("[non-affecting]");
     expect(
       text.split("\n").find((line) => line.includes("non-affecting"))!.length,
     ).toBeLessThanOrEqual(55);
@@ -2561,7 +2561,7 @@ describe("reviewed assessment presentation", () => {
     });
     expect(text).toContain("6 affected, 0 non-affecting, 1 unknown");
     expect(text).toContain("zeta@2.0.0  [unknown]");
-    expect(text).not.toContain("[historical]");
+    expect(text).not.toContain("[non-affecting]");
     expect(
       buildPackageVulnerabilitiesSuccessPayload(report)
         .transitive?.packages.find((pkg) => pkg.name === "zeta")
@@ -2763,7 +2763,7 @@ describe("complete transitive unknown evidence", () => {
       expect(text).toContain("Advisory range could not be evaluated");
       expect(text).toContain("FUTURE_REASON");
       expect(text).toContain("[unknown]");
-      expect(text).not.toContain("[historical]");
+      expect(text).not.toContain("[non-affecting]");
       expect(text).not.toContain("nearest fix");
     }
   });
@@ -2986,16 +2986,30 @@ describe("round 1 transitive count projection", () => {
       }
     },
   );
-  it("namespaces count lines when returned package registries differ", () => {
+  it("sorts namespaced count lines like JSON without changing backend order", () => {
     const report = countedReport("AFFECTED");
     const pkg = report.transitive!.packages[0]!;
-    report.transitive!.packages.push({
-      ...structuredClone(pkg),
-      registry: "NPM",
-    });
-    report.transitive!.packageCount = 2;
-    const text = formatPackageVulnerabilitiesTerminal(report);
-    expect(text).toContain("\n  pypi:torch: ");
-    expect(text).toContain("\n  npm:torch: ");
+    report.transitive!.packages.push(
+      { ...structuredClone(pkg), registry: "NPM", name: "zebra" },
+      { ...structuredClone(pkg), registry: "NPM", name: "alpha" },
+    );
+    report.transitive!.packageCount = 3;
+    const original = structuredClone(report);
+    const identities = buildPackageVulnerabilitiesSuccessPayload(
+      report,
+    ).transitive!.packages.map((row) => `${row.registry}:${row.name}`);
+    expect(identities).toEqual(["npm:alpha", "npm:zebra", "pypi:torch"]);
+    for (const surface of ["cli", "mcp"] as const) {
+      const text = formatPackageVulnerabilitiesTerminal(report, { surface });
+      const countLines = text
+        .split("\n")
+        .filter((line) =>
+          identities.some((identity) => line.startsWith(`  ${identity}: `)),
+        );
+      expect(countLines.map((line) => line.split(": ")[0]!.trim())).toEqual(
+        identities,
+      );
+    }
+    expect(report).toEqual(original);
   });
 });

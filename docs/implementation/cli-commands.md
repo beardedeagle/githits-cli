@@ -659,19 +659,19 @@ cap. MCP compact text renders at most five selected rows and ends with the
 MCP-native `use verbose=true or format=json` hint when rows are hidden; verbose
 text renders every row. For transitive verbose text, detail labels align beneath
 the package coordinate. Affected rows show `matched`, `nearest fix`, and only
-non-redundant `higher fixes`, then verbose aliases. Historical verbose rows show
+non-redundant `higher fixes`, then verbose aliases. Non-affecting verbose rows show
 advisory-wide `advisory ranges`, `advisory fixes`, and aliases without implying
 that the resolved version is affected. MCP `include_transitive: true` and CLI
 `--transitive` share this JSON contract.
 
 Compact text and affected-only verbose text request only the field-minimal
 transitive audit. Advisory-wide range/fix arrays are conditionally selected for
-historical/all-scope verbose text or JSON and are validated and preserved at
+non-affecting/all-scope verbose text or JSON and are validated and preserved at
 that boundary.
 
 **Package spec.** `<registry>:<name>[@<version>]`. Unlike `pkg info`, `pkg vulns` supports `@<version>` so callers can inspect older pinned releases. `npm`, `pypi`, `hex`, `crates`, `nuget`, `maven`, `packagist`, `rubygems`, `go`, and `swift` support vulnerability data; vcpkg and Zig are rejected client-side with `pkg vulns only supports npm, pypi, hex, crates, nuget, maven, packagist, rubygems, go, and swift. Got: ${registry}.` Swift accepts `v`-prefixed release tags because SwiftPM packages commonly publish them.
 
-**Filtering and scope.** `--severity low|medium|high|critical` maps to a CVSS float threshold (`low=0.1, medium=4, high=7, critical=9`) and is applied by the service. The returned `summary.total` always means advisories affecting the inspected version. Advisory rows default to `--scope affected`; use `--scope non_affecting` for historical package advisories that do not affect the inspected version, or `--scope all` for affected + historical rows. Active filters and non-default scope are echoed in text and under top-level JSON `filter`. `--include-withdrawn` includes retracted advisories; withdrawn advisories bucket below active ones in the terminal list.
+**Filtering and scope.** `--severity low|medium|high|critical` maps to a CVSS float threshold (`low=0.1, medium=4, high=7, critical=9`) and is applied by the service. The returned `summary.total` always means advisories affecting the inspected version. Advisory rows default to `--scope affected`; use `--scope non_affecting` for non-affecting package advisories that do not affect the inspected version, or `--scope all` for affected + non-affecting + unknown rows. Active filters and non-default scope are echoed in text and under top-level JSON `filter`. `--include-withdrawn` includes retracted advisories; withdrawn advisories bucket below active ones in the terminal list.
 
 **Zero-vulns hot path.** The common case (clean package) renders as header + one-line summary body (`No active vulnerabilities affect this version.`) — no breakdown, no advisory list, no footer. Filtered zero-results say `No vulnerabilities matching the filter affect this version.` so callers do not confuse a thresholded query with a clean package.
 
