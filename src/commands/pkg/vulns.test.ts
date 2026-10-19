@@ -18,12 +18,20 @@ import {
 function transitiveVulnerabilityReport() {
   const report = structuredClone(defaultVulnerabilityReport);
   report.transitive = {
+    affectedCount: 1,
+    nonAffectingCount: 0,
+    unknownCount: 0,
+    totalCount: 1,
     advisoryScope: "AFFECTED",
     totalPackagesAnalyzed: 2,
     packageCount: 1,
     occurrenceCount: 1,
     packages: [
       {
+        affectedCount: 1,
+        nonAffectingCount: 0,
+        unknownCount: 0,
+        totalCount: 1,
         registry: "NPM",
         name: "body-parser",
         occurrenceCount: 1,
@@ -300,6 +308,10 @@ describe("pkgVulnsAction", () => {
   it("passes combined filters through and preserves transitive scope and withdrawal semantics", async () => {
     const report = transitiveVulnerabilityReport();
     report.transitive = {
+      affectedCount: 0,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 0,
       advisoryScope: "ALL",
       totalPackagesAnalyzed: 0,
       packageCount: 0,
@@ -456,7 +468,7 @@ describe("pkgVulnsAction", () => {
       [{ advisoryScope?: string }]
     >;
     expect(calls[0]?.[0]?.advisoryScope).toBe("NON_AFFECTING");
-    expect(writes.join("")).toContain("Scope   historical advisories only");
+    expect(writes.join("")).toContain("Scope   non-affecting advisories only");
     writeSpy.mockRestore();
   });
 

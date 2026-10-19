@@ -425,16 +425,19 @@ contributors are not copied onto generic progress targets, and
 
 ### `pkg_vulns` response shape
 
-**Filter-aware summary.** `min_severity`, `advisory_scope`, and `include_withdrawn` are passed straight through to the service. `summary.total` always means advisories affecting the inspected version, preserving the risk signal even when `advisory_scope:"non_affecting"` returns only historical rows. `advisory_scope` defaults to `affected`; `non_affecting` lists historical package advisories that do not affect the inspected version; `all` lists affected + historical rows. Explicit filters and non-default scope are echoed as top-level `filter` in JSON (`{minSeverity?, advisoryScope?, includeWithdrawn?: true}`) and as `Filter` / `Scope` lines in text. Defaults and explicit `include_withdrawn:false` do not echo.
+**Filter-aware summary.** `min_severity`, `advisory_scope`, and `include_withdrawn` are passed straight through to the service. `summary.total` always means advisories affecting the inspected version, preserving the risk signal even when `advisory_scope:"non_affecting"` returns only non-affecting rows. `advisory_scope` defaults to `affected`; `non_affecting` lists non-affecting package advisories that do not affect the inspected version; `all` lists affected + non-affecting + unknown rows. Explicit filters and non-default scope are echoed as top-level `filter` in JSON (`{minSeverity?, advisoryScope?, includeWithdrawn?: true}`) and as `Filter` / `Scope` lines in text. Defaults and explicit `include_withdrawn:false` do not echo.
 
 **Compact text vs verbose/JSON.** CLI default text renders every selected direct and transitive advisory row with no advisory-row cap. MCP compact text caps the selected advisory list at 5 rendered rows and appends its surface-native hint (`use verbose=true or format=json`). Hidden-advisory counts are derived from the rendered advisory array, not backend summary counts. `--verbose` / `verbose:true` adds aliases, dates where relevant, and complete range/fix evidence without changing CLI row completeness; MCP verbose text shows all rows and full detail rows. JSON is never capped and ignores `verbose`.
 
 Direct advisory headlines label the service's `affectsInspectedVersion: true`
-as `[affects this version]` and `false` as `[historical]`, in compact and verbose
-CLI/MCP text. This keeps mixed `all`-scope rows distinct even when a historical
-critical advisory sorts before active lower-severity advisories. An omitted
-status stays unlabeled; the formatter does not infer applicability from severity
-or truncated affected ranges. JSON preserves the existing status field.
+as `[affects this version]` and confirmed non-affecting rows as `[non-affecting]`,
+in compact and verbose CLI/MCP text. Explicit assessment status takes precedence
+over the boolean: unknown rows remain `[unknown]`. Legacy rows without status
+use their boolean; rows with neither stay unlabeled. This keeps mixed `all`-scope
+rows distinct even when a non-affecting critical advisory sorts before active
+lower-severity advisories. The formatter does not infer applicability from
+severity or truncated affected ranges. JSON keeps non-implied assessment status
+and the existing affectedness flag.
 
 **Partitioning buckets.** Advisories with `isMalicious: true` count **only** under `summary.bySeverity.malware`; severity bands (`critical`/`high`/`medium`/`low`) count non-malicious advisories with a positive CVSS score; non-malicious advisories with no score count under `summary.bySeverity.unrated`. Every returned advisory lands in exactly one bucket. For default affected scope, the bucket sum equals `summary.total`. For `non_affecting` / `all`, the bucket sum describes the selected advisory rows while `summary.total` still describes affected-version risk. The malware bucket sorts to the top of the advisory list regardless of score. The `unrated` bucket keeps Rust / PyPI packages with missing CVSS values explicit.
 

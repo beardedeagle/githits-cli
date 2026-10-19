@@ -619,12 +619,16 @@ When a new tool lands with both MCP and CLI surfaces:
   `transitive` block is complete and lossless: it contains
   `scope: "resolved_dependencies"`, `advisoryScope`,
   `withdrawnAdvisoriesIncluded: false`, a numeric summary
-  (`totalPackagesAnalyzed`, `packageCount`, `occurrenceCount`), and `packages[]`
-  with every selected dependency-version/advisory occurrence, explicit
-  affectedness, matched ranges, and higher-fix candidates when applicable. The
-  raw graph and occurrence cap are not returned; malformed
-  identity/count/fix evidence fails closed rather than producing partial direct-only
-  success.
+  (`totalPackagesAnalyzed`, selected `packageCount` / `occurrenceCount`, complete
+  `affectedCount` / `nonAffectingCount` / `unknownCount` / `totalCount`), and
+  `packages[]` with every selected dependency-version/advisory occurrence,
+  explicit affectedness, matched ranges and higher-fix candidates. Summary count
+  partitions always include zeros. New package counts omit zeros and the selected
+  count implied by `occurrenceCount`; package `totalCount` is omitted, and `all`
+  emits no package counts. Previously published fields keep their exact shape,
+  including empty matched-range and fix arrays. The raw graph and occurrence
+  cap are not returned; malformed identity/count/fix evidence fails closed
+  rather than producing partial direct-only success.
 
 - **Filter boundary and surface text.** `min_severity` / `--severity` applies
   to both direct and transitive evidence, as does `advisory_scope` / `--scope`.
@@ -633,8 +637,19 @@ When a new tool lands with both MCP and CLI surfaces:
   every selected direct and transitive row, while MCP compact text shows at most
   five rows and uses `use verbose=true or format=json` when rows are hidden.
   Verbose text adds detail without changing CLI row completeness and shows all
-  MCP rows. The parity test deep-compares equivalent direct and transitive JSON
-  payloads across both surfaces.
+  MCP rows. Both surfaces use "non-affecting" in scope labels, headlines and
+  occurrence badges, with unchanged JSON field names and scope values. Package
+  count lines sort by registry then name, like JSON rows. The parity test
+  deep-compares equivalent direct and transitive JSON payloads and checks
+  non-affecting text wording across both surfaces.
+- **Unknown assessments.** Both surfaces accept unknown scope in direct and
+  transitive modes. Complete backend totals include unknown-only packages;
+  counts are never inferred from selected rows. Nonzero unknowns add native
+  scope hints under affected-only output and human reasons on unknown rows.
+  JSON preserves non-implied statuses and nonempty reasons. All four backend
+  counters are required; summaries keep a fixed shape while new package counts
+  use the omission rules above. See
+  [assessment contracts](package-vulnerability-assessments.md).
 - **Partitioning bySeverity buckets.** `summary.bySeverity` carries
   a `malware` key for `isMalicious === true` advisories; severity
   bands for non-malicious advisories with a positive CVSS score;

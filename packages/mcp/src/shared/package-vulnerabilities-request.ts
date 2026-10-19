@@ -152,13 +152,6 @@ export function buildPackageVulnerabilitiesParams(
   });
 
   const advisoryScope = resolveAdvisoryScope(input.advisoryScope);
-  if (advisoryScope === "unknown" && input.includeTransitive === true) {
-    throw new InvalidPackageSpecError(
-      input.surface === "mcp"
-        ? 'advisory_scope="unknown" is available for direct reports only; omit include_transitive or use advisory_scope="affected", "non_affecting" or "all".'
-        : "--scope unknown is available for direct reports only; drop --transitive or use --scope affected, non_affecting or all.",
-    );
-  }
   const filterWithScope = buildFilterEcho(
     severityLabel,
     input.includeWithdrawn,

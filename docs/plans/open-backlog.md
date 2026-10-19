@@ -77,19 +77,8 @@ package verdict. This needs backend/domain design and remains outside the
 completed statement migration. Private-code applicability still requires local
 usage inspection and before/after checks by the caller.
 
-## Complete transitive unknown advisory evidence
+## Public vulnerability-scope skill guidance at release
 
-Coordinator explicitly deferred this from the direct unknown-vulnerability PR.
-PkgSeer must first expose unknown counts and include unknown-only dependency
-packages in its transitive summary rows. The CLI/MCP must not derive unknown
-counts from today's incomplete package rows. Until then, unknown scope with
-transitive mode returns a direct-reports-only argument error.
-
-After the backend contract ships, verify real count/row completeness, then wire
-unknown transitive scope, assessment status/reasons, count reconciliation, and
-CLI/MCP JSON/text parity. Ownership: backend aggregation supplies complete
-counts/rows; core decodes them; shared formatters present them.
-
-Release follow-up for direct unknown scope: update the public `githits-package`
+Release follow-up for direct and transitive unknown scopes: update the public `githits-package`
 skill examples and scope guidance once this CLI/MCP behavior is released, per
 the public Agent Skill lifecycle. Do not advertise unreleased flags from `main`.

@@ -607,6 +607,7 @@ githits pkg vulns crates:serde --json
 githits pkg vulns npm:minimatch --include-withdrawn --verbose
 githits pkg vulns npm:express --scope non_affecting
 githits pkg vulns npm:express@4.17.1 --transitive
+githits pkg vulns pypi:torchvision@0.20.1 --transitive --scope unknown
 ```
 
 Lists known CVE / OSV advisories for a package: severity, affected version
@@ -622,23 +623,34 @@ surface in a separate `MALWARE` bucket that sorts above all CVE advisories.
 vulnerabilities affecting dependency versions resolved in the package graph. It
 adds graph-analysis cost and is separate from package-wide advisory history.
 Without it, the command remains direct-only. `--severity` and `--scope` apply
-to both direct and transitive evidence. `--scope all` therefore includes
-historical advisories for dependency packages as well as advisories affecting
-their resolved versions. `--include-withdrawn` applies only to direct package
-rows, and transitive withdrawn advisories remain excluded.
+to both direct and transitive evidence. `--scope all` includes non-affecting
+and unknown advisories for dependency packages as well as advisories affecting
+their resolved versions. `--scope unknown` lists advisories whose effect could
+not be determined, including unknown-only dependency packages, with human
+reasons. When unknowns exist, affected/non-affecting output adds a count
+reconciliation and an unknown-scope hint. `--include-withdrawn` applies only to
+direct package rows; transitive withdrawn advisories remain excluded.
 
 Transitive `--json` output adds a complete `transitive` object with
 `scope: "resolved_dependencies"`, `advisoryScope`,
-`withdrawnAdvisoriesIncluded: false`, and a numeric summary of
-`totalPackagesAnalyzed`, `packageCount`, `occurrenceCount`, and an optional
-`bySeverity` partition of all rows selected by `advisoryScope`, followed by
-`packages[]` containing resolved dependency versions, explicit affectedness,
-matched affected ranges, and all higher-fix candidates when applicable. The
-severity partition is not affected-only under `all` or `non_affecting`; use each
-occurrence's `affectsResolvedVersion` for that distinction. The
-occurrence-specific `matchedAffectedVersionRanges` and
-`fixVersionsAboveResolved` fields remain distinct from optional advisory-wide
-`affectedRanges` and `fixedIn` arrays; the latter are omitted when unavailable.
+`withdrawnAdvisoriesIncluded: false`, and a numeric summary containing
+`totalPackagesAnalyzed`, selected `packageCount` / `occurrenceCount`, and complete
+`affectedCount` / `nonAffectingCount` / `unknownCount` / `totalCount`, including
+zeros. Optional `bySeverity` partitions all selected occurrence rows. Each
+`packages[]` row includes resolved versions, explicit affectedness, matched
+ranges and all higher-fix candidates. New package count fields omit zeros and
+the selected count implied by `occurrenceCount`; `totalCount` is never emitted.
+Under `all`, package count fields are omitted. Existing occurrence fields keep
+their published shape, including empty matched-range and fix arrays.
+
+The severity partition is not affected-only under `all`, `unknown` or
+`non_affecting`. False `affectsResolvedVersion` means no confirmed match;
+assessment status distinguishes unknown from confirmed non-affecting. JSON
+omits implied statuses and empty reason arrays while retaining uncertainty and
+nonempty raw reasons. See [assessment contracts](package-vulnerability-assessments.md).
+Occurrence-specific `matchedAffectedVersionRanges` and
+`fixVersionsAboveResolved` stay distinct from optional advisory-wide
+`affectedRanges` and `fixedIn`; the latter are omitted when unavailable.
 The service performs one field-minimal query after direct pagination using the
 resolved root version and fails closed on malformed identity/count/fix evidence;
 there is no graph payload, occurrence cap, or partial direct-only fallback.
@@ -647,19 +659,19 @@ cap. MCP compact text renders at most five selected rows and ends with the
 MCP-native `use verbose=true or format=json` hint when rows are hidden; verbose
 text renders every row. For transitive verbose text, detail labels align beneath
 the package coordinate. Affected rows show `matched`, `nearest fix`, and only
-non-redundant `higher fixes`, then verbose aliases. Historical verbose rows show
+non-redundant `higher fixes`, then verbose aliases. Non-affecting verbose rows show
 advisory-wide `advisory ranges`, `advisory fixes`, and aliases without implying
 that the resolved version is affected. MCP `include_transitive: true` and CLI
 `--transitive` share this JSON contract.
 
 Compact text and affected-only verbose text request only the field-minimal
 transitive audit. Advisory-wide range/fix arrays are conditionally selected for
-historical/all-scope verbose text or JSON and are validated and preserved at
+non-affecting/all-scope verbose text or JSON and are validated and preserved at
 that boundary.
 
 **Package spec.** `<registry>:<name>[@<version>]`. Unlike `pkg info`, `pkg vulns` supports `@<version>` so callers can inspect older pinned releases. `npm`, `pypi`, `hex`, `crates`, `nuget`, `maven`, `packagist`, `rubygems`, `go`, and `swift` support vulnerability data; vcpkg and Zig are rejected client-side with `pkg vulns only supports npm, pypi, hex, crates, nuget, maven, packagist, rubygems, go, and swift. Got: ${registry}.` Swift accepts `v`-prefixed release tags because SwiftPM packages commonly publish them.
 
-**Filtering and scope.** `--severity low|medium|high|critical` maps to a CVSS float threshold (`low=0.1, medium=4, high=7, critical=9`) and is applied by the service. The returned `summary.total` always means advisories affecting the inspected version. Advisory rows default to `--scope affected`; use `--scope non_affecting` for historical package advisories that do not affect the inspected version, or `--scope all` for affected + historical rows. Active filters and non-default scope are echoed in text and under top-level JSON `filter`. `--include-withdrawn` includes retracted advisories; withdrawn advisories bucket below active ones in the terminal list.
+**Filtering and scope.** `--severity low|medium|high|critical` maps to a CVSS float threshold (`low=0.1, medium=4, high=7, critical=9`) and is applied by the service. The returned `summary.total` always means advisories affecting the inspected version. Advisory rows default to `--scope affected`; use `--scope non_affecting` for non-affecting package advisories that do not affect the inspected version, or `--scope all` for affected + non-affecting + unknown rows. Active filters and non-default scope are echoed in text and under top-level JSON `filter`. `--include-withdrawn` includes retracted advisories; withdrawn advisories bucket below active ones in the terminal list.
 
 **Zero-vulns hot path.** The common case (clean package) renders as header + one-line summary body (`No active vulnerabilities affect this version.`) — no breakdown, no advisory list, no footer. Filtered zero-results say `No vulnerabilities matching the filter affect this version.` so callers do not confuse a thresholded query with a clean package.
 

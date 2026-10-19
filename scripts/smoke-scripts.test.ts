@@ -454,7 +454,7 @@ describe("CLI transitive vulnerability smoke contract", () => {
     const output = `Resolved dependencies
 2 affected advisory occurrences in 2 dependency packages; 2 resolved package versions checked.
   MALWARE | critical  body-parser@1.19.0  GHSA-malware
-  high  debug@2.6.9  [historical]  GHSA-history`;
+  high  debug@2.6.9  [non-affecting]  GHSA-history`;
 
     expect(() =>
       assertTransitiveVulnerabilityText(output, "positive transitive audit"),
@@ -470,11 +470,11 @@ describe("CLI transitive vulnerability smoke contract", () => {
     ).not.toThrow();
   });
 
-  it("accepts clean historical and all-scope summaries with wrapping", () => {
+  it("accepts clean non-affecting and all-scope summaries with wrapping", () => {
     const historical =
-      "Resolved dependencies\nNo historical advisory occurrences found; 1 resolved package version checked.";
+      "Resolved dependencies\nNo non-affecting advisory occurrences found; 1 resolved package version checked.";
     const allScope =
-      "Resolved dependencies\nNo affected\n  or historical advisory occurrences found; 2 resolved package\n  versions checked.";
+      "Resolved dependencies\nNo advisory occurrences found. 2 resolved package\n  versions checked.";
 
     expect(() =>
       assertTransitiveVulnerabilityText(

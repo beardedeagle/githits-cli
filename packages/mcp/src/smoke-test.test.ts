@@ -1369,21 +1369,6 @@ function smokeResponse(
   args: Record<string, unknown>,
 ): McpSmokeToolResult {
   if (
-    name === "pkg_vulns" &&
-    args.advisory_scope === "unknown" &&
-    args.include_transitive === true
-  ) {
-    return errorResult(
-      "INVALID_ARGUMENT",
-      JSON.stringify({
-        code: "INVALID_ARGUMENT",
-        error:
-          'advisory_scope="unknown" is available for direct reports only; omit include_transitive or use advisory_scope="affected", "non_affecting" or "all".',
-        retryable: false,
-      }),
-    );
-  }
-  if (
     (name === "pkg_deps" &&
       args.target === "go:github.com/docker/docker@v20.10.0") ||
     (name === "list" &&
@@ -1495,7 +1480,7 @@ function smokeResponse(
       }
       if (args.advisory_scope === "non_affecting") {
         return textResult(
-          "Scope   historical advisories only\nNo active vulnerabilities affect this version",
+          "Scope   non-affecting advisories only\nNo active vulnerabilities affect this version",
         );
       }
       return textResult("express vulnerabilities");
@@ -1637,20 +1622,31 @@ function smokeJsonResponse(
               totalPackagesAnalyzed: 6,
               packageCount: 1,
               occurrenceCount: 1,
+              unknownCount: args.advisory_scope === "unknown" ? 1 : 0,
             },
             packages: [
               {
                 registry: "npm",
                 name: "body-parser",
                 occurrenceCount: 1,
+                unknownCount: args.advisory_scope === "unknown" ? 1 : 0,
                 occurrences: [
                   {
                     resolvedVersion: "1.19.0",
-                    affectsResolvedVersion: true,
+                    affectsResolvedVersion: args.advisory_scope !== "unknown",
+                    assessmentStatus:
+                      args.advisory_scope === "unknown" ? "UNKNOWN" : undefined,
+                    assessmentReasons:
+                      args.advisory_scope === "unknown"
+                        ? ["INVALID_RANGE"]
+                        : undefined,
                     id: "GHSA-body-parser",
-                    matchedAffectedVersionRanges: ["< 2.0.0"],
-                    fixVersionsAboveResolved: ["2.0.0"],
-                    nearestFixedVersion: "2.0.0",
+                    matchedAffectedVersionRanges:
+                      args.advisory_scope === "unknown" ? [] : ["< 2.0.0"],
+                    fixVersionsAboveResolved:
+                      args.advisory_scope === "unknown" ? [] : ["2.0.0"],
+                    nearestFixedVersion:
+                      args.advisory_scope === "unknown" ? undefined : "2.0.0",
                   },
                 ],
               },

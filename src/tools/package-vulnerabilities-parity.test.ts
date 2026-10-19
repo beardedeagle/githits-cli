@@ -18,6 +18,7 @@
 // envelopes, and permissive validation cases.
 
 import { describe, expect, it, mock, spyOn } from "bun:test";
+import { stripVTControlCharacters } from "node:util";
 import type {
   PackageIntelligenceService,
   VulnerabilityReport,
@@ -119,12 +120,20 @@ function zeroVulnsReport(): VulnerabilityReport {
 function transitiveVulnerabilityReport(): VulnerabilityReport {
   const report = structuredClone(defaultVulnerabilityReport);
   report.transitive = {
+    affectedCount: 1,
+    nonAffectingCount: 0,
+    unknownCount: 0,
+    totalCount: 1,
     advisoryScope: "AFFECTED",
     totalPackagesAnalyzed: 2,
     packageCount: 1,
     occurrenceCount: 1,
     packages: [
       {
+        affectedCount: 1,
+        nonAffectingCount: 0,
+        unknownCount: 0,
+        totalCount: 1,
         registry: "NPM",
         name: "body-parser",
         occurrenceCount: 1,
@@ -149,6 +158,82 @@ function transitiveVulnerabilityReport(): VulnerabilityReport {
 }
 
 describe("package_vulnerabilities parity", () => {
+  it("uses identical non-affecting wording in CLI and MCP text", async () => {
+    const report = transitiveVulnerabilityReport();
+    report.security = {
+      affectedVulnerabilityCount: 1,
+      nonAffectingVulnerabilityCount: 1,
+      allVulnerabilityCount: 2,
+      currentVersionAffected: true,
+      vulnerabilities: [
+        {
+          osvId: "GHSA-direct-fixed",
+          affectsInspectedVersion: false,
+          assessmentStatus: "NON_AFFECTING",
+        },
+      ],
+    };
+    const audit = report.transitive!;
+    audit.advisoryScope = "NON_AFFECTING";
+    audit.affectedCount = 0;
+    audit.nonAffectingCount = 1;
+    const pkg = audit.packages[0]!;
+    pkg.affectedCount = 0;
+    pkg.nonAffectingCount = 1;
+    const occurrence = pkg.occurrences[0]!;
+    occurrence.affectsResolvedVersion = false;
+    occurrence.assessmentStatus = "NON_AFFECTING";
+    occurrence.matchedAffectedVersionRanges = [];
+    occurrence.fixVersionsAboveResolved = [];
+    delete occurrence.nearestFixedVersion;
+    const service = createMockPackageIntelligenceService({
+      packageVulnerabilities: mock(() => Promise.resolve(report)),
+    });
+    const writes: string[] = [];
+    const writeSpy = spyOn(process.stdout, "write").mockImplementation(
+      (chunk) => {
+        writes.push(String(chunk));
+        return true;
+      },
+    );
+    let cli: string;
+    try {
+      await pkgVulnsAction(
+        "npm:express",
+        { scope: "non_affecting", transitive: true, verbose: true },
+        cliDeps({ packageIntelligenceService: service }),
+      );
+      cli = stripVTControlCharacters(writes.join(""));
+    } finally {
+      writeSpy.mockRestore();
+    }
+    const tool = createParityMcpTool("pkg_vulns", {
+      packageIntelligenceService: service,
+    });
+    const result = await tool.handler(
+      {
+        target: "npm:express",
+        advisory_scope: "non_affecting",
+        include_transitive: true,
+        verbose: true,
+      },
+      {},
+    );
+    const mcp = result.content[0]?.text ?? "";
+    expect(result.isError).toBeUndefined();
+    expect(cli.replace(/\s+/g, " ").trim()).toBe(
+      mcp.replace(/\s+/g, " ").trim(),
+    );
+    for (const text of [cli, mcp]) {
+      expect(text).toContain("Scope   non-affecting advisories only");
+      expect(text).toContain("showing 1 non-affecting advisory\n");
+      expect(text).not.toContain("that do not affect this version");
+      expect(text).toContain("1 non-affecting advisory occurrence");
+      expect(text.match(/\[non-affecting\]/g)).toHaveLength(2);
+      expect(text).not.toContain("historical");
+    }
+  });
+
   it("PARITY-JSON-KEYS: happy path CLI === MCP", async () => {
     const packageVulnerabilities = mock(
       (
@@ -816,8 +901,41 @@ describe("direct unknown JSON parity", () => {
       ]),
     });
   });
-  it("rejects transitive unknown scope on both surfaces before calling the service", async () => {
-    const call = mock(async () => defaultVulnerabilityReport);
+  it("accepts transitive unknown scope identically on both surfaces", async () => {
+    const report = structuredClone(defaultVulnerabilityReport);
+    report.transitive = {
+      advisoryScope: "UNKNOWN",
+      totalPackagesAnalyzed: 2,
+      packageCount: 1,
+      occurrenceCount: 1,
+      affectedCount: 0,
+      nonAffectingCount: 0,
+      unknownCount: 1,
+      totalCount: 1,
+      packages: [
+        {
+          registry: "PYPI",
+          name: "unknown-only",
+          occurrenceCount: 1,
+          affectedCount: 0,
+          nonAffectingCount: 0,
+          unknownCount: 1,
+          totalCount: 1,
+          occurrences: [
+            {
+              version: "1.0",
+              affectsResolvedVersion: false,
+              assessmentStatus: "UNKNOWN",
+              assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+              matchedAffectedVersionRanges: [],
+              fixVersionsAboveResolved: [],
+              advisory: { osvId: "UNKNOWN-1" },
+            },
+          ],
+        },
+      ],
+    };
+    const call = mock(async () => report);
     const cli = await cliJson(
       "npm:express",
       { scope: "unknown", transitive: true },
@@ -835,16 +953,30 @@ describe("direct unknown JSON parity", () => {
       },
       call,
     );
+    expect(cli).toEqual(mcp.json);
     expect(cli).toMatchObject({
-      code: "INVALID_ARGUMENT",
-      error:
-        "--scope unknown is available for direct reports only; drop --transitive or use --scope affected, non_affecting or all.",
+      transitive: {
+        advisoryScope: "unknown",
+        summary: { unknownCount: 1, totalCount: 1 },
+        packages: [
+          {
+            occurrences: [
+              {
+                assessmentStatus: "UNKNOWN",
+                assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+              },
+            ],
+          },
+        ],
+      },
     });
-    expect(mcp.json).toMatchObject({
-      code: "INVALID_ARGUMENT",
-      error:
-        'advisory_scope="unknown" is available for direct reports only; omit include_transitive or use advisory_scope="affected", "non_affecting" or "all".',
-    });
-    expect(call).not.toHaveBeenCalled();
+    expect(call).toHaveBeenCalledTimes(2);
+    for (const [params] of call.mock.calls as unknown as Array<
+      [Record<string, unknown>]
+    >)
+      expect(params).toMatchObject({
+        advisoryScope: "UNKNOWN",
+        includeTransitive: true,
+      });
   });
 });
