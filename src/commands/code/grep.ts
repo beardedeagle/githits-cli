@@ -282,10 +282,11 @@ Use \`githits search\` for discovery; use \`githits code grep\` when you know th
 
 Addressing: <target> accepts registry:name[@version], github:org/repo[@ref], codeberg:owner/repo[@ref], gitlab:group[/subgroup...]/project[@ref],
 launchpad:~owner/+git/repo[@ref], launchpad:~owner/project/+git/repo[@ref],
-or launchpad:~owner/distro/+source/source/+git/repo[@ref] (lp: alias for complete paths).
+or launchpad:~owner/distro/+source/source/+git/repo[@ref] (lp:PROJECT also accepted).
 Full HTTPS repository URLs are accepted on github.com, codeberg.org, gitlab.com, git.launchpad.net or code.launchpad.net.
-Launchpad URLs require the same complete owner-qualified path, including
-git://git.launchpad.net. Short lp:PROJECT and short code/git URLs are unsupported.
+Launchpad also accepts lp:PROJECT and owner-scoped or distribution-source defaults.
+HTTPS code.launchpad.net and git.launchpad.net accept the same paths;
+git://git.launchpad.net requires a complete owner-qualified path.
 GitHub also accepts github.com/org/repo and HTTP. Alternatively, use --repo-url
 <url> [--git-ref <ref>]. Omitted package version means latest release.
 In target mode pass <target> <pattern> [path-prefix]; in --repo-url mode pass only <pattern> [path-prefix].

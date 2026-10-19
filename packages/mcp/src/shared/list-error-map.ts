@@ -13,11 +13,6 @@ import type {
   MappedErrorCode,
   MappedErrorDetails,
 } from "./mapped-error.js";
-import {
-  isRepositoryTargetSpec,
-  parseRepositoryTargetSpec,
-  UnsupportedLaunchpadShortcutError,
-} from "./repository-target.js";
 import { AuthRequiredError } from "./require-auth.js";
 import { mapSessionIdError } from "./session-id-error-map.js";
 import { mapTermsAcceptanceError } from "./terms-acceptance-error-map.js";
@@ -26,8 +21,6 @@ import { mapVersionRefRecovery } from "./version-ref-recovery.js";
 export interface ListErrorContext {
   /** True only when the normalized request carried a nonempty `after` cursor. */
   hasAfter: boolean;
-  /** Original target for actionable repository syntax diagnostics. */
-  target?: string;
 }
 
 /** Map a unified-list failure into the shared CLI and MCP error envelope. */
@@ -138,14 +131,6 @@ function mapGraphQLError(
     case "PACKAGE_INDEXING":
       return build("INDEXING", true);
     case "VALIDATION_ERROR": {
-      if (context?.target && isRepositoryTargetSpec(context.target)) {
-        try {
-          parseRepositoryTargetSpec(context.target);
-        } catch (targetError) {
-          if (targetError instanceof UnsupportedLaunchpadShortcutError)
-            return build("INVALID_ARGUMENT", false, targetError.message);
-        }
-      }
       return build(
         "INVALID_ARGUMENT",
         false,

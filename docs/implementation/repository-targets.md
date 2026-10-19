@@ -11,7 +11,7 @@ select providers or infer them from bare paths.
 | GitHub | `github:owner/repo` | `https://github.com/owner/repo` | `github.com/owner/repo` shorthand and HTTP |
 | Codeberg | `codeberg:owner/repo` | `https://codeberg.org/owner/repo` | Exactly two path components; HTTPS only |
 | GitLab | `gitlab:group[/subgroup...]/project` | `https://gitlab.com/group/subgroup/project` | Nested namespaces; HTTPS only |
-| Launchpad (owner-qualified Git only) | `launchpad:~owner/+git/repo` (see all forms below) | `https://git.launchpad.net/<complete-path>` | Case-insensitive `lp:`; HTTPS `code.launchpad.net` roots; `git://git.launchpad.net` on default/9418 port |
+| Launchpad Git | `lp:project` or `launchpad:~owner/+git/repo` (see below) | `https://git.launchpad.net/<complete-path>` | Case-insensitive `lp:`; HTTPS `code.launchpad.net` roots; complete `git://git.launchpad.net` roots on default/9418 port |
 
 Each form accepts an optional `@ref`. The first `@` in the repository path
 separates the repository identity from the ref; `/` and later `@` characters
@@ -43,11 +43,15 @@ Bare `owner/repo` never selects a provider.
 
 ## Launchpad Git targets
 
-This client admits complete owner-qualified Git paths only. Use an HTTPS URL
-containing that complete path, or one of these compact targets:
+Launchpad Git accepts project defaults and complete owner-qualified paths.
+Use `launchpad:` or case-insensitive `lp:` with any of these paths:
 
 | Repository | Target |
 | --- | --- |
+| Project default | `lp:project` |
+| Distribution-source default | `lp:distro/+source/source` |
+| Owner/project default | `lp:~owner/project` |
+| Owner/distribution-source default | `lp:~owner/distro/+source/source` |
 | Personal | `lp:~owner/+git/repo` |
 | Project | `lp:~owner/project/+git/repo` |
 | Distribution source | `lp:~owner/distro/+source/source/+git/repo` |
@@ -55,36 +59,30 @@ containing that complete path, or one of these compact targets:
 For example:
 
 ```sh
-githits list lp:~ubuntu-core-dev/software-properties/+git/software-properties
+githits list lp:beautifulsoup
+githits search func_file_conv --in lp:ubuntu/+source/hello --source code
 ```
 
-For these complete paths, `launchpad:` and case-insensitive `lp:` are
-interchangeable input prefixes; output uses `launchpad:`. Append `@ref` for a branch, tag or commit.
-Mutable shortcuts such as `lp:beautifulsoup`, `lp:~leonardr/beautifulsoup`,
-`https://code.launchpad.net/beautifulsoup` and
-`https://git.launchpad.net/beautifulsoup` are not supported yet. A URL advertised
-as a clone URL may itself be short, so copying it does not establish a complete
-repository identity.
-
-General Launchpad support must not be advertised until backend phase 2B and
-actual client shortcut admission are verified in the intended environment.
-The backend owns live `getByPath` acquisition; the CLI does not perform HTTP
-resolution or guess an owner. Resolver package suggestions do not establish a
-Git identity. Bazaar is unsupported.
+Append `@ref` for a branch, tag or commit. HTTPS URLs on either
+`git.launchpad.net` or `code.launchpad.net` accept the same paths. Short
+addresses select mutable Git defaults; the backend acquires their current
+owner-qualified repository. The CLI performs no Launchpad HTTP lookup and
+does not guess an owner. Bazaar is unsupported. Package association remains
+a separate backend capability.
 
 ### Parsing and service boundaries
 
-Unified list reuses the parser's shortcut diagnostic after backend validation
-fails; other failures retain backend guidance and metadata.
+Backend errors retain the actual missing/private/provider diagnosis; list
+no longer substitutes an obsolete "shortcuts unsupported" message.
 
 Paths preserve case. Namespace names begin with an ASCII letter/digit and may
 then contain letters/digits and `+._-`; repository names also allow `@`.
-A `.git` suffix is rejected.
+A `.git` suffix on a complete repository name is rejected; default namespace
+names follow the backend namespace grammar unchanged.
 
-Accepted URLs contain a complete owner-qualified Git path: HTTPS roots on
-`git.launchpad.net` or `code.launchpad.net`, and Git transport roots on
-`git.launchpad.net`
-(default port 9418). HTTPS defaults to port 443. HTTP,
+Git transport on `git.launchpad.net` accepts complete owner-qualified paths
+only (default port 9418); short Git-transport defaults are rejected. HTTPS
+defaults to port 443. HTTP,
 SSH, nondefault ports, credentials and browse subpaths are rejected.
 
 Split the first raw path `@` before decoding Launchpad repository components
@@ -100,7 +98,12 @@ parser into URL-only service arguments; they never send `lp:` in a repository
 URL field. Unified read/list/grep preserve compact targets byte-for-byte, so
 the backend continues to own code/docs/page-ID and fragment classification.
 Repository page IDs preserve encoded refs and paths. List `canonicalTarget`
-uses the canonical URL plus full SHA; compact read actions use `launchpad:`.
+uses the acquired canonical URL plus full SHA; compact read actions use
+`launchpad:` with the complete owner-qualified path. Output formatters never
+compact unresolved defaults into identities. Short correlation labels remain
+unformatted; the client does not infer their equivalence to a canonical identity. JSON correlation echoes remain lossless.
+Short addresses can be passed directly to navigation or to `resolve` for an
+exact backend lookup; complete identities bypass fuzzy resolution.
 
 Dev verification on 2026-10-19 returned nonretryable `RAW_DIFF_UNAVAILABLE`
 for unequal raw diffs; the backend owns availability.
@@ -231,6 +234,33 @@ could not access Keychain credentials, so authenticated checks used the built
 CLI/MCP with normal credential handling. The descriptor-only agent probe
 loaded `quick_start` and attempted Launchpad search, then hit `AUTH_REQUIRED`;
 this demonstrates routing only, not authenticated answer quality.
+
+Shortcut qualification followed the phase 2B backend deployment. The built CLI
+passed all four mutable forms using Beautiful Soup at
+`c772c5e6b335c1dbd8ee59a01ea6b75b272cd737` and GNU hello at the commit above:
+CURRENT list, exact-SHA read, positive grep/CODE/SYMBOL search, exact resolve,
+and unchanged emitted-action replay. Both HTTPS hosts and mixed-case `LP:`
+were exercised. Built stdio MCP passed list/read/grep/CODE/SYMBOL/resolve,
+equal diff and nonretryable unequal `RAW_DIFF_UNAVAILABLE`. Production passed
+short project/distribution-source list and symbol search for both repositories.
+
+Read JSON's top-level `repoUrl` may echo the normalized request address;
+`targetResolution.served.repoUrl` and `.commitSha` identify the acquired
+snapshot. Missing `4.15.O` returned REF_NOT_FOUND with canonical repository,
+requested ref, available HEAD and no suggested refs. These facts remain intact;
+no client retry action guesses shortcut identity equivalence. A missing project
+returned nonretryable `BACKEND_ERROR` with `REPOSITORY_NOT_FOUND` in
+`details.graphqlCode` and concrete typo/public-access guidance. The existing
+error envelope preserves that backend classification.
+
+The revised descriptor-only Codex probe started from `lp:software-properties`
+and `lp:ubuntu/+source/hello`, resolved exact owners, searched pinned commits
+and replayed emitted read actions. It first used the wrong `target` argument
+for `resolve_target`, then recovered using `name`. The run completed in 25.0s
+with nine MCP calls; its neutral answer cited canonical repositories, full SHAs
+and source lines, with reported high confidence. No isolation violation artifact
+was emitted. This is observed tool-use evidence, not an independently graded
+answer-quality score. The earlier qualified-only probe above remains historical.
 
 ## Review disposition (2026-09-07)
 

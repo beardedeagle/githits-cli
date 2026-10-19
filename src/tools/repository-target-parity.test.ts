@@ -42,6 +42,19 @@ const targets = [
     "https://git.launchpad.net/~Owner/Distro/+source/Source/+git/Repo",
   ],
   ["lP:~Owner/+git/Repo%402", "https://git.launchpad.net/~Owner/+git/Repo@2"],
+  ["lp:Project", "https://git.launchpad.net/Project"],
+  [
+    "LP:Distro/+source/Source",
+    "https://git.launchpad.net/Distro/+source/Source",
+  ],
+  [
+    "https://code.launchpad.net/~Owner/Project",
+    "https://git.launchpad.net/~Owner/Project",
+  ],
+  [
+    "https://git.launchpad.net/~Owner/Distro/+source/Source",
+    "https://git.launchpad.net/~Owner/Distro/+source/Source",
+  ],
 ] as const;
 
 describe("provider target consumer parity", () => {
@@ -52,9 +65,20 @@ describe("provider target consumer parity", () => {
       expect(resolveCliCodeNavTarget(spec, {})).toEqual(expected);
       expect(resolveCodeTarget(spec)).toEqual(expected);
       expect(parseUnifiedSearchTargetSpec(spec)).toEqual(expected);
-      expect(() =>
-        buildResolveTargetParams({ name: spec, includeDetailedFields: false }),
-      ).toThrow("does not need resolution");
+      const resolve = (): unknown =>
+        buildResolveTargetParams({ name: spec, includeDetailedFields: false });
+      if (
+        [
+          "lp:Project",
+          "LP:Distro/+source/Source",
+          "https://code.launchpad.net/~Owner/Project",
+          "https://git.launchpad.net/~Owner/Distro/+source/Source",
+        ].includes(compact)
+      ) {
+        expect(resolve()).toMatchObject({ name: spec });
+      } else {
+        expect(resolve).toThrow("does not need resolution");
+      }
     });
 
     it(`${compact} keeps CodeDiff endpoints separate from provider identity`, () => {
@@ -302,25 +326,6 @@ describe("provider target consumer parity", () => {
       }
     },
   );
-
-  it.each([
-    "lp:beautifulsoup",
-    "launchpad:beautifulsoup",
-    "LP:~Owner/beautifulsoup",
-    "https://code.launchpad.net/beautifulsoup",
-    "https://git.launchpad.net/beautifulsoup",
-    "https://code.launchpad.net/~Owner/beautifulsoup",
-    "https://git.launchpad.net/~Owner/beautifulsoup",
-  ])("keeps unsupported defaults %s unresolved", (target) => {
-    expect(() => parseUnifiedSearchTargetSpec(target)).toThrow();
-    expect(() =>
-      buildCodeDiffMcpParams({ target, from: "old", to: "new" }),
-    ).toThrow();
-    expect(
-      buildResolveTargetParams({ name: target, includeDetailedFields: false })
-        .name,
-    ).toBe(target);
-  });
 
   it.each([
     ["zig:gh/owner/repo", "ZIG", "gh/owner/repo"],

@@ -504,11 +504,11 @@ describe("createListTool", () => {
   });
 
   it.each(["text", "json"] as const)(
-    "explains Launchpad shortcuts in MCP %s",
+    "preserves backend shortcut failures in MCP %s",
     async (format) => {
       const list = mock(async (_params: ListParams): Promise<ListResult> => {
         throw new ListGraphQLError(
-          "Only supported public repository targets are accepted",
+          "Launchpad default has no public Git repository",
           "VALIDATION_ERROR",
         );
       });
@@ -522,9 +522,9 @@ describe("createListTool", () => {
           ? JSON.parse(output).error
           : output.replace(/\s+/g, " ");
       expect(result.isError).toBe(true);
-      expect(message).toContain("Launchpad shortcuts are not supported");
-      expect(message).toContain("complete Git target");
-      expect(message).toContain("lp:~owner/project/+git/repo");
+      expect(message).toContain(
+        "Launchpad default has no public Git repository",
+      );
       expect(list).toHaveBeenCalledTimes(1);
       expect(list.mock.calls[0]?.[0].target).toBe("LP:beautifulsoup");
       if (format === "json")

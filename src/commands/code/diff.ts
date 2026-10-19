@@ -313,7 +313,7 @@ glob. It supports *, ?, and an exact ** path component; it is not a full Git
 pathspec. A backslash escapes one following non-slash character.
 
 Target examples: \`npm:express\`, \`github:expressjs/express\`, or
-\`launchpad:~owner/+git/repo\` (\`lp:\` alias for complete paths); keep versions
+\`launchpad:~owner/+git/repo\` (\`lp:PROJECT\` also accepted); keep versions
 and refs in <from>..<to>. Empty diffs exit 0; suppressed patch output exits 1.
 Raw diffs do not prove upgrade safety.
 Patch output is applicable unified-diff content and may omit Git metadata such
@@ -344,7 +344,7 @@ export function registerCodeDiffCommand(
     )
     .option(
       "--repo-url <url>",
-      "Repository URL (GitHub, Codeberg, GitLab; Launchpad requires an owner-qualified Git path)",
+      "Repository URL (GitHub, Codeberg, GitLab, or Launchpad Git)",
     )
     .option("-p, --patch", "Emit bounded patches (default)")
     .option("--stat", "Emit per-file line statistics")

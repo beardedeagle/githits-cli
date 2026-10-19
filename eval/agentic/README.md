@@ -1286,8 +1286,9 @@ This targeted probe is outside the fixed named-suite inventory.
 
 ### Launchpad navigation probe
 
-`probes/launchpad-navigation.md` covers owner/project and distribution-source
-Launchpad Git navigation at fixed commits. Run with `--server local
+`probes/launchpad-navigation.md` covers project and distribution-source
+Launchpad Git shortcuts at fixed commits, requiring acquired canonical identities
+and emitted follow-up replay. Run with `--server local
 --guidance-profile descriptors --workload eval/agentic/probes/launchpad-navigation.md`
 and `GITHITS_ENV=dev` for development verification. Inspect raw tool calls,
 reported answer/confidence, metrics and isolation violations; harness success

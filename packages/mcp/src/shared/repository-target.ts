@@ -56,7 +56,7 @@ function validGitlabPath(parts: string[]): boolean {
   );
 }
 
-/** Launchpad accepts complete owner-qualified Git paths, never mutable defaults. */
+/** Canonical Launchpad identities require complete owner-qualified Git paths. */
 function validLaunchpadPath(parts: string[]): boolean {
   const owner = parts[0];
   if (!owner?.startsWith("~")) return false;
@@ -77,6 +77,28 @@ function validLaunchpadPath(parts: string[]): boolean {
     namespace.every((part) => LAUNCHPAD_NAMESPACE_PATTERN.test(part)) &&
     /^[A-Za-z0-9][A-Za-z0-9+._@-]*$/.test(repo) &&
     !repo.endsWith(".git")
+  );
+}
+
+/** Mutable defaults are request addresses; the backend acquires their identity. */
+function validLaunchpadDefaultPath(parts: string[]): boolean {
+  const owner = parts[0]?.startsWith("~");
+  const namespace = owner ? [parts[0]!.slice(1), ...parts.slice(1)] : parts;
+  if (owner) {
+    if (parts.length === 2)
+      return namespace.every((part) => LAUNCHPAD_NAMESPACE_PATTERN.test(part));
+    if (parts.length !== 4 || parts[2] !== "+source") return false;
+    return [namespace[0]!, namespace[1]!, namespace[3]!].every((part) =>
+      LAUNCHPAD_NAMESPACE_PATTERN.test(part),
+    );
+  }
+  if (parts.length === 1) return LAUNCHPAD_NAMESPACE_PATTERN.test(parts[0]!);
+  return (
+    parts.length === 3 &&
+    parts[1] === "+source" &&
+    [parts[0]!, parts[2]!].every((part) =>
+      LAUNCHPAD_NAMESPACE_PATTERN.test(part),
+    )
   );
 }
 
@@ -140,13 +162,10 @@ const PROVIDERS: readonly ProviderGrammar[] = Object.freeze([
   }),
 ]);
 const REPOSITORY_TARGET_ERROR =
-  "Repository target must be github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/+git/repo (lp: alias for complete paths), or an approved full HTTPS URL, with optional @gitRef suffix.";
+  "Repository target must be github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, lp:PROJECT, launchpad:~owner/+git/repo, or an approved full HTTPS URL, with optional @gitRef suffix.";
 
 /** Marker for callers that migrate only the retired repository ref spelling. */
 export class LegacyRepositoryRefError extends InvalidArgumentError {}
-
-/** Unsupported mutable-default spelling, distinct from other target failures. */
-export class UnsupportedLaunchpadShortcutError extends InvalidArgumentError {}
 
 /** Recognize explicit repository forms without guessing a provider. */
 export function normaliseRepositoryTargetSpec(
@@ -214,9 +233,18 @@ function parseRepositoryTarget(
   );
   if (!provider || (url.port && !(scheme === "git" && url.port === "9418")))
     throw new InvalidArgumentError(
-      "Repository URL targets must use github.com, codeberg.org, gitlab.com, or git.launchpad.net (code.launchpad.net owner-qualified Git roots also accepted); unsupported/self-hosted hosts and nondefault ports are not accepted.",
+      "Repository URL targets must use github.com, codeberg.org, gitlab.com, or git.launchpad.net (code.launchpad.net also accepted); unsupported/self-hosted hosts and nondefault ports are not accepted.",
     );
-  const guidance = `Use ${provider.prefix}${provider.path} with optional @gitRef, or https://${provider.host}/${provider.path}.`;
+  const guidance =
+    provider.prefix === "launchpad:"
+      ? "Use lp:PROJECT or lp:~owner/project/+git/repo, with optional @ref."
+      : `Use ${provider.prefix}${provider.path} with optional @gitRef, or https://${provider.host}/${provider.path}.`;
+  const validPath = (parts: string[]): boolean =>
+    provider.validatePath(parts) ||
+    (provider.prefix === "launchpad:" &&
+      mode === "target" &&
+      scheme === "https" &&
+      validLaunchpadDefaultPath(parts));
   if (provider.prefix === "launchpad:" && authority.endsWith(":"))
     throw new InvalidArgumentError(
       `Repository ports must be nonempty. ${guidance}`,
@@ -246,7 +274,7 @@ function parseRepositoryTarget(
       nextHash === -1 &&
       (at === -1 || hash < at) &&
       mode === "target" &&
-      provider.validatePath(repositoryPathParts(legacyPath, provider))
+      validPath(repositoryPathParts(legacyPath, provider))
     ) {
       const legacy = spec.trim();
       const migrated = `${legacy.slice(0, legacy.indexOf("#"))}@${legacy.slice(
@@ -270,17 +298,10 @@ function parseRepositoryTarget(
       `Repository refs must be nonempty. ${guidance}`,
     );
   const parts = repositoryPathParts(path, provider);
-  if (!provider.validatePath(parts)) {
-    if (
-      provider.prefix === "launchpad:" &&
-      ((parts.length === 1 &&
-        LAUNCHPAD_NAMESPACE_PATTERN.test(parts[0] ?? "")) ||
-        (parts.length === 2 &&
-          parts[0]?.startsWith("~") &&
-          LAUNCHPAD_NAMESPACE_PATTERN.test(parts[1] ?? "")))
-    )
-      throw new UnsupportedLaunchpadShortcutError(
-        "Launchpad shortcuts are not supported yet. Use a complete Git target, such as lp:~owner/project/+git/repo.",
+  if (!validPath(parts)) {
+    if (provider.prefix === "launchpad:")
+      throw new InvalidArgumentError(
+        `Invalid Launchpad Git target. ${guidance}`,
       );
     if (provider.prefix === "github:" && parts.length === 2)
       throw new InvalidArgumentError(
@@ -292,6 +313,16 @@ function parseRepositoryTarget(
   }
   const repoUrl = `https://${provider.host}/${parts.join("/")}`;
   return gitRef === undefined ? { repoUrl } : { repoUrl, gitRef };
+}
+
+/** A mutable request address is not a canonical repository identity. */
+export function isCanonicalRepositoryUrl(repoUrl: string): boolean {
+  try {
+    parseRepositoryTarget(repoUrl, "url");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Format only validated repository identities; unknown URLs remain unchanged. */
@@ -350,7 +381,7 @@ export function formatRepositoryTargetLabel(
 ): string | undefined {
   if (isRepositoryTargetSpec(label)) {
     const parsed = parseRepositoryOutputLabel(label);
-    if (parsed?.repoUrl) {
+    if (parsed?.repoUrl && isCanonicalRepositoryUrl(parsed.repoUrl)) {
       return formatRepositoryTarget(parsed.repoUrl, parsed.gitRef);
     }
     return undefined;
@@ -382,6 +413,6 @@ export function buildInvalidTargetSpecError(
   return new InvalidArgumentError(
     `${prefix}Expected package target <registry>:<name>[@<version>] (supported registries: ${KNOWN_REGISTRIES.join(
       ", ",
-    )}) or repository target github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/+git/repo (lp: alias for complete paths) with optional @ref (approved full HTTPS URLs also accepted; GitHub additionally supports github.com/owner/repo and HTTP).`,
+    )}) or repository target github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, lp:PROJECT, or launchpad:~owner/+git/repo with optional @ref (approved full HTTPS URLs also accepted; GitHub additionally supports github.com/owner/repo and HTTP).`,
   );
 }
