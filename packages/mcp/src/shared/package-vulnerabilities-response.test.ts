@@ -1886,7 +1886,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       useColors: false,
     });
     expect(output).toBe(
-      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (2 non-affecting advisories do not apply).\n",
+      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (2 advisories do not apply).\n",
     );
   });
 
@@ -1900,7 +1900,7 @@ describe("formatPackageVulnerabilitiesTerminal", () => {
       useColors: false,
     });
     expect(output).toBe(
-      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (1 non-affecting advisory does not apply).\n",
+      "clean @ 1.0.0 | npm\nNo active vulnerabilities affect this version (1 advisory does not apply).\n",
     );
   });
 

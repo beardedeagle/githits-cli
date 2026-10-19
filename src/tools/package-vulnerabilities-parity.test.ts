@@ -161,10 +161,10 @@ describe("package_vulnerabilities parity", () => {
   it("uses identical non-affecting wording in CLI and MCP text", async () => {
     const report = transitiveVulnerabilityReport();
     report.security = {
-      affectedVulnerabilityCount: 0,
+      affectedVulnerabilityCount: 1,
       nonAffectingVulnerabilityCount: 1,
-      allVulnerabilityCount: 1,
-      currentVersionAffected: false,
+      allVulnerabilityCount: 2,
+      currentVersionAffected: true,
       vulnerabilities: [
         {
           osvId: "GHSA-direct-fixed",
@@ -226,6 +226,8 @@ describe("package_vulnerabilities parity", () => {
     );
     for (const text of [cli, mcp]) {
       expect(text).toContain("Scope   non-affecting advisories only");
+      expect(text).toContain("showing 1 non-affecting advisory\n");
+      expect(text).not.toContain("that do not affect this version");
       expect(text).toContain("1 non-affecting advisory occurrence");
       expect(text.match(/\[non-affecting\]/g)).toHaveLength(2);
       expect(text).not.toContain("historical");

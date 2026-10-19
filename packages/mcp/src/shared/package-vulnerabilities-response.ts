@@ -1313,10 +1313,7 @@ function formatNoAffectedVulnerabilitiesLine(
   }
   const nonAffecting = payload.summary.nonAffectingVulnerabilityCount ?? 0;
   if (nonAffecting > 0) {
-    const noun =
-      nonAffecting === 1
-        ? "non-affecting advisory"
-        : "non-affecting advisories";
+    const noun = nonAffecting === 1 ? "advisory" : "advisories";
     const verb = nonAffecting === 1 ? "does" : "do";
     return `No active vulnerabilities affect this version (${nonAffecting} ${noun} ${verb} not apply).`;
   }
@@ -1330,7 +1327,7 @@ function formatSelectedAdvisoryCountLine(
   if (scope === undefined) return undefined;
   const noun = count === 1 ? "advisory" : "advisories";
   if (scope === "non_affecting") {
-    return `  showing ${count} non-affecting ${noun} that do not affect this version`;
+    return `  showing ${count} non-affecting ${noun}`;
   }
   if (scope === "all") {
     return `  showing ${count} package ${noun} across affected, non-affecting and unknown scopes`;
