@@ -243,7 +243,8 @@ CURRENT list, exact-SHA read, positive grep/CODE/SYMBOL search, exact resolve,
 and unchanged emitted-action replay. Both HTTPS hosts and mixed-case `LP:`
 were exercised. Built stdio MCP passed list/read/grep/CODE/SYMBOL/resolve,
 equal diff and nonretryable unequal `RAW_DIFF_UNAVAILABLE`. Production passed
-short project/distribution-source list and symbol search for both repositories.
+all four default shapes through list and project/distribution-source symbol
+search for both repositories.
 
 Read JSON's top-level `repoUrl` may echo the normalized request address;
 `targetResolution.served.repoUrl` and `.commitSha` identify the acquired

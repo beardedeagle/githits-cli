@@ -99,7 +99,7 @@ Red tests will be formatted with the completed implementation before commit.
   passes defaults to backend exact lookup. Output labels stay canonical-only.
 - Removed obsolete shortcut error/remapping. Invalid Launchpad path guidance
   is now two short sentences. No resolver, HTTP client, dependency or new API fields.
-- Focused: 568 tests/7 files and 237 tests/10 files passed. Full `bun test`: 
+- Focused: 568 tests/7 files and 237 tests/10 files passed. Full `bun test`:
   6,442 pass, zero fail across 245 files in 39.35s. Typecheck/build passed.
 - Plugin generation/check and source CLI/MCP smoke passed; source live cohorts
   skipped AUTH_REQUIRED in isolated homes, separate normal-profile built checks
@@ -139,3 +139,8 @@ No new resolver, fallback or infrastructure. Reverification passed: 719 tests/6 
 smokes (unauth contracts; live AUTH_REQUIRED skips). Built missing-ref search
 returned canonical repository/ref guidance without composed short retry.
 Round2 review pending.
+
+Production owner/project and owner/distribution-source HTTPS list checks also
+passed CURRENT canonical resolution, completing all four default shapes in
+production. Internal round2 preflight has no code findings; its one trailing
+space note is fixed.
