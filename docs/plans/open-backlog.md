@@ -87,16 +87,16 @@ identity stays `crates` / `CRATES`. See
 Authenticated dev verification distinguishes two endpoints:
 
 - Parallel AKS, `https://oss-aks-dev.githits.dev`, passes alias/canonical identity,
-  package metadata and forwarded inventory/read/grep (backend coordinator evidence).
+  package metadata and forwarded inventory/read/grep (separate authenticated backend evidence).
   Current built CLI and local MCP also passed 20 paired metadata/search/list/read/
   grep calls using the existing dev credential profile. Metadata/search/read JSON
   matched exactly; list differed only in requestedTarget, grep only in two raw
   target labels. All five payloads matched CLI/MCP for each spelling.
 - Canonical dev, `https://oss-dev.githits.dev`, passed `crates` but rejected raw
-  `cargo` with `VALIDATION_ERROR` / invalid_format in the backend coordinator's
+  `cargo` with `VALIDATION_ERROR` / invalid_format in separate authenticated backend
   checks. Parallel AKS evidence does not establish canonical dev readiness or
-  production/hosted availability. A failed automatic dev deploy was reported;
-  no deployment or routing change was made by this client task.
+  production/hosted availability. No deployment or routing change was made by this
+  client task.
 
 Client source evidence was pinned to `serde@1.0.228`, served SHA
 `a866b336f14aa57a07f0d0be9f8762746e64ecb4`: search had five code hits and hasMore;

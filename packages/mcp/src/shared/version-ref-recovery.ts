@@ -1,7 +1,7 @@
 import {
   parsePkgseerRegistryArg,
   type VersionRefRecovery,
-} from "@githits/core-internal";
+} from "@githits/core-internal/browser";
 import type { MappedError, MappedErrorDetails } from "./mapped-error.js";
 import { parseRepositoryTargetSpec } from "./repository-target.js";
 import { shellQuoteExact } from "./shell-quote.js";

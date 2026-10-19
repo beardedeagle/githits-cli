@@ -266,3 +266,33 @@ CLI `Try: githits pkg deps crates:serde@1.0.229 --json`; MCP
 Runner /tmp/cargo-current-recovery-verify.mjs, proof
 /tmp/cargo-current-recovery-verification-summary.json. No broad happy-path rerun
 or direct GraphQL duplication. External code round2 and final delivery remain.
+
+## Rebase integration and browser-boundary closure
+
+Code round2 (full delta039a489) and final fresh-context check were clean. Applied
+minor neutral-backlog wording note. New main db500f2 (research GA) rebased cleanly;
+`git range-diff 635b9c3..039a489 db500f2..60b015e` marks all3commits identical.
+Overlapping smoke/recovery tests220pass/551expects/3files, typecheck pass. Happy-
+path AKS proof remains applicable; no broad rerun or deployment.
+
+Package validation after rebase failed: packed @githits/mcp/tools browser probe
+resolved buffer/crypto/events/node:crypto/stream/util/vm. Root cause: the recovery
+helper's new runtime parser import used the full core entrypoint on public tool
+factory error paths. The prior public get-example factory already imported this
+shared error helper; attributing the failure specifically to research GA would be
+unsupported. The new runtime import should have received the packed browser check
+immediately after F1; the post-rebase validation caught it. Core browser
+entrypoint naturally owns this boundary and already exports parser and recovery
+types. Switched only that import to @githits/core-internal/browser; no logic,
+module ownership, API or infrastructure change. Bounded sibling scan: newly
+introduced parser runtime imports on public browser factory dependency paths;
+other introduced browser-facing parser imports use browser entrypoint. Package
+summary/deps/etc builders are not exported by the public tools factory entrypoint.
+Plan retirement restored until new code review is clean; review round3 is next
+(maximum), with exact package/affected regression evidence to follow.
+
+Browser closure validation: `bunx biome check packages/mcp/src/shared/version-ref-recovery.ts`,
+`bun run typecheck`, and `bun test packages/mcp/src/shared/version-ref-recovery.test.ts packages/mcp/src/tools/research.test.ts` passed (80 tests, 225 expectations).
+`bun run validate:packages` passed on the revised import, including builds, packed
+external consumers, browser surfaces and private alias checks. Existing live
+happy/error evidence remains applicable; no additional backend probes.

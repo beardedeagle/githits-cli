@@ -21,7 +21,9 @@ Navigation, search, changelog and diff inherit compact normalization. Presentati
 recognizes retained Cargo labels as packages and constructs canonical package
 actions through package-spec. The deprecated code-files command uses shared prefix
 admission for its conflicting `--repo-url` positional check, even for malformed
-package-looking input.
+package-looking input. Version/ref recovery uses the same spelling parser to match
+caller operands against canonical backend identities before building retry actions,
+preserving version ranges and semantic fragments.
 
 Unified read/list/grep intentionally preserve target bytes for backend parsing;
 raw request/replay/attribution labels may retain `cargo:`. Do not duplicate address
