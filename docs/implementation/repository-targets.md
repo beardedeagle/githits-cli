@@ -168,9 +168,10 @@ Launchpad CLI skill/reference updates follow the release lifecycle in
 Generate and check plugin assets from canonical inputs; no manifest content
 change is needed when metadata is unchanged.
 
-The qualified-input fragment records pending minor impact for `githits` and
-`@githits/mcp`; it does not close the shortcut advertising gate above. Hosted users receive MCP changes after the package is released,
-adopted by `remote-mcp`, and deployed there.
+The shortcuts fragment records pending minor impact for `githits` and
+`@githits/mcp`, superseding the qualified-only shortcut restriction. Hosted users
+receive MCP changes after the package is released, adopted by `remote-mcp`, and
+deployed there.
 
 ## Verification
 
@@ -248,7 +249,9 @@ Read JSON's top-level `repoUrl` may echo the normalized request address;
 `targetResolution.served.repoUrl` and `.commitSha` identify the acquired
 snapshot. Missing `4.15.O` returned REF_NOT_FOUND with canonical repository,
 requested ref, available HEAD and no suggested refs. These facts remain intact;
-no client retry action guesses shortcut identity equivalence. A missing project
+no client retry action guesses shortcut identity equivalence. Search composes
+ref-alternative retry targets only from complete canonical identities; backend
+alternatives remain visible for unresolved short addresses. A missing project
 returned nonretryable `BACKEND_ERROR` with `REPOSITORY_NOT_FOUND` in
 `details.graphqlCode` and concrete typo/public-access guidance. The existing
 error envelope preserves that backend classification.

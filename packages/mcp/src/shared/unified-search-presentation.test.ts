@@ -398,6 +398,50 @@ describe("projectUnifiedSearchPresentation", () => {
     expect(presentation.action).not.toHaveProperty("searchRef");
   });
 
+  it.each([
+    ["lp:beautifulsoup@4.15.O", undefined],
+    ["https://code.launchpad.net/beautifulsoup@4.15.O", undefined],
+    [
+      "launchpad:~leonardr/beautifulsoup/+git/beautifulsoup@4.15.O",
+      "launchpad:~leonardr/beautifulsoup/+git/beautifulsoup@HEAD",
+    ],
+    ["github:owner/repo@bad", "github:owner/repo@HEAD"],
+  ] as const)(
+    "composes ref alternatives only for canonical identity %s",
+    (target, expected) => {
+      const presentation = projectUnifiedSearchPresentation(
+        completed({
+          results: [],
+          sourceStatus: [
+            source({
+              targetLabel: target,
+              codeIndexState: "UNRESOLVABLE",
+              resultCount: 0,
+              targetResolution: {
+                availableVersions: [],
+                availableRefs: [{ ref: "HEAD" }],
+                suggestedRefs: [],
+              },
+            }),
+          ],
+        }),
+      );
+      const group = presentation.targetGroups[0];
+      expect(group?.alternatives?.refs).toEqual([{ ref: "HEAD" }]);
+      if (expected)
+        expect(group?.recovery).toMatchObject({
+          kind: "try",
+          category: "ref",
+          target: expected,
+        });
+      else
+        expect(group?.recovery).toEqual({
+          kind: "fix",
+          family: "repository",
+        });
+    },
+  );
+
   it("terminal target recovery keeps a registry target as package with repo resolution", () => {
     const presentation = projectUnifiedSearchPresentation(
       completed({

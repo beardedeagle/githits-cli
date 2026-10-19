@@ -121,3 +121,21 @@ A missing public project returned nonretryable BACKEND_ERROR with underlying
 REPOSITORY_NOT_FOUND in details.graphqlCode and concrete typo/public-access
 guidance. Existing mapping and all backend facts are preserved. Internal
 implementation preflight reviewed full delta clean, including backend grammar.
+
+## Implementation review round 1 closure
+
+Direction sound. F1 accepted (low): search ref-alternative composition reused
+the permissive input parser, allowing a newly composed mutable URL retry. Root
+invariant is output identities must be canonical. Added the existing predicate
+to composeRepositoryTarget plus red/green short-prefix/short-HTTPS/canonical
+Launchpad/GitHub tests; alternatives remain visible, short inputs get repository-fix
+guidance. Bounded sibling scan: all shared parser consumers, target label
+formatting, source-provenance/target-resolution and direct repository format
+calls. Remaining parser sites classify/extract refs; snapshot formatting uses
+backend served identities, version-ref retry requires matching canonical URL.
+F2/F3 accepted: corrected cli-commands' two stale paragraphs/example and the
+removed advertising-gate reference. Scanned docs/src/MCP for that stale wording.
+No new resolver, fallback or infrastructure. Reverification passed: 719 tests/6 files, typecheck/build, source CLI/MCP
+smokes (unauth contracts; live AUTH_REQUIRED skips). Built missing-ref search
+returned canonical repository/ref guidance without composed short retry.
+Round2 review pending.
