@@ -589,8 +589,9 @@ When a new tool lands with both MCP and CLI surfaces:
   `vulnerabilities.total` is latest-version affectedness and
   `advisoryHistory.total` is package-wide non-withdrawn, deduplicated history.
   History remains renderable when the nullable latest count is unavailable.
-- **Registry repository.** Both text surfaces add the same `Registry repo` row
-  when selected-release acquisition evidence matches the displayed version.
+- **Package registry.** Both text surfaces add the same `Package registry` row
+  after `Repository` when selected-release acquisition evidence matches the
+  displayed version.
   Both JSON surfaces preserve the generic `registryRepository: {id,name,url}`
   descriptor; unknown evidence is omitted. Existing overview/history fields and
   latest-only validation remain unchanged. Dependency/vulnerability JSON retain

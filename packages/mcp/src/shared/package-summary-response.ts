@@ -418,13 +418,6 @@ function buildFieldList(
 ): string[] {
   const fields: LabelledField[] = [];
 
-  if (lean.registryRepository) {
-    fields.push({
-      label: "Registry repo",
-      value: `${lean.registryRepository.name} (${colorize(lean.registryRepository.url, "cyan", useColors)})`,
-    });
-  }
-
   if (lean.repository) {
     const repositoryParts = [colorize(lean.repository, "cyan", useColors)];
     const githubPopularity = formatGithubPopularity(lean.github);
@@ -438,6 +431,12 @@ function buildFieldList(
     if (githubPopularity) {
       fields.push({ label: "GitHub", value: githubPopularity });
     }
+  }
+  if (lean.registryRepository) {
+    fields.push({
+      label: "Package registry",
+      value: `${lean.registryRepository.name} (${colorize(lean.registryRepository.url, "cyan", useColors)})`,
+    });
   }
   if (lean.homepage) {
     fields.push({

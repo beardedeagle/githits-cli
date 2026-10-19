@@ -365,11 +365,11 @@ describe("registry repository CLI/MCP parity", () => {
       const result = await tool.handler({ target: "npm:express" }, {});
       for (const text of [writes.join(""), result.content[0]?.text ?? ""]) {
         if (registryRepository) {
-          expect(text).toContain("Registry repo");
+          expect(text).toMatch(/^Repository[^\n]*\nPackage registry\s+/m);
           expect(text).toContain(registryRepository.name);
           expect(text).toContain(registryRepository.url);
         } else {
-          expect(text).not.toContain("Registry repo");
+          expect(text).not.toContain("Package registry");
         }
         expect(text).toContain("History:");
         expect(text).toContain("Repository");

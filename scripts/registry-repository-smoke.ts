@@ -111,11 +111,11 @@ try {
       assert(text.includes("Vulnerabilities"));
       assert(text.includes("History:"));
       if (test.repository) {
-        assert(text.includes("Registry repo"));
+        assert(text.includes("Package registry"));
         assert(text.includes(test.repository.name));
         assert(text.includes(test.repository.url));
       } else {
-        assert(!text.includes("Registry repo"));
+        assert(!text.includes("Package registry"));
       }
     }
     console.log(

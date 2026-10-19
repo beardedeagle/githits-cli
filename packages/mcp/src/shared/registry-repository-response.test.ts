@@ -49,11 +49,11 @@ describe("registry repository presentation", () => {
 
       const text = formatPackageSummaryTerminal(summary, { useColors: false });
       if (registryRepository) {
-        expect(text).toMatch(/Registry repo\s+/);
+        expect(text).toMatch(/^Repository[^\n]*\nPackage registry\s+/m);
         expect(text).toContain(registryRepository.name);
         expect(text).toContain(registryRepository.url);
       } else {
-        expect(text).not.toContain("Registry repo");
+        expect(text).not.toContain("Package registry");
         expect("registryRepository" in json).toBe(false);
       }
       expect(text).toContain("https://github.com/expressjs/express");
