@@ -5,7 +5,7 @@ import {
   PackageIntelligenceBackendError,
   PackageIntelligenceServiceImpl,
 } from "./package-intelligence-service.js";
-import { createMockTokenProvider } from "./test-helpers.js";
+import { abortDuringRequest, createMockTokenProvider } from "./test-helpers.js";
 
 function statement(position = 0, classified = true, json = false) {
   return {
@@ -73,13 +73,26 @@ function page(
     coverage: cov,
   };
 }
-function setup(pages: unknown[], params: Partial<PackageChangelogParams> = {}) {
+interface CancelAt {
+  /** Zero-based request index at which the caller cancels. */
+  request: number;
+  controller: AbortController;
+  reason: unknown;
+}
+function setup(
+  pages: unknown[],
+  params: Partial<PackageChangelogParams> = {},
+  cancel?: CancelAt,
+) {
   const requests: { query: string; variables: Record<string, unknown> }[] = [];
   const fetchFn = mock(
     async (_url: unknown, init?: RequestInit): Promise<Response> => {
       const request = JSON.parse(String(init?.body));
       requests.push(request);
       const index = requests.length - 1;
+      if (cancel?.request === index) {
+        return abortDuringRequest(cancel.controller, cancel.reason, init);
+      }
       const metadata =
         index === 0
           ? {
@@ -129,11 +142,14 @@ function setup(pages: unknown[], params: Partial<PackageChangelogParams> = {}) {
     requests,
     fetchFn,
     call: () =>
-      service.packageChangelog({
-        registry: "NPM",
-        packageName: "example",
-        ...params,
-      }),
+      service.packageChangelog(
+        {
+          registry: "NPM",
+          packageName: "example",
+          ...params,
+        },
+        ...(cancel ? [{ signal: cancel.controller.signal }] : []),
+      ),
   };
 }
 
@@ -247,6 +263,31 @@ describe("complete changelog pagination", () => {
         expect(run.requests[1]?.query).not.toContain(field);
     },
   );
+
+  it("aborts a later statement page when the caller cancels", async () => {
+    const controller = new AbortController();
+    const reason = new Error("caller cancelled on statement page two");
+    const run = setup(
+      [
+        page(
+          Array.from({ length: 100 }, (_, i) => statement(i)),
+          201,
+        ),
+        page(
+          Array.from({ length: 100 }, (_, i) => statement(100 + i)),
+          201,
+          100,
+        ),
+        page([statement(200)], 201, 200),
+      ],
+      {},
+      { request: 1, controller, reason },
+    );
+
+    await expect(run.call()).rejects.toBe(reason);
+    expect(run.fetchFn).toHaveBeenCalledTimes(2);
+    expect(run.fetchFn.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
+  });
 
   it("allows answers arriving between all-mode pages and reports only collected assessment", async () => {
     const run = setup([

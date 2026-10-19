@@ -124,4 +124,59 @@ describe("executeWithTokenRefresh", () => {
     ).resolves.toBe("ok:refreshed");
     expect(executeWithToken).toHaveBeenCalledTimes(2);
   });
+  it("surfaces the caller reason when token lookup rejects after an abort", async () => {
+    const controller = new AbortController();
+    const reason = new Error("cancelled during token lookup");
+    const executeWithToken = mock(() => Promise.resolve("unexpected"));
+
+    await expect(
+      executeWithTokenRefresh({
+        getToken: async () => {
+          controller.abort(reason);
+          throw new Error("token store unavailable");
+        },
+        forceRefresh: mock(() => Promise.resolve("refreshed")),
+        executeWithToken,
+        shouldRefresh: () => true,
+        signal: controller.signal,
+      }),
+    ).rejects.toBe(reason);
+    expect(executeWithToken).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the caller reason when refresh rejects after an abort", async () => {
+    const controller = new AbortController();
+    const reason = new Error("cancelled during refresh");
+    const executeWithToken = mock(() =>
+      Promise.reject(new AuthenticationError()),
+    );
+
+    await expect(
+      executeWithTokenRefresh({
+        getToken: () => Promise.resolve("token"),
+        forceRefresh: async () => {
+          controller.abort(reason);
+          throw new Error("refresh endpoint unavailable");
+        },
+        executeWithToken,
+        shouldRefresh: () => true,
+        signal: controller.signal,
+      }),
+    ).rejects.toBe(reason);
+    expect(executeWithToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps token-provider errors when the caller is still active", async () => {
+    const providerError = new Error("token store unavailable");
+
+    await expect(
+      executeWithTokenRefresh({
+        getToken: () => Promise.reject(providerError),
+        forceRefresh: mock(() => Promise.resolve("refreshed")),
+        executeWithToken: mock(() => Promise.resolve("unexpected")),
+        shouldRefresh: () => true,
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toBe(providerError);
+  });
 });

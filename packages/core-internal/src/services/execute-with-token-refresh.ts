@@ -24,7 +24,7 @@ export async function executeWithTokenRefresh<T>(
 ): Promise<T> {
   const { signal } = options;
   signal?.throwIfAborted();
-  const token = await options.getToken();
+  const token = await callerFirst(signal, () => options.getToken());
   signal?.throwIfAborted();
   if (!token) {
     throw new AuthenticationError(
@@ -45,12 +45,30 @@ export async function executeWithTokenRefresh<T>(
       throw error;
     }
 
-    const refreshedToken = await options.forceRefresh();
+    const refreshedToken = await callerFirst(signal, () =>
+      options.forceRefresh(),
+    );
     signal?.throwIfAborted();
     if (!refreshedToken) {
       throw error;
     }
 
     return options.executeWithToken(refreshedToken);
+  }
+}
+
+/**
+ * Run a token-provider step so that a caller abort wins over the provider's
+ * own failure: once the caller has cancelled, its reason is what surfaces.
+ */
+async function callerFirst<T>(
+  signal: AbortSignal | undefined,
+  step: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await step();
+  } catch (error) {
+    signal?.throwIfAborted();
+    throw error;
   }
 }

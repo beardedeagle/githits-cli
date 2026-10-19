@@ -17,7 +17,7 @@ import {
   PackageIntelligenceVersionNotFoundError,
 } from "./package-intelligence-service.js";
 import type { ServiceDiagnostics } from "./runtime-diagnostics.js";
-import { createMockTokenProvider } from "./test-helpers.js";
+import { abortDuringRequest, createMockTokenProvider } from "./test-helpers.js";
 
 function asFetchFn<T extends (...args: never[]) => unknown>(
   fn: T,
@@ -1731,6 +1731,93 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
       totalPackagesAnalyzed: 4,
       packageCount: 1,
       occurrenceCount: 2,
+    });
+  });
+
+  describe("caller cancellation during follow-up requests", () => {
+    function pagedVulnerabilityBodies() {
+      const firstPage = structuredClone(VULNS_HAPPY_BODY);
+      const security = firstPage.data.packageVulnerabilities.security;
+      if (!security) throw new Error("fixture missing security block");
+      const pageInfo = security.advisories.pageInfo as {
+        hasNextPage: boolean;
+        endCursor: string | null;
+        totalCount: number;
+      };
+      pageInfo.hasNextPage = true;
+      pageInfo.endCursor = "cursor-1";
+      pageInfo.totalCount = 3;
+      const secondPage = structuredClone(VULNS_HAPPY_BODY);
+      const secondSecurity = secondPage.data.packageVulnerabilities.security;
+      const firstEntry = security.advisories.entries[0];
+      if (!secondSecurity || !firstEntry) {
+        throw new Error("fixture missing advisory entries");
+      }
+      secondSecurity.advisories.entries = [firstEntry];
+      secondSecurity.advisories.pageInfo = {
+        hasNextPage: false,
+        endCursor: null,
+        totalCount: 3,
+      };
+      return { firstPage, secondPage };
+    }
+
+    it("aborts a later advisory page and stops paginating", async () => {
+      const controller = new AbortController();
+      const reason = new Error("caller cancelled on page two");
+      const { firstPage } = pagedVulnerabilityBodies();
+      const fetchFn = mock((_url: string, init?: RequestInit) => {
+        const body = JSON.parse((init?.body as string | undefined) ?? "{}");
+        if (body.variables.after === "cursor-1") {
+          return abortDuringRequest(controller, reason, init);
+        }
+        return Promise.resolve(jsonResponse(firstPage));
+      });
+      const service = new PackageIntelligenceServiceImpl(
+        ENDPOINT,
+        createMockTokenProvider(),
+        asFetchFn(fetchFn),
+      );
+
+      await expect(
+        service.packageVulnerabilities(
+          { registry: "NPM", packageName: "express", includeTransitive: true },
+          { signal: controller.signal },
+        ),
+      ).rejects.toBe(reason);
+      expect(fetchFn).toHaveBeenCalledTimes(2);
+      expect(fetchFn.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
+    });
+
+    it("aborts the transitive audit after direct pagination", async () => {
+      const controller = new AbortController();
+      const reason = new Error("caller cancelled during transitive audit");
+      const { firstPage, secondPage } = pagedVulnerabilityBodies();
+      const fetchFn = mock((_url: string, init?: RequestInit) => {
+        const body = JSON.parse((init?.body as string | undefined) ?? "{}");
+        if (body.query.includes("PackageTransitiveVulnerabilityAudit")) {
+          return abortDuringRequest(controller, reason, init);
+        }
+        return Promise.resolve(
+          jsonResponse(
+            body.variables.after === "cursor-1" ? secondPage : firstPage,
+          ),
+        );
+      });
+      const service = new PackageIntelligenceServiceImpl(
+        ENDPOINT,
+        createMockTokenProvider(),
+        asFetchFn(fetchFn),
+      );
+
+      await expect(
+        service.packageVulnerabilities(
+          { registry: "NPM", packageName: "express", includeTransitive: true },
+          { signal: controller.signal },
+        ),
+      ).rejects.toBe(reason);
+      expect(fetchFn).toHaveBeenCalledTimes(3);
+      expect(fetchFn.mock.calls[2]?.[1]?.signal?.aborted).toBe(true);
     });
   });
 

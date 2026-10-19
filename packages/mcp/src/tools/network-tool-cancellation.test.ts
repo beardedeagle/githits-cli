@@ -1,5 +1,9 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { ServiceRequestOptions } from "@githits/core-internal";
+import {
+  ListServiceImpl,
+  type ServiceRequestOptions,
+  type TokenProvider,
+} from "@githits/core-internal";
 import {
   createMockCodeNavigationService,
   createMockPackageIntelligenceService,
@@ -182,5 +186,70 @@ describe("network-backed MCP tools forward caller cancellation", () => {
         signal: controller.signal,
       });
     });
+  });
+});
+
+describe("caller cancellation wins over token-provider failures", () => {
+  function unauthorizedFetch() {
+    return mock((_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(JSON.stringify({ message: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+  }
+
+  function listTool(tokenProvider: TokenProvider, fetchFn: typeof fetch) {
+    return createListTool(
+      new ListServiceImpl(
+        "https://source.example.test",
+        tokenProvider,
+        fetchFn,
+      ),
+    );
+  }
+
+  it("rejects list with the caller reason when token lookup fails after an abort", async () => {
+    const controller = new AbortController();
+    const reason = new Error("caller cancelled during token lookup");
+    const fetchFn = unauthorizedFetch();
+    const tool = listTool(
+      {
+        getToken: async () => {
+          controller.abort(reason);
+          throw new Error("token store unavailable");
+        },
+        forceRefresh: () => Promise.resolve("refreshed-token"),
+      },
+      fetchFn as unknown as typeof fetch,
+    );
+
+    await expect(
+      tool.handler({ target: "npm:express" }, { signal: controller.signal }),
+    ).rejects.toBe(reason);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("rejects list with the caller reason when refresh fails after an abort", async () => {
+    const controller = new AbortController();
+    const reason = new Error("caller cancelled during refresh");
+    const fetchFn = unauthorizedFetch();
+    const tool = listTool(
+      {
+        getToken: () => Promise.resolve("expired-token"),
+        forceRefresh: async () => {
+          controller.abort(reason);
+          throw new Error("refresh endpoint unavailable");
+        },
+      },
+      fetchFn as unknown as typeof fetch,
+    );
+
+    await expect(
+      tool.handler({ target: "npm:express" }, { signal: controller.signal }),
+    ).rejects.toBe(reason);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 });
