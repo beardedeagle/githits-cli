@@ -49,8 +49,9 @@ without returned matches on an incomplete search as `(no matches returned)`, or
 per estimate. Duplicate/package requested inputs and their suggestions remain
 attached beneath that work; pending inputs without an estimate keep label-only
 rows. Non-preparation omissions remain under `Not searched:`, with the supplied
-reason and `you can retry` or `do not retry unchanged`. Retryability is not a
-guarantee of recovery or permanent unavailability.
+reason and `you can retry` or `do not retry unchanged`. `you can retry` does not
+guarantee recovery, and `do not retry unchanged` does not mean permanently
+unavailable.
 Hosted-site matches do not establish package-version
 provenance. The existing cursor instructions follow the matches. Follow-up names only the
 original inputs with retryable omissions or scope failures, preserving the pattern

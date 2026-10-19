@@ -702,7 +702,7 @@ describe("grep recovery precedence", () => {
             );
             expect(text).toContain(
               nextCursor
-                ? "The service did not explain why the full search stopped or whether retrying would help."
+                ? "Some requested content could not be searched; the service did not explain why or whether retrying would help."
                 : "The search did not finish, and no continuation cursor was returned.",
             );
             if (nextCursor)

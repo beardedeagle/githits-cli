@@ -51,7 +51,9 @@ scope, architecture, phase and acceptance goals. No direction or boundary change
 
 122 focused tests pass, 1019 assertions; build/typecheck pass. CLI source
 unauthenticated smoke passes33steps; MCP source registration smoke passes7steps,
-including auth handling. The dev MCP agent run is pending. Existing healthy
+including auth handling. The fresh dev MCP agent run could not start: credential capture did not return;
+the owned credential subprocess was stopped after verifying that phase. No new
+agent trace or graded-quality claim. Prior normal-path evidence remains valid. Existing healthy
 mixed100/repository100 outputs remain byte-identical at6967/5754bytes via cmp.
 Rendered current cases: pending248B,terminal215B,native449B,partly-pending337B,
 mixed496B,partial hits626B. Added text states retry advice and missing causes;
@@ -63,3 +65,26 @@ Internal pre-flight of the latest clarification and full PR is clean: direction
 sound, no findings. Native/omitted advice uses backend retryability, ordinary
 pagination has no failure note, expiry retains its sole restart, unknown overall
 limits preserve supplied continuation. Failure combinations remain fixture-tested.
+
+## Recoverability review round 1 closure
+
+Direction sound. R1 accepted: a positive hits headline does not disclose an
+unattributed coverage gap, so a sibling-cursor body now states unsearched content
+explicitly before the unknown-cause/retry statement. Empty cursor pages already
+state the gap in the headline, so their body does not repeat it. Scanned both
+hit counts/cursor states, attributed omission/failure cases and related docs;
+added direct assertions for the positive/empty cursor distinction.
+R2 conditional rejected on2026-10-19 after read-only producer verification:
+native partial adapters supply failure codes, coordinator preserves them, and
+projection supplies code/public reason. No verified no-details partial producer
+state; no speculative widening of the FAILED-only missing-details copy. Detailed
+private source evidence stays in the local review brief.
+Doc nit accepted: explicitly distinguish retry permission from recovery promise
+and non-retryable advice from permanent unavailability. Optional skip-only row
+needs no change: its retry advice and concrete skip cause are adjacent already,
+and the reviewer confirmed accuracy. No unresolved finding or product decision.
+
+Round2 pre-flight is clean on the full revised PR. Latest122 focused tests pass
+with1023 assertions; build/typecheck/Biome/diff checks and both source smoke
+modes pass again. The blocked fresh eval is a verification limitation, not a
+copy defect. No open product decision, deferred code finding or new mechanism.

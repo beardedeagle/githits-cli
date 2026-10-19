@@ -195,7 +195,7 @@ export function formatGrepText(
   )
     prose(
       result.nextCursor
-        ? "The service did not explain why the full search stopped or whether retrying would help."
+        ? `${result.hits.length ? "Some requested content could not be searched; the" : "The"} service did not explain why or whether retrying would help.`
         : "The search did not finish, and no continuation cursor was returned. The service did not explain why the full search stopped or whether retrying would help.",
     );
   for (const [index, group] of groups.entries()) {

@@ -225,7 +225,7 @@ explanations carry failure details without a second generic caveat. Otherwise
 unexplained overall traversal limitations remain visible with or without hits
 and beside any sibling cursor. Because overall traversal has no cause or retry
 flag, those unattributed limits explicitly say the service did not explain why
-the full search stopped or whether retrying would help. Cursors and terminal omissions can coexist; both are
+some content was not searched or whether retrying would help. Cursors and terminal omissions can coexist; both are
 shown. Continue with identical ordered operands and controls.
 `CURSOR_EXPIRED` is a successful result requiring explicit restart; retained
 sibling hits and omissions remain visible. Expired cursors offer only the

@@ -528,8 +528,11 @@ describe("overall grep traversal limitations", () => {
             : "No matches on this page; some requested content could not be searched.",
         );
         expect(output.replace(/\s+/g, " ")).toContain(
-          "The service did not explain why the full search stopped or whether retrying would help.",
+          "service did not explain why or whether retrying would help.",
         );
+        expect(
+          output.includes("Some requested content could not be searched;"),
+        ).toBe(hits.length > 0);
         expect(output).toContain("--cursor 'sibling cursor'");
         expect(output).not.toContain("has no continuation cursor");
         expect(output).not.toContain("(no results)");
