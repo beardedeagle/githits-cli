@@ -58,16 +58,22 @@ describe("unified grep CLI/MCP parity", () => {
       const mcp = await tool.handler(args);
       expect(mcp.isError).toBeUndefined();
       const mcpText = String(mcp.content[0]?.text);
-      expect(cli).toContain("No content could be searched.");
+      expect(cli).toContain("None of the requested content could be searched.");
       expect(cli).toContain(
-        "Retry preparing targets, without a cursor; add --wait 30000.",
+        "Repeat the same pattern and options for:\n    npm:pending",
+      );
+      expect(cli).toContain(
+        "Omit --cursor; add --wait 30000 to wait up to 30s for preparation.",
       );
       expect(mcpText).toContain(
-        "Retry preparing targets, without a cursor; add wait_timeout_ms=30000.",
+        "Omit cursor; add wait_timeout_ms=30000 to wait up to 30s for preparation.",
       );
-      expect(cli.replace("--wait 30000", "wait_timeout_ms=30000").trim()).toBe(
-        mcpText,
-      );
+      expect(
+        cli
+          .replace("--wait 30000", "wait_timeout_ms=30000")
+          .replace("Omit --cursor", "Omit cursor")
+          .trim(),
+      ).toBe(mcpText);
       const json = await tool.handler({ ...args, format: "json" });
       expect(JSON.parse(String(json.content[0]?.text))).toEqual(before);
       expect(result).toEqual(before);

@@ -16,8 +16,8 @@ githits grep -F -- '--foo' github:example/repository
 
 Pending repository and documentation preparation is described in plain language,
 with advisory total indexing duration when available and a fresh-request retry
-action. Opaque progress IDs stay in JSON. An empty page says "No matches available yet."
-only when retryable preparation omissions account for every coverage gap; independent
+action. Opaque progress IDs stay in JSON. An empty page says "No matches available yet; requested content is still being
+prepared." only when retryable preparation omissions account for every coverage gap; independent
 failures, cursor expiry and skipped evidence retain their warnings. Partial hits
 and real continuation cursors remain usable. Retry only preparing or explicitly
 retryable requested targets with the original pattern and matching controls,
@@ -96,7 +96,11 @@ file/page appearance order, then sorts rows by line and slice position. It does
 not gather all files from one source into a separate section. Display
 paths alone never establish file identity. Physical scope `targetIndex` differs
 from caller attribution in `requestedInputIndices`. Human text uses target labels;
-backend input numbers remain in JSON only.
+backend input numbers remain in JSON. Recovery uses original ordered operand
+names supplied by the CLI/MCP caller; repeated names include their one-based
+target position to distinguish different per-input options. Without original
+request context, the formatter labels affected sources rather than claiming the
+resolved labels are original retry operands.
 
 Identical `(line, startByte, endByte, content)` windows share one numbered row,
 with every native match span retained. Match rows use `:`, context uses `-`, and
@@ -139,10 +143,10 @@ identity metadata that grep does not currently expose. Ordinary and hosted
 documentation results carry no requested label.
 Pending repository/documentation targets appear under `Preparing`, grouped by
 actual work identity with one advisory total estimate and input-specific child
-rows. Other unavailable targets appear under `Omitted`, with their reason and
+rows. Other unavailable targets appear under `Not searched`, with their reason and
 suggestions. Grep supplies no commit-date or observed-HEAD proof.
-Sources without matches on an incomplete search are marked `(no results on
-this page)`, including scopes not yet visited because a page limit was reached.
+Sources without matches on an incomplete search are marked `(no matches
+returned)`, including scopes not yet visited because a page limit was reached.
 Completed searches use `(no results)`. This
 does not claim that the source has no matches overall. Independent coverage
 failures remain visible. The short repository
@@ -194,28 +198,29 @@ The scope stays in `targets`, retains its input attribution, and reports
 `RESUMABLE_LIMIT` traversal. Continue with `nextCursor` and identical ordered
 operands/controls to inspect it. Readiness has not yet been observed; this
 status does not indicate target failure or unavailable content. Text lists
-the source with `(no results on this page)` instead of a separate unvisited-scope
+the source with `(no matches returned)` instead of a separate unvisited-scope
 message. JSON preserves the backend enum and full status.
 
 Stale/failed scopes, skips, issues, omitted issue counts, safety normalization
 and unavailable targets stay visible on zero-hit pages. `No matches found.`
 is reserved for complete traversal without coverage gaps. Other empty results
-say `No matches returned; coverage is incomplete.` If all reported
+say `No matches returned; some requested content could not be searched.` If all reported
 scopes failed or were unavailable before scanning, or no native scopes are
 reported and omissions include anything beyond retryable preparation, text says
-`No content could be searched.` An empty CURRENT + COMPLETE
+`None of the requested content could be searched.` An empty CURRENT + COMPLETE
 corpus remains an authoritative negative. Preparation-only retryable gaps retain
-`No matches available yet.`
+`No matches available yet; requested content is still being prepared.`
 
 Healthy empty continuation pages say `No matches on this page.`; pages with
-gaps say `No matches returned on this page; coverage is incomplete.` Attributed
+gaps say `No matches on this page; some requested content could not be searched.` Attributed
 explanations carry failure details without a second generic caveat. Otherwise
 unexplained overall traversal limitations remain visible beside returned hits
 and any sibling cursor. Cursors and terminal omissions can coexist; both are
 shown. Continue with identical ordered operands and controls.
 `CURSOR_EXPIRED` is a successful result requiring explicit restart; retained
 sibling hits and omissions remain visible. Expired cursors offer only the
-explicit full-search restart, with no competing target-subset retry hint.
+explicit full-search restart in Follow-up, naming `--cursor` (CLI) or `cursor`
+(MCP) to omit, with no competing target-subset retry hint.
 
 Complete/partial pages exit zero, including zero hits. Failures exit nonzero;
 JSON errors go to stderr with clean stdout. Preparation errors map to `INDEXING`
@@ -290,7 +295,7 @@ comparison, is recorded in [the backlog](../plans/open-backlog.md).
 Human output uses the shared `Sources` row grammar for served repository pins
 and hosted documentation. It preserves separate corpora, readiness, coverage
 and input aliases. Pending repository/documentation omissions move under
-`Preparing`; other omissions remain under `Omitted`. Each supplied estimate is
+`Preparing`; other omissions remain under `Not searched`. Each supplied estimate is
 printed once, with each requested target alias once and input-specific suggestions beneath it.
 Grep does not fetch commit dates or resolved HEAD intent, so it does not claim
 either. Scan counts, skipped files, issues, cursors and backend read actions stay
@@ -304,13 +309,19 @@ but one line; file/page groups use exact read identities. Sources/Preparing and
 attributed failure notes explain limitations without an abstract partial label.
 Healthy pagination does not claim a coverage failure, including unvisited
 UNSPECIFIED+RESUMABLE_LIMIT targets. The strict exhaustive predicate still owns
-source `no results` claims. Retryable preparation-only omissions say `No matches
-available yet.` (or `No matches available yet on this page.` with a cursor).
+source `no results` claims. Retryable preparation-only omissions explain that
+requested content is still being prepared; cursor pages explicitly limit the
+empty result to that page.
 Other empty gaps use qualified coverage copy. Read templates are absent without
 hits. Cursor continuation and fresh retries remain separate: preparation gets
-the existing bounded wait suggestion; other retryable omissions and native
-scope gaps are marked `retryable` and get a fresh-query action without a wait.
-Retry guidance selects only preparing or explicitly retryable targets and
-removes the cursor. Terminal omissions receive no unchanged-retry invitation;
-terminal preparation reasons appear under Omitted. Auth, requests and JSON are
-unchanged. The shared helper owns only footer layout; grep owns these semantics.
+a bounded wait suggestion stating the maximum wait in seconds; other retryable
+omissions and native scope gaps get a fresh-query action without a preparation
+wait. Recovery names only eligible original operands and tells callers to keep
+the pattern/options and omit `--cursor` or `cursor`. Operand rows are quoted,
+unwrapped and color-independent. Non-preparation omissions appear under
+`Not searched`; supplied site alternatives say `Search hosted documentation
+instead`. A terminal `no_grep_scopes` without a suggested alternative advises a
+different package, repository or site target; unknown reasons are not given an
+invented remedy. Native public messages and error codes have their own reason
+line. Terminal preparation reasons receive no preparation retry. Auth, requests
+and JSON are unchanged. The shared helper owns only footer layout; grep owns these semantics.

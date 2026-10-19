@@ -25,6 +25,8 @@ export interface GrepTextOptions {
   useColors?: boolean;
   width?: number;
   syntax?: "cli" | "mcp";
+  /** Original ordered operands; resolved source labels are not retry operands. */
+  requestedTargets?: readonly string[];
 }
 interface SourceSummary {
   facts: SourceRowFacts;
@@ -96,17 +98,17 @@ export function formatGrepText(
       ? `Found ${result.totalMatches} match${result.totalMatches === 1 ? "" : "es"} on ${matchingLines} line${matchingLines === 1 ? "" : "s"} in ${groups.length} ${noun}.`
       : result.nextCursor
         ? preparationOnly
-          ? "No matches available yet on this page."
+          ? "No matches on this page; some requested content is still being prepared."
           : pageCoverageGap
-            ? "No matches returned on this page; coverage is incomplete."
+            ? "No matches on this page; some requested content could not be searched."
             : "No matches on this page."
         : preparationOnly
-          ? "No matches available yet."
+          ? "No matches available yet; requested content is still being prepared."
           : nothingSearched
-            ? "No content could be searched."
+            ? "None of the requested content could be searched."
             : isExhaustive(result)
               ? "No matches found."
-              : "No matches returned; coverage is incomplete.",
+              : "No matches returned; some requested content could not be searched.",
   );
   if (options.useColors) lines[0] = `${colors.bold}${lines[0]}${colors.reset}`;
   if (result.targets.length) {
@@ -150,7 +152,7 @@ export function formatGrepText(
       if (needsAlias) prose(`    Requested: ${target}`);
       for (const omitted of targetInputs)
         for (const suggested of omitted.suggestedSiteTargets ?? [])
-          prose(`      Suggested site: ${suggested}`);
+          prose(`      Search hosted documentation instead: ${suggested}`);
     }
     if (entry.repositoryUrl && entry.commitSha) {
       const remaining = entry.targets.filter(
@@ -164,25 +166,23 @@ export function formatGrepText(
       `  - ${formatProvenanceRow(omitted.target, [omitted.reason === "repository_indexing" ? "indexing" : "preparing documentation"])}`,
     );
     for (const target of omitted.suggestedSiteTargets ?? [])
-      prose(`    Suggested site: ${target}`);
+      prose(`    Search hosted documentation instead: ${target}`);
   }
   const otherOmissions = result.unavailableTargets.filter(
     (entry) => !pending.includes(entry),
   );
-  if (otherOmissions.length) lines.push("", "Omitted:");
+  if (otherOmissions.length) lines.push("", "Not searched:");
   for (const omitted of otherOmissions) {
     prose(
-      `  - ${omitted.target} (${grepPreparationReason(omitted.reason)}${omitted.retryable ? "; retryable" : ""})`,
+      `  - ${omitted.target}: ${grepPreparationReason(omitted.reason)}${omitted.reason === "no_grep_scopes" && !omitted.retryable && !omitted.suggestedSiteTargets?.length ? "; choose a different package, repository or site target" : ""}`,
     );
     for (const target of omitted.suggestedSiteTargets ?? [])
-      prose(`    Suggested site: ${target}`);
+      prose(`    Search hosted documentation instead: ${target}`);
   }
   for (const scope of result.targets) renderCoverage(scope, prose);
 
   if (result.traversal === "CURSOR_EXPIRED")
-    prose(
-      "Cursor expired. Restart explicitly without the cursor; retained matches and omissions are included.",
-    );
+    prose("Cursor expired; any matches shown here are retained results.");
   else if (
     result.traversal !== "COMPLETE" &&
     (!result.nextCursor || result.traversal !== "RESUMABLE_LIMIT") &&
@@ -197,7 +197,7 @@ export function formatGrepText(
     prose(
       result.nextCursor
         ? "Some requested content could not be searched."
-        : "Search incomplete; no continuation is available.",
+        : "The search did not finish, and no continuation cursor was returned.",
     );
   for (const [index, group] of groups.entries()) {
     const first = group.first;
@@ -265,24 +265,65 @@ export function formatGrepText(
           : `--cursor ${shellQuoteExact(result.nextCursor)}`,
       ),
     );
-  const retryableFailures =
-    otherOmissions.some((target) => target.retryable) ||
-    result.targets.some(
+  const cursorOption = options.syntax === "mcp" ? "cursor" : "--cursor";
+  if (result.traversal === "CURSOR_EXPIRED") {
+    followUp.push(
+      ...proseLines(
+        `To restart the full search, repeat the original grep and omit ${cursorOption}.`,
+      ),
+    );
+  } else {
+    const retryableOmissions = result.unavailableTargets.filter(
+      (target) => target.retryable,
+    );
+    const retryableScopes = result.targets.filter(
       (scope) => scope.retryable && hasPageCoverageGap(scope),
     );
-  if (
-    result.traversal !== "CURSOR_EXPIRED" &&
-    (pending.length || retryableFailures)
-  ) {
-    const targets = pending.length
-      ? retryableFailures
-        ? "only preparing or retryable targets"
-        : "preparing targets"
-      : "only targets marked retryable";
-    const wait = pending.length
-      ? `; add ${options.syntax === "mcp" ? `wait_timeout_ms=${indexingWaitMs(result.indexingEstimates)}` : `--wait ${indexingWaitMs(result.indexingEstimates)}`}${retryableFailures ? " for preparation" : ""}`
-      : "";
-    followUp.push(...proseLines(`Retry ${targets}, without a cursor${wait}.`));
+    if (retryableOmissions.length || retryableScopes.length) {
+      const indices = new Set([
+        ...retryableOmissions.map((target) => target.inputIndex),
+        ...retryableScopes.flatMap((scope) => scope.requestedInputIndices),
+      ]);
+      const requestedTargets = options.requestedTargets;
+      const targets = requestedTargets
+        ? requestedTargets.flatMap((target, index) =>
+            indices.has(index)
+              ? [
+                  `${quoteLocator(target, options.syntax)}${requestedTargets.indexOf(target) !== requestedTargets.lastIndexOf(target) ? ` (target ${index + 1})` : ""}`,
+                ]
+              : [],
+          )
+        : [
+            ...new Set([
+              ...retryableOmissions.map((target) => target.target),
+              ...retryableScopes.map((scope) => scope.target),
+            ]),
+          ].map((target) => quoteLocator(target, options.syntax));
+      followUp.push(
+        ...proseLines(
+          requestedTargets
+            ? "Repeat the same pattern and options for:"
+            : "Repeat the original grep inputs for these sources:",
+        ),
+        ...targets.map((target) => operand(`  ${target}`)),
+      );
+      if (pending.length) {
+        const wait = indexingWaitMs(result.indexingEstimates);
+        const waitOption =
+          options.syntax === "mcp"
+            ? `wait_timeout_ms=${wait}`
+            : `--wait ${wait}`;
+        followUp.push(
+          ...proseLines(
+            `Omit ${cursorOption}; add ${waitOption} to wait up to ${wait / 1000}s for preparation.`,
+          ),
+        );
+      } else {
+        followUp.push(
+          ...proseLines(`Omit ${cursorOption} to start a new search.`),
+        );
+      }
+    }
   }
   appendSearchGrepFooter(
     lines,
@@ -307,11 +348,13 @@ function renderCoverage(
     notes.push(readinessNote(scope));
   if (scope.traversal !== "COMPLETE" && scope.traversal !== "RESUMABLE_LIMIT")
     notes.push(traversalNote(scope));
-  if (scope.errorCode) notes.push(scope.errorCode);
-  if (scope.retryable && hasPageCoverageGap(scope)) notes.push("retryable");
-  if (scope.publicMessage) notes.push(scope.publicMessage);
   const details: string[] = [];
-  if (notes.length) {
+  if (scope.publicMessage)
+    details.push(
+      `Reason: ${scope.publicMessage}${scope.errorCode ? ` [${scope.errorCode}]` : ""}`,
+    );
+  else if (scope.errorCode) details.push(`Error: ${scope.errorCode}.`);
+  if (notes.length || details.length) {
     if (scope.readiness === "STALE" && scope.commitSha)
       details.push(
         ...(scope.repoUrl
@@ -332,9 +375,13 @@ function renderCoverage(
       );
   }
   if (scope.binaryFilesSkipped)
-    details.push(`Skipped ${scope.binaryFilesSkipped} binary file(s).`);
+    details.push(
+      `Skipped ${scope.binaryFilesSkipped} binary file${scope.binaryFilesSkipped === 1 ? "" : "s"}.`,
+    );
   if (scope.filesTooLargeSkipped)
-    details.push(`Skipped ${scope.filesTooLargeSkipped} oversized file(s).`);
+    details.push(
+      `Skipped ${scope.filesTooLargeSkipped} oversized file${scope.filesTooLargeSkipped === 1 ? "" : "s"}.`,
+    );
   for (const issue of scope.fileIssues ?? [])
     details.push(
       `File issue ${issue.filePath}${issue.line > 0 ? `:${issue.line}` : " (aggregate)"}; ${issue.code}${issue.contentSafety.filtered ? "; safety normalization applied" : ""}.`,
@@ -497,7 +544,7 @@ function formatSources(
           : []),
         ...(!source.matched &&
         !source.facts.qualifiers?.includes("not searched")
-          ? [exhaustive ? "no results" : "no results on this page"]
+          ? [exhaustive ? "no results" : "no matches returned"]
           : []),
         ...(source.hostedDocumentation ? ["hosted documentation"] : []),
       ],

@@ -547,16 +547,18 @@ Counted alternatives say `(+N more)`; unknown `+more` remains unknown.
 
 For grep, CURRENT+RESUMABLE_LIMIT and UNSPECIFIED+RESUMABLE_LIMIT are ordinary
 pagination absent independent errors/skips. The strict exhaustive predicate
-still controls source-level `no results` claims. Retryable preparation-only omitted targets
-use `No matches available yet.` (adding `on this page` beside a cursor), even
-when omission accounting yields NON_RESUMABLE_PARTIAL overall. Preparing/Omitted
-already explains that limit. Independent failed traversal, stale readiness,
+still controls source-level `no results` claims. Retryable preparation-only omitted targets explain that requested
+content is still being prepared, with page-specific copy beside a cursor, even
+when omission accounting yields NON_RESUMABLE_PARTIAL overall. Preparing/Not
+searched already explains that limit. Independent failed traversal, stale readiness,
 errors/skips/issues and expired cursors retain attributed warnings. Unspecified
 readiness outside unvisited pagination is explicitly unknown. Search/grep empty
 continuation pages say `No results on this page.` / `No matches on this page.`
 when coverage has no independent gaps; incomplete grep pages qualify the
 headline. See [unified grep](unified-grep.md) for current headline precedence
-and selective fresh-retry copy. Expired grep cursors offer only the full-search
+and selective fresh-retry copy, including original target names and exact
+cursor controls. Native reasons/codes have a separate line; terminal omissions
+show the supplied reason and any available documentation alternative. Expired grep cursors offer only the full-search
 restart, without a competing target-subset retry hint.
 
 

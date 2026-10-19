@@ -57,10 +57,14 @@ describe("uniform indexing evidence presentation", () => {
       const result = pending();
       const before = structuredClone(result);
       const output = formatGrepText(result, { syntax, width: 160 });
-      expect(output).toContain("No matches available yet.");
+      expect(output).toContain(
+        "No matches available yet; requested content is still being prepared.",
+      );
       expect(output).toContain("(indexing, estimated total: 38-57s");
       expect(output).toContain("time spent indexing: 90s");
-      expect(output).toContain("Retry preparing targets, without a cursor");
+      expect(output).toContain(
+        "Repeat the original grep inputs for these sources:",
+      );
       expect(output).toContain(
         syntax === "cli" ? "--wait 70000" : "wait_timeout_ms=70000",
       );
@@ -182,16 +186,16 @@ describe("uniform indexing evidence presentation", () => {
       indexingEstimates: [],
     });
     const text = formatGrepText(result);
-    expect(text).toContain("No content could be searched.");
-    expect(text).toContain("Omitted:\n  - npm:x");
+    expect(text).toContain("None of the requested content could be searched.");
+    expect(text).toContain("Not searched:\n  - npm:x");
     expect(text).not.toContain("Traversal is incomplete");
     expect(text).not.toContain("No matches yet");
     expect(text).not.toContain("To retry omitted targets");
     expect(formatGrepText({ ...result, traversal: "FAILED" })).toContain(
-      "No content could be searched.",
+      "None of the requested content could be searched.",
     );
     expect(formatGrepText({ ...result, unavailableTargets: [] })).toContain(
-      "No matches returned; coverage is incomplete.",
+      "No matches returned; some requested content could not be searched.",
     );
     expect(projectGrepResult(result).traversal).toBe("NON_RESUMABLE_PARTIAL");
   });

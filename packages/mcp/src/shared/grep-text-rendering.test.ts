@@ -266,16 +266,18 @@ describe("grep evidence rendering", () => {
       }),
     );
     expect(
-      text.startsWith("No matches returned; coverage is incomplete."),
+      text.startsWith(
+        "No matches returned; some requested content could not be searched.",
+      ),
     ).toBe(true);
     expect(text).toContain("stale snapshot");
     expect(text).toContain(
-      "github:o/r@served (older snapshot, no results on this page)",
+      "github:o/r@served (older snapshot, no matches returned)",
     );
     expect(text).toContain("Requested ref: wanted.");
     expect(text).toContain("Searched 3 of 10 files");
-    expect(text).toContain("  Skipped 2 binary file(s)");
-    expect(text).toContain("  Skipped 1 oversized file(s)");
+    expect(text).toContain("  Skipped 2 binary files");
+    expect(text).toContain("  Skipped 1 oversized file");
     expect(text.match(/Repository npm:x:/g)).toHaveLength(1);
     expect(text).not.toMatch(/\(inputs? \d/);
     expect(text).not.toContain("retryable false");
@@ -366,7 +368,8 @@ const terminal = {
 };
 
 describe("grep coverage copy", () => {
-  const incomplete = "No matches returned; coverage is incomplete.";
+  const incomplete =
+    "No matches returned; some requested content could not be searched.";
   const cases: { name: string; result: GrepResult; headline: string }[] = [
     {
       name: "complete empty search",
@@ -387,7 +390,8 @@ describe("grep coverage copy", () => {
         traversal: "NON_RESUMABLE_PARTIAL",
         unavailableTargets: [preparing],
       }),
-      headline: "No matches available yet.",
+      headline:
+        "No matches available yet; requested content is still being prepared.",
     },
     {
       name: "ready empty scope and pending omission",
@@ -395,7 +399,8 @@ describe("grep coverage copy", () => {
         traversal: "NON_RESUMABLE_PARTIAL",
         unavailableTargets: [preparing],
       }),
-      headline: "No matches available yet.",
+      headline:
+        "No matches available yet; requested content is still being prepared.",
     },
     {
       name: "terminal omissions only",
@@ -404,7 +409,7 @@ describe("grep coverage copy", () => {
         traversal: "NON_RESUMABLE_PARTIAL",
         unavailableTargets: [terminal],
       }),
-      headline: "No content could be searched.",
+      headline: "None of the requested content could be searched.",
     },
     {
       name: "ready scope and terminal omission",
@@ -425,14 +430,14 @@ describe("grep coverage copy", () => {
         traversal: "FAILED",
         targets: [scope({ readiness, traversal: "FAILED", filesScanned: 0 })],
       }),
-      headline: "No content could be searched.",
+      headline: "None of the requested content could be searched.",
     })),
     {
       name: "unavailable native scope without a traversal failure",
       result: page([], {
         targets: [scope({ readiness: "NOT_AVAILABLE", filesScanned: 0 })],
       }),
-      headline: "No content could be searched.",
+      headline: "None of the requested content could be searched.",
     },
     {
       name: "native failure after scanning",
@@ -491,7 +496,7 @@ describe("grep coverage copy", () => {
         ).toBe(text);
         expect(text).not.toContain("Traversal is incomplete");
         if (
-          headline === "No content could be searched." &&
+          headline === "None of the requested content could be searched." &&
           result.targets.length
         )
           expect(text).toContain("(not searched)");
@@ -522,13 +527,13 @@ describe("grep coverage copy", () => {
       expect(text.startsWith("Found 1 match on 1 line in 1 file.")).toBe(true);
       expect(text).toContain("[1] github:o/r@sha a.ts\n3: router");
       expect(text).toContain(
-        "Repository npm:failed: unavailable; search failed; READ_FAILED; retryable; Reader unavailable.",
+        "Repository npm:failed: unavailable; search failed.\n  Reason: Reader unavailable. [READ_FAILED]",
       );
       expect(text).not.toContain(".;");
       expect(text).not.toContain("Traversal is incomplete");
       expect(text).not.toContain("Some requested content");
       expect(text).toContain(
-        "Retry only targets marked retryable, without a cursor.",
+        "Repeat the original grep inputs for these sources:",
       );
       expect(text).not.toMatch(/--wait|wait_timeout_ms/);
     }
@@ -553,19 +558,19 @@ describe("grep coverage copy", () => {
     for (const syntax of ["cli", "mcp"] as const) {
       const text = formatGrepText(data, { syntax, width: 160 });
       expect(text.split("\n")[0]).toBe(
-        "No matches returned on this page; coverage is incomplete.",
+        "No matches on this page; some requested content could not be searched.",
       );
       expect(text).toContain(
-        "npm:unsupported (no searchable source or documentation is available)",
+        "npm:unsupported: no searchable source or documentation is available",
       );
-      expect(text).toContain("npm:retryable (resolution_failed; retryable)");
+      expect(text).toContain("npm:retryable: resolution_failed");
       expect(text).toContain(
-        "Retry only preparing or retryable targets, without a cursor;",
+        "Repeat the original grep inputs for these sources:",
       );
       expect(text).toContain(
         syntax === "cli"
-          ? "add --wait 30000 for preparation."
-          : "add wait_timeout_ms=30000 for preparation.",
+          ? "add --wait 30000 to wait up to 30s for preparation."
+          : "add wait_timeout_ms=30000 to wait up to 30s for preparation.",
       );
       expect(text).toContain(
         syntax === "cli" ? "--cursor 'exact cursor'" : 'cursor="exact cursor"',
@@ -581,8 +586,10 @@ describe("grep coverage copy", () => {
     });
     for (const syntax of ["cli", "mcp"] as const) {
       const text = formatGrepText(data, { syntax });
-      expect(text.startsWith("No content could be searched.")).toBe(true);
-      expect(text).toContain("Omitted:");
+      expect(
+        text.startsWith("None of the requested content could be searched."),
+      ).toBe(true);
+      expect(text).toContain("Not searched:");
       expect(text).not.toContain("Preparing:");
       expect(text).not.toMatch(/Follow-up:|--wait|wait_timeout_ms|Retry/);
     }
@@ -596,9 +603,9 @@ describe("grep coverage copy", () => {
     });
     const text = formatGrepText(data, { width: 160 });
     expect(text.startsWith(incomplete)).toBe(true);
-    expect(text).toContain("npm:unsupported (resolution_failed; retryable)");
+    expect(text).toContain("npm:unsupported: resolution_failed");
     expect(text).toContain(
-      "Retry only targets marked retryable, without a cursor.",
+      "Repeat the original grep inputs for these sources:",
     );
     expect(text).not.toMatch(/--wait|wait_timeout_ms|Preparing:/);
   });
@@ -621,11 +628,16 @@ describe("grep recovery precedence", () => {
       for (const syntax of ["cli", "mcp"] as const) {
         const text = formatGrepText(data, { syntax, width: 160 });
         expect(text).toContain(
-          "Cursor expired. Restart explicitly without the cursor",
+          "Cursor expired; any matches shown here are retained results.",
         );
         expect(text).toContain("[1] github:o/r@sha a.ts\n3: router");
         if (unavailableTargets.length) expect(text).toContain("Preparing:");
-        expect(text).not.toMatch(/Follow-up:|Retry |--wait|wait_timeout_ms/);
+        expect(text).toContain(
+          `To restart the full search, repeat the original grep and omit ${syntax === "cli" ? "--cursor" : "cursor"}.`,
+        );
+        expect(text).not.toMatch(
+          /Repeat the same pattern|Repeat the original grep inputs|--wait|wait_timeout_ms/,
+        );
         expect(text).not.toContain("More results:");
       }
     }
@@ -664,7 +676,7 @@ describe("grep recovery precedence", () => {
             expect(text).toContain(
               nextCursor
                 ? "Some requested content could not be searched."
-                : "Search incomplete; no continuation is available.",
+                : "The search did not finish, and no continuation cursor was returned.",
             );
             if (nextCursor)
               expect(text).toContain(
@@ -695,15 +707,119 @@ describe("grep omission attribution", () => {
           for (const syntax of ["cli", "mcp"] as const) {
             const text = formatGrepText(data, { syntax, width: 160 });
             expect(text).toContain(
-              omission.retryable ? "Preparing:" : "Omitted:",
+              omission.retryable ? "Preparing:" : "Not searched:",
             );
             expect(
-              text.includes("Search incomplete; no continuation is available."),
+              text.includes(
+                "The search did not finish, and no continuation cursor was returned.",
+              ),
             ).toBe(traversal === "FAILED");
             expect(text).toContain("[1] github:o/r@sha a.ts\n3: router");
           }
         }
       }
     }
+  });
+});
+
+describe("explicit grep recovery", () => {
+  it("names eligible original operands instead of resolved sources or terminal targets", () => {
+    const data = page([], {
+      targets: [
+        scope({
+          target: "https://github.com/o/r@resolved",
+          requestedInputIndices: [1],
+          traversal: "FAILED",
+          retryable: true,
+        }),
+      ],
+      unavailableTargets: [
+        { ...terminal, inputIndex: 0 },
+        { ...preparing, inputIndex: 2, target: "npm:backend-alias" },
+      ],
+    });
+    for (const syntax of ["cli", "mcp"] as const) {
+      const text = formatGrepText(data, {
+        syntax,
+        width: 160,
+        requestedTargets: ["npm:terminal", "npm:original", "npm:preparing"],
+      });
+      const recovery = text.split("Follow-up:\n")[1]!;
+      expect(recovery).toContain(
+        "Repeat the same pattern and options for:\n    npm:original\n    npm:preparing",
+      );
+      expect(recovery).not.toMatch(/terminal|backend-alias|resolved|retryable/);
+      expect(recovery).toContain(
+        syntax === "cli"
+          ? "Omit --cursor; add --wait 30000 to wait up to 30s for preparation."
+          : "Omit cursor; add wait_timeout_ms=30000 to wait up to 30s for preparation.",
+      );
+    }
+  });
+
+  it("identifies which original input to retry when operand names repeat", () => {
+    const data = page([], {
+      unavailableTargets: [{ ...preparing, inputIndex: 1 }],
+    });
+    const recovery = formatGrepText(data, {
+      requestedTargets: ["npm:same", "npm:same"],
+    }).split("Follow-up:\n")[1]!;
+    expect(recovery).toContain("    npm:same (target 2)");
+    expect(recovery).not.toContain("target 1");
+  });
+
+  it("keeps quoted retry operands exact and free from terminal controls at narrow widths", () => {
+    const requested = "npm:a\\b'\n$HOME";
+    const data = page([], {
+      unavailableTargets: [
+        { ...preparing, inputIndex: 0, target: "backend-alias" },
+      ],
+    });
+    for (const syntax of ["cli", "mcp"] as const) {
+      const text = formatGrepText(data, {
+        syntax,
+        width: 24,
+        requestedTargets: [requested],
+      });
+      const expected =
+        syntax === "cli"
+          ? "$'npm:a\\\\b\\'\\x0a$HOME'"
+          : JSON.stringify(requested);
+      expect(text.split("\n")).toContain(`    ${expected}`);
+      expect(text).not.toContain("b'\n$HOME");
+      expect(
+        stripAnsi(
+          formatGrepText(data, {
+            syntax,
+            width: 24,
+            requestedTargets: [requested],
+            useColors: true,
+          }),
+        ),
+      ).toBe(text);
+    }
+  });
+
+  it("keeps unknown backend reasons and offers only supplied documentation alternatives", () => {
+    const data = page([], {
+      targets: [],
+      unavailableTargets: [
+        {
+          ...terminal,
+          reason: "unknown_reason",
+          suggestedSiteTargets: ["site:docs.example"],
+        },
+      ],
+    });
+    const text = formatGrepText(data, {
+      width: 160,
+      requestedTargets: ["npm:original"],
+    });
+    expect(text).toContain(
+      "Not searched:\n  - npm:unsupported: unknown_reason\n    Search hosted documentation instead: site:docs.example",
+    );
+    expect(text).not.toMatch(
+      /Follow-up:|--wait|wait_timeout_ms|Repeat the same pattern/,
+    );
   });
 });

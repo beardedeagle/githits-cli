@@ -290,7 +290,7 @@ describe("unified grep CLI", () => {
       );
       expect(exit).not.toHaveBeenCalled();
       expect(stop).toHaveBeenCalledTimes(1);
-      expect(write.mock.calls[0]?.[0]).toContain("Restart explicitly");
+      expect(write.mock.calls[0]?.[0]).toContain("To restart the full search");
     } finally {
       write.mockRestore();
       exit.mockRestore();
