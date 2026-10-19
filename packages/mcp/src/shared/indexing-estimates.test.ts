@@ -60,7 +60,7 @@ describe("uniform indexing evidence presentation", () => {
       expect(output).toContain("No matches available yet.");
       expect(output).toContain("(indexing, estimated total: 38-57s");
       expect(output).toContain("time spent indexing: 90s");
-      expect(output).toContain("To retry omitted targets");
+      expect(output).toContain("Retry preparing targets without a cursor");
       expect(output).toContain(
         syntax === "cli" ? "--wait 70000" : "wait_timeout_ms=70000",
       );
@@ -182,16 +182,16 @@ describe("uniform indexing evidence presentation", () => {
       indexingEstimates: [],
     });
     const text = formatGrepText(result);
-    expect(text).toContain("No matches found.");
+    expect(text).toContain("No content could be searched.");
     expect(text).toContain("Omitted:\n  - npm:x");
     expect(text).not.toContain("Traversal is incomplete");
     expect(text).not.toContain("No matches yet");
     expect(text).not.toContain("To retry omitted targets");
     expect(formatGrepText({ ...result, traversal: "FAILED" })).toContain(
-      "Traversal is incomplete",
+      "No content could be searched.",
     );
     expect(formatGrepText({ ...result, unavailableTargets: [] })).toContain(
-      "Traversal is incomplete",
+      "No matches returned; coverage is incomplete.",
     );
     expect(projectGrepResult(result).traversal).toBe("NON_RESUMABLE_PARTIAL");
   });

@@ -17,11 +17,12 @@ githits grep -F -- '--foo' github:example/repository
 Pending repository and documentation preparation is described in plain language,
 with advisory total indexing duration when available and a fresh-request retry
 action. Opaque progress IDs stay in JSON. An empty page says "No matches available yet."
-only when retryable unavailable targets account for every coverage gap; independent
+only when retryable preparation omissions account for every coverage gap; independent
 failures, cursor expiry and skipped evidence retain their warnings. Partial hits
-and real continuation cursors remain usable. Retry with the same ordered targets,
-pattern and matching controls without a cursor; only first-page preparation honors
-the wait budget. Unknown reasons are not relabeled as indexing.
+and real continuation cursors remain usable. Retry only preparing or explicitly
+retryable requested targets with the original pattern and matching controls,
+without a cursor; only first-page preparation honors the wait budget. Continuation
+keeps the original ordered targets. Unknown reasons are not relabeled as indexing.
 
 See [uniform indexing estimates](indexing-estimates.md) for shared field placement,
 duration semantics, wait recommendations and the production deployment prerequisite.
@@ -198,11 +199,19 @@ message. JSON preserves the backend enum and full status.
 
 Stale/failed scopes, skips, issues, omitted issue counts, safety normalization
 and unavailable targets stay visible on zero-hit pages. `No matches found.`
-with source `(no results)` is exhaustive only for complete traversal without
-coverage gaps. Empty continuation pages say `No matches on this page.`; real gaps
-retain attributed explanations. Overall non-pagination traversal still gets a
-limitation notice even when a sibling cursor remains. Cursors and terminal omissions can coexist;
-both are shown. Continue with identical ordered operands and controls.
+is reserved for complete traversal without coverage gaps. Other empty results
+say `No matches returned; coverage is incomplete.` If all reported
+scopes failed or were unavailable before scanning, or only terminal omissions
+remain, text says `No content could be searched.` An empty CURRENT + COMPLETE
+corpus remains an authoritative negative. Preparation-only retryable gaps retain
+`No matches available yet.`
+
+Healthy empty continuation pages say `No matches on this page.`; pages with
+gaps say `No matches returned on this page; coverage is incomplete.` Attributed
+explanations carry failure details without a second generic caveat. Otherwise
+unexplained overall traversal limitations remain visible beside returned hits
+and any sibling cursor. Cursors and terminal omissions can coexist; both are
+shown. Continue with identical ordered operands and controls.
 `CURSOR_EXPIRED` is a successful result requiring explicit restart; retained
 sibling hits and omissions remain visible.
 
@@ -293,9 +302,13 @@ but one line; file/page groups use exact read identities. Sources/Preparing and
 attributed failure notes explain limitations without an abstract partial label.
 Healthy pagination does not claim a coverage failure, including unvisited
 UNSPECIFIED+RESUMABLE_LIMIT targets. The strict exhaustive predicate still owns
-source `no results` claims. Retryable-only omissions say `No matches available
-yet.`; empty continuation pages say `No matches on this page.` (or `No matches
-available yet on this page.` with retryable omissions). Independent gaps retain
-their warning beside the exact cursor. Read templates are absent without hits;
-cursor and retry instructions remain independent. Auth, requests and JSON are
+source `no results` claims. Retryable preparation-only omissions say `No matches
+available yet.` (or `No matches available yet on this page.` with a cursor).
+Other empty gaps use qualified coverage copy. Read templates are absent without
+hits. Cursor continuation and fresh retries remain separate: preparation gets
+the existing bounded wait suggestion; other retryable omissions and native
+scope gaps are marked `retryable` and get a fresh-query action without a wait.
+Retry guidance selects only preparing or explicitly retryable targets and
+removes the cursor. Terminal omissions receive no unchanged-retry invitation;
+terminal preparation reasons appear under Omitted. Auth, requests and JSON are
 unchanged. The shared helper owns only footer layout; grep owns these semantics.

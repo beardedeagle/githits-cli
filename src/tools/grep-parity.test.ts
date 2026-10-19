@@ -1,5 +1,5 @@
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import type { GrepParams } from "@githits/core-internal";
+import type { GrepParams, GrepResult } from "@githits/core-internal";
 import { Command } from "commander";
 import { registerGrepCommand } from "../commands/grep.js";
 import {
@@ -9,6 +9,73 @@ import {
 import { createParityMcpTool } from "./parity-test-helpers.js";
 
 describe("unified grep CLI/MCP parity", () => {
+  it("shares qualified empty copy and selective recovery while preserving JSON", async () => {
+    const result: GrepResult = {
+      ...defaultGrepResult,
+      traversal: "NON_RESUMABLE_PARTIAL",
+      unavailableTargets: [
+        {
+          inputIndex: 0,
+          target: "npm:pending",
+          reason: "repository_indexing",
+          retryable: true,
+          progressRef: null,
+          suggestedSiteTargets: null,
+        },
+        {
+          inputIndex: 1,
+          target: "npm:terminal",
+          reason: "no_grep_scopes",
+          retryable: false,
+          progressRef: null,
+          suggestedSiteTargets: null,
+        },
+      ],
+    };
+    const before = structuredClone(result);
+    const grepService = createMockGrepService({
+      grep: mock(() => Promise.resolve(result)),
+    });
+    const write = spyOn(process.stdout, "write").mockImplementation(() => true);
+    try {
+      const program = new Command("githits");
+      registerGrepCommand(program, async () => ({
+        grepService,
+        hasValidToken: true,
+        mcpUrl: "https://example.test",
+        createSpinner: () => ({ stop: () => {} }),
+      }));
+      await program.parseAsync(
+        ["grep", "router", "npm:pending", "npm:terminal"],
+        { from: "user" },
+      );
+      const cli = write.mock.calls.map(([chunk]) => String(chunk)).join("");
+      const tool = createParityMcpTool("grep", { grepService });
+      const args = {
+        targets: [{ target: "npm:pending" }, { target: "npm:terminal" }],
+        pattern: "router",
+      };
+      const mcp = await tool.handler(args);
+      expect(mcp.isError).toBeUndefined();
+      const mcpText = String(mcp.content[0]?.text);
+      expect(cli).toContain("No content could be searched.");
+      expect(cli).toContain(
+        "Retry preparing targets without a cursor; add --wait 30000.",
+      );
+      expect(mcpText).toContain(
+        "Retry preparing targets without a cursor; add wait_timeout_ms=30000.",
+      );
+      expect(cli.replace("--wait 30000", "wait_timeout_ms=30000").trim()).toBe(
+        mcpText,
+      );
+      const json = await tool.handler({ ...args, format: "json" });
+      expect(JSON.parse(String(json.content[0]?.text))).toEqual(before);
+      expect(result).toEqual(before);
+    } finally {
+      write.mockRestore();
+    }
+  });
+
   it("sends equivalent mixed targets and controls and returns the same JSON", async () => {
     const grep = mock((_params: GrepParams) =>
       Promise.resolve(defaultGrepResult),

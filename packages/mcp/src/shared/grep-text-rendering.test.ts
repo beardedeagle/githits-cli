@@ -265,7 +265,9 @@ describe("grep evidence rendering", () => {
         ],
       }),
     );
-    expect(text.startsWith("No matches found.")).toBe(true);
+    expect(
+      text.startsWith("No matches returned; coverage is incomplete."),
+    ).toBe(true);
     expect(text).toContain("stale snapshot");
     expect(text).toContain(
       "github:o/r@served (older snapshot, no results on this page)",
@@ -344,5 +346,260 @@ describe("grep evidence rendering", () => {
     expect(formatGrepText(page([]))).toBe(
       "No matches found.\n\nSources:\n  - github:o/r@sha (no results)",
     );
+  });
+});
+
+const preparing = {
+  inputIndex: 1,
+  target: "npm:pending",
+  reason: "repository_indexing",
+  retryable: true,
+  progressRef: null,
+  suggestedSiteTargets: null,
+};
+const terminal = {
+  ...preparing,
+  inputIndex: 2,
+  target: "npm:unsupported",
+  reason: "no_grep_scopes",
+  retryable: false,
+};
+
+describe("grep coverage copy", () => {
+  const incomplete = "No matches returned; coverage is incomplete.";
+  const cases: { name: string; result: GrepResult; headline: string }[] = [
+    {
+      name: "complete empty search",
+      result: page([]),
+      headline: "No matches found.",
+    },
+    {
+      name: "empty searchable corpus",
+      result: page([], {
+        targets: [scope({ filesScanned: 0, filesInScope: 0 })],
+      }),
+      headline: "No matches found.",
+    },
+    {
+      name: "all scopes preparing",
+      result: page([], {
+        targets: [],
+        traversal: "NON_RESUMABLE_PARTIAL",
+        unavailableTargets: [preparing],
+      }),
+      headline: "No matches available yet.",
+    },
+    {
+      name: "ready empty scope and pending omission",
+      result: page([], {
+        traversal: "NON_RESUMABLE_PARTIAL",
+        unavailableTargets: [preparing],
+      }),
+      headline: "No matches available yet.",
+    },
+    {
+      name: "terminal omissions only",
+      result: page([], {
+        targets: [],
+        traversal: "NON_RESUMABLE_PARTIAL",
+        unavailableTargets: [terminal],
+      }),
+      headline: "No content could be searched.",
+    },
+    {
+      name: "ready scope and terminal omission",
+      result: page([], { unavailableTargets: [terminal] }),
+      headline: incomplete,
+    },
+    {
+      name: "mixed omissions",
+      result: page([], {
+        traversal: "NON_RESUMABLE_PARTIAL",
+        unavailableTargets: [preparing, terminal],
+      }),
+      headline: incomplete,
+    },
+    ...(["NOT_AVAILABLE", "CURRENT"] as const).map((readiness) => ({
+      name: `zero-scanned failed native scope with ${readiness} readiness`,
+      result: page([], {
+        traversal: "FAILED",
+        targets: [scope({ readiness, traversal: "FAILED", filesScanned: 0 })],
+      }),
+      headline: "No content could be searched.",
+    })),
+    {
+      name: "unavailable native scope without a traversal failure",
+      result: page([], {
+        targets: [scope({ readiness: "NOT_AVAILABLE", filesScanned: 0 })],
+      }),
+      headline: "No content could be searched.",
+    },
+    {
+      name: "native failure after scanning",
+      result: page([], {
+        traversal: "FAILED",
+        targets: [scope({ traversal: "FAILED" })],
+      }),
+      headline: incomplete,
+    },
+    {
+      name: "healthy empty continuation",
+      result: page([], {
+        traversal: "RESUMABLE_LIMIT",
+        nextCursor: "cursor",
+        targets: [
+          scope({
+            readiness: "UNSPECIFIED",
+            traversal: "RESUMABLE_LIMIT",
+            filesScanned: 0,
+          }),
+        ],
+      }),
+      headline: "No matches on this page.",
+    },
+    ...(
+      [
+        { binaryFilesSkipped: 1 },
+        { filesTooLargeSkipped: 1 },
+        { readiness: "STALE" },
+        {
+          fileIssues: [
+            {
+              filePath: "a.ts",
+              line: 3,
+              code: "LINE_TOO_LARGE",
+              contentSafety: { filtered: true },
+            },
+          ],
+        },
+        { fileIssuesOmitted: 2 },
+      ] satisfies Partial<GrepTargetStatus>[]
+    ).map((gap) => ({
+      name: `coverage gap: ${Object.keys(gap).join(", ")}`,
+      result: page([], { targets: [scope(gap)] }),
+      headline: incomplete,
+    })),
+  ];
+  for (const { name, result, headline } of cases) {
+    it(name, () => {
+      const before = structuredClone(result);
+      for (const syntax of ["cli", "mcp"] as const) {
+        const text = formatGrepText(result, { syntax });
+        expect(text.split("\n")[0]).toBe(headline);
+        expect(
+          stripAnsi(formatGrepText(result, { syntax, useColors: true })),
+        ).toBe(text);
+        expect(text).not.toContain("Traversal is incomplete");
+        if (
+          headline === "No content could be searched." &&
+          result.targets.length
+        )
+          expect(text).toContain("(not searched)");
+      }
+      expect(result).toEqual(before);
+    });
+  }
+
+  it("keeps hits, attributed failures and exact reads without repeated caveats", () => {
+    const data = page([hit()], {
+      traversal: "NON_RESUMABLE_PARTIAL",
+      targets: [
+        scope(),
+        scope({
+          targetIndex: 1,
+          target: "npm:failed",
+          traversal: "FAILED",
+          readiness: "NOT_AVAILABLE",
+          filesScanned: 0,
+          errorCode: "READ_FAILED",
+          publicMessage: "Reader unavailable.",
+          retryable: true,
+        }),
+      ],
+    });
+    for (const syntax of ["cli", "mcp"] as const) {
+      const text = formatGrepText(data, { syntax, width: 160 });
+      expect(text.startsWith("Found 1 match on 1 line in 1 file.")).toBe(true);
+      expect(text).toContain("[1] github:o/r@sha a.ts\n3: router");
+      expect(text).toContain(
+        "Repository npm:failed: unavailable; search failed; READ_FAILED; retryable; Reader unavailable.",
+      );
+      expect(text).not.toContain(".;");
+      expect(text).not.toContain("Traversal is incomplete");
+      expect(text).not.toContain("Some requested content");
+      expect(text).toContain(
+        "Retry only targets marked retryable without a cursor.",
+      );
+      expect(text).not.toMatch(/--wait|wait_timeout_ms/);
+    }
+  });
+
+  it("keeps continuation and selective preparation recovery distinct with mixed omissions", () => {
+    const data = page([], {
+      traversal: "RESUMABLE_LIMIT",
+      nextCursor: "exact cursor",
+      unavailableTargets: [
+        preparing,
+        terminal,
+        {
+          ...terminal,
+          inputIndex: 3,
+          target: "npm:retryable",
+          reason: "resolution_failed",
+          retryable: true,
+        },
+      ],
+    });
+    for (const syntax of ["cli", "mcp"] as const) {
+      const text = formatGrepText(data, { syntax, width: 160 });
+      expect(text.split("\n")[0]).toBe(
+        "No matches returned on this page; coverage is incomplete.",
+      );
+      expect(text).toContain(
+        "npm:unsupported (no searchable source or documentation is available)",
+      );
+      expect(text).toContain("npm:retryable (resolution_failed; retryable)");
+      expect(text).toContain(
+        "Retry only preparing or retryable targets without a cursor;",
+      );
+      expect(text).toContain(
+        syntax === "cli"
+          ? "add --wait 30000 for preparation."
+          : "add wait_timeout_ms=30000 for preparation.",
+      );
+      expect(text).toContain(
+        syntax === "cli" ? "--cursor 'exact cursor'" : 'cursor="exact cursor"',
+      );
+      expect(text).not.toContain("rerun the original query");
+    }
+  });
+
+  it("does not suggest preparation or retry for terminal preparation omissions", () => {
+    const data = page([], {
+      targets: [],
+      unavailableTargets: [{ ...preparing, retryable: false }],
+    });
+    for (const syntax of ["cli", "mcp"] as const) {
+      const text = formatGrepText(data, { syntax });
+      expect(text.startsWith("No content could be searched.")).toBe(true);
+      expect(text).toContain("Omitted:");
+      expect(text).not.toContain("Preparing:");
+      expect(text).not.toMatch(/Follow-up:|--wait|wait_timeout_ms|Retry/);
+    }
+  });
+
+  it("retries a non-preparation omission without inventing a preparation wait", () => {
+    const data = page([], {
+      unavailableTargets: [
+        { ...terminal, reason: "resolution_failed", retryable: true },
+      ],
+    });
+    const text = formatGrepText(data, { width: 160 });
+    expect(text.startsWith(incomplete)).toBe(true);
+    expect(text).toContain("npm:unsupported (resolution_failed; retryable)");
+    expect(text).toContain(
+      "Retry only targets marked retryable without a cursor.",
+    );
+    expect(text).not.toMatch(/--wait|wait_timeout_ms|Preparing:/);
   });
 });

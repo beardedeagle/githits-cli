@@ -289,7 +289,7 @@ describe("unified grep result and text", () => {
       const output = formatGrepText(
         result({ hits: [], totalMatches: 0, targets: [scope] }),
       );
-      expect(output).toContain("No matches found.");
+      expect(output).toContain("No matches returned; coverage is incomplete.");
       expect(output).not.toContain("(no results)");
     }
     const output = formatGrepText(
@@ -463,7 +463,9 @@ describe("grep page and omission outcomes", () => {
         nextCursor: "cursor",
       }),
     );
-    expect(output.split("\n")[0]).toBe("No matches on this page.");
+    expect(output.split("\n")[0]).toBe(
+      "No matches returned on this page; coverage is incomplete.",
+    );
     expect(output).toContain("Repository npm:x:");
     expect(output).toContain("Skipped 1 binary file(s).");
     expect(output).toContain("--cursor 'cursor'");
@@ -488,7 +490,9 @@ describe("grep page and omission outcomes", () => {
         ],
       }),
     );
-    expect(output.split("\n")[0]).toBe("No matches on this page.");
+    expect(output.split("\n")[0]).toBe(
+      "No matches returned on this page; coverage is incomplete.",
+    );
     expect(output).toContain("Omitted:\n  - npm:unsupported (unsupported)");
     expect(output).toContain("--cursor 'cursor'");
     expect(output).not.toContain("To retry omitted targets");
@@ -517,11 +521,11 @@ describe("overall grep traversal limitations", () => {
         expect(output.split("\n")[0]).toBe(
           hits.length
             ? "Found 1 match on 1 line in 1 file."
-            : "No matches on this page.",
+            : "No matches returned on this page; coverage is incomplete.",
         );
-        expect(output).toContain(
-          "Some requested content could not be searched.",
-        );
+        expect(
+          output.includes("Some requested content could not be searched."),
+        ).toBe(hits.length > 0);
         expect(output).toContain("--cursor 'sibling cursor'");
         expect(output).not.toContain("has no continuation cursor");
         expect(output).not.toContain("(no results)");

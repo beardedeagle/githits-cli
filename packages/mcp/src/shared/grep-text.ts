@@ -57,13 +57,30 @@ export function formatGrepText(
     lines.push(...wrap(escapeText(value), options.width ?? 80));
   };
   const groups = groupFiles(result.hits);
+  const isPreparing = (reason: string): boolean =>
+    ["repository_indexing", "documentation_publishing"].includes(reason);
+  const scopeCoverageGap = result.targets.some(hasPageCoverageGap);
+  const pageCoverageGap =
+    scopeCoverageGap ||
+    result.unavailableTargets.length > 0 ||
+    !["COMPLETE", "RESUMABLE_LIMIT"].includes(result.traversal);
   const omissionsOnly =
     result.unavailableTargets.length > 0 &&
-    result.targets.every((scope) => !hasPageCoverageGap(scope)) &&
+    !scopeCoverageGap &&
     !["FAILED", "CURSOR_EXPIRED"].includes(result.traversal);
-  const retryableOmissionsOnly =
+  const preparationOnly =
     omissionsOnly &&
-    result.unavailableTargets.every((target) => target.retryable);
+    result.unavailableTargets.every(
+      (target) => target.retryable && isPreparing(target.reason),
+    );
+  const nothingSearched =
+    (result.targets.length > 0 || result.unavailableTargets.length > 0) &&
+    result.targets.every(
+      (scope) =>
+        scope.filesScanned === 0 &&
+        (scope.traversal === "FAILED" ||
+          !["CURRENT", "STALE", "UNSPECIFIED"].includes(scope.readiness)),
+    );
   const matchingLines = new Set(
     result.hits.map((hit) => JSON.stringify([...fileIdentity(hit), hit.line])),
   ).size;
@@ -78,12 +95,18 @@ export function formatGrepText(
     result.hits.length
       ? `Found ${result.totalMatches} match${result.totalMatches === 1 ? "" : "es"} on ${matchingLines} line${matchingLines === 1 ? "" : "s"} in ${groups.length} ${noun}.`
       : result.nextCursor
-        ? retryableOmissionsOnly
+        ? preparationOnly
           ? "No matches available yet on this page."
-          : "No matches on this page."
-        : retryableOmissionsOnly
+          : pageCoverageGap
+            ? "No matches returned on this page; coverage is incomplete."
+            : "No matches on this page."
+        : preparationOnly
           ? "No matches available yet."
-          : "No matches found.",
+          : nothingSearched
+            ? "No content could be searched."
+            : isExhaustive(result)
+              ? "No matches found."
+              : "No matches returned; coverage is incomplete.",
   );
   if (options.useColors) lines[0] = `${colors.bold}${lines[0]}${colors.reset}`;
   if (result.targets.length) {
@@ -96,10 +119,8 @@ export function formatGrepText(
     ))
       prose(`  - ${source}`);
   }
-  const isPreparing = (reason: string): boolean =>
-    ["repository_indexing", "documentation_publishing"].includes(reason);
-  const pending = result.unavailableTargets.filter((entry) =>
-    isPreparing(entry.reason),
+  const pending = result.unavailableTargets.filter(
+    (entry) => entry.retryable && isPreparing(entry.reason),
   );
   const attached = new Set<(typeof pending)[number]>();
   if (pending.length || result.indexingEstimates?.length)
@@ -146,11 +167,13 @@ export function formatGrepText(
       prose(`    Suggested site: ${target}`);
   }
   const otherOmissions = result.unavailableTargets.filter(
-    (entry) => !isPreparing(entry.reason),
+    (entry) => !pending.includes(entry),
   );
-  if (otherOmissions.length) lines.push("Omitted:");
+  if (otherOmissions.length) lines.push("", "Omitted:");
   for (const omitted of otherOmissions) {
-    prose(`  - ${omitted.target} (${grepPreparationReason(omitted.reason)})`);
+    prose(
+      `  - ${omitted.target} (${grepPreparationReason(omitted.reason)}${omitted.retryable ? "; retryable" : ""})`,
+    );
     for (const target of omitted.suggestedSiteTargets ?? [])
       prose(`    Suggested site: ${target}`);
   }
@@ -163,12 +186,14 @@ export function formatGrepText(
   else if (
     result.traversal !== "COMPLETE" &&
     (!result.nextCursor || result.traversal !== "RESUMABLE_LIMIT") &&
-    !omissionsOnly
+    !omissionsOnly &&
+    !scopeCoverageGap &&
+    result.hits.length > 0
   )
     prose(
       result.nextCursor
         ? "Some requested content could not be searched."
-        : "Traversal is incomplete and has no continuation cursor.",
+        : "Search incomplete; no continuation is available.",
     );
   for (const [index, group] of groups.entries()) {
     const first = group.first;
@@ -236,13 +261,21 @@ export function formatGrepText(
           : `--cursor ${shellQuoteExact(result.nextCursor)}`,
       ),
     );
-  if (result.unavailableTargets.some((target) => target.retryable)) {
-    const wait = indexingWaitMs(result.indexingEstimates);
-    followUp.push(
-      ...proseLines(
-        `To retry omitted targets, rerun the original query with ${options.syntax === "mcp" ? `wait_timeout_ms=${wait}` : `--wait ${wait}`}.`,
-      ),
+  const retryableFailures =
+    otherOmissions.some((target) => target.retryable) ||
+    result.targets.some(
+      (scope) => scope.retryable && hasPageCoverageGap(scope),
     );
+  if (pending.length || retryableFailures) {
+    const targets = pending.length
+      ? retryableFailures
+        ? "only preparing or retryable targets"
+        : "preparing targets"
+      : "only targets marked retryable";
+    const wait = pending.length
+      ? `; add ${options.syntax === "mcp" ? `wait_timeout_ms=${indexingWaitMs(result.indexingEstimates)}` : `--wait ${indexingWaitMs(result.indexingEstimates)}`}${retryableFailures ? " for preparation" : ""}`
+      : "";
+    followUp.push(...proseLines(`Retry ${targets} without a cursor${wait}.`));
   }
   appendSearchGrepFooter(
     lines,
@@ -268,10 +301,10 @@ function renderCoverage(
   if (scope.traversal !== "COMPLETE" && scope.traversal !== "RESUMABLE_LIMIT")
     notes.push(traversalNote(scope));
   if (scope.errorCode) notes.push(scope.errorCode);
+  if (scope.retryable && hasPageCoverageGap(scope)) notes.push("retryable");
   if (scope.publicMessage) notes.push(scope.publicMessage);
   const details: string[] = [];
   if (notes.length) {
-    if (scope.retryable) notes.push("retryable");
     if (scope.readiness === "STALE" && scope.commitSha)
       details.push(
         ...(scope.repoUrl
@@ -406,7 +439,8 @@ function formatSources(
     const unsearched =
       !matchedScopes.has(scope.targetIndex) &&
       scope.filesScanned === 0 &&
-      !["CURRENT", "STALE", "UNSPECIFIED"].includes(scope.readiness);
+      (scope.traversal === "FAILED" ||
+        !["CURRENT", "STALE", "UNSPECIFIED"].includes(scope.readiness));
     if (unsearched) qualifiers.push("not searched");
     identity = JSON.stringify([
       identity,
