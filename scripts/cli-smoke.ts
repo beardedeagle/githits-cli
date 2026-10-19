@@ -391,8 +391,10 @@ export function parseRootHelpCommands(helpText: string): string[] {
     }
     if (line.trim() === "") break;
     const match = /^ {2}(\S+)/.exec(line);
-    const command = match?.[1]?.split("|", 1)[0];
-    if (command && command !== "help") commands.push(command);
+    // Aliases count as commands so a reintroduced alias fails the exact set.
+    for (const command of match?.[1]?.split("|") ?? []) {
+      if (command && command !== "help") commands.push(command);
+    }
   }
   return commands;
 }
@@ -1090,9 +1092,9 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
       EXPECTED_STABLE_TOP_LEVEL_COMMANDS,
     );
     assert(
-      helpResult.stdout.includes("research|ask") &&
-        helpResult.stdout.includes('githits research npm:express "How?"'),
-      "stable root help should expose research with its compatibility alias",
+      helpResult.stdout.includes('githits research npm:express "How?"') &&
+        !helpResult.stdout.includes("research|ask"),
+      "stable root help should expose research without an alias",
     );
     assert(
       helpResult.stdout.includes("resolve"),
@@ -1115,8 +1117,8 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
       "stable code help should expose diff",
     );
 
-    for (const command of ["research", "ask"] as const) {
-      const commandHelp = await runCliWithEnv([command, "--help"], env);
+    {
+      const commandHelp = await runCliWithEnv(["research", "--help"], env);
       assert(
         commandHelp.exitCode === 0 &&
           commandHelp.stdout.includes("Usage: githits research") &&
@@ -1126,7 +1128,7 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
           commandHelp.stdout.includes("--source-format <format>") &&
           commandHelp.stdout.includes('choices: "cli", "url"') &&
           commandHelp.stdout.includes("--json"),
-        `stable ${command} help should expose the research CLI contract`,
+        "stable research help should expose the research CLI contract",
       );
     }
 
@@ -1158,14 +1160,23 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
       "stable unauthenticated research",
       "AUTH_REQUIRED",
     );
-    const targetlessAskJson = await runCliWithEnv(
-      ["ask", "How does Express routing work?", "--json"],
+    const targetlessResearchJson = await runCliWithEnv(
+      ["research", "How does Express routing work?", "--json"],
       env,
     );
     assertJsonErrorCode(
-      targetlessAskJson,
-      "stable unauthenticated targetless ask alias",
+      targetlessResearchJson,
+      "stable unauthenticated targetless research",
       "AUTH_REQUIRED",
+    );
+    const removedAsk = await runCliWithEnv(
+      ["ask", "How does Express routing work?"],
+      env,
+    );
+    assert(
+      removedAsk.exitCode !== 0 &&
+        removedAsk.stderr.includes("unknown command 'ask'"),
+      "removed ask alias must fail as an unknown command before auth",
     );
 
     const resolveHelp = await runCliWithEnv(["resolve", "--help"], env);

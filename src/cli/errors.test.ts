@@ -448,8 +448,10 @@ describe("handleCliError", () => {
     }
   });
 
-  it("renders legacy repository refs through the ask alias as a clean JSON argument error", async () => {
-    const configHome = mkdtempSync(join(tmpdir(), "githits-cli-ask-error-"));
+  it("renders legacy repository refs through research as a clean JSON argument error", async () => {
+    const configHome = mkdtempSync(
+      join(tmpdir(), "githits-cli-research-error-"),
+    );
     mkdirSync(join(configHome, "githits"), { recursive: true });
     writeFileSync(
       join(configHome, "githits", "config.toml"),
@@ -470,7 +472,7 @@ describe("handleCliError", () => {
         "bun",
         "run",
         "src/cli.ts",
-        "ask",
+        "research",
         "--json",
         "github:expressjs/express#main",
         "why?",

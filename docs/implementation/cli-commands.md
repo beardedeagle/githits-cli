@@ -280,7 +280,7 @@ same projection and documentation-source formatter for both commands; contributo
 duplicated onto generic progress targets. JSON remains the stable, lossless
 follow-up contract even when text collapses healthy sources or groups recovery inline.
 
-### `githits research` (`githits ask` alias)
+### `githits research`
 
 ```sh
 githits research "How does Express routing work?"
@@ -289,9 +289,8 @@ githits research --thread <UUID> "Where is that checked?"
 githits research "How does Express routing work?" --source-format url --json
 ```
 
-Registered by default. The `ask` compatibility alias uses the same
-registration, handler, auth metadata, and `command.research` telemetry name;
-help shows it only as `research|ask`. One positional
+Registered by default under the single name `research`; the former `ask`
+alias was removed and `githits ask` now fails as an unknown command. One positional
 argument is the question; two are target and question. Quote multi-word questions.
 With neither a target nor `--thread`, GitHits uses the question to identify a
 public package or repository.

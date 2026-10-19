@@ -228,7 +228,6 @@ version, or topic in the question to change scope.`;
 export function registerResearchCommand(program: Command): Command {
   return program
     .command("research")
-    .alias("ask")
     .summary("Research a public repository or package to answer a question")
     .description(DESCRIPTION)
     .usage(

@@ -1,6 +1,6 @@
 # Research
 
-`research` (CLI `githits research`, compatibility alias `githits ask`) answers
+`research` (CLI `githits research`) answers
 one grounded question about a canonical open-source package or repository and
 returns a verified answer whose sources are cited directly. It is stable and
 registered by default in the CLI, the local stdio MCP server and the public
@@ -8,7 +8,7 @@ registered by default in the CLI, the local stdio MCP server and the public
 `[experimental] tools = true` setting is accepted and has no effect on it.
 
 The GitHits API owns the answer, its citations and its display text; see
-[Ask display and target clarification](ask-target-clarification.md) for the
+[Research display and target clarification](ask-target-clarification.md) for the
 response envelope.
 
 ## Use the CLI command
@@ -37,6 +37,9 @@ terminal control sequences. `--source-format url` returns original upstream
 HTTP URLs instead of CLI source commands.
 
 ## Use the MCP tool
+
+The former `githits ask` alias was removed; `githits ask` now fails as an
+unknown command.
 
 The MCP `research` tool accepts a question alone, a `target`, or a `thread_id`;
 do not combine `target` and `thread_id`. It defaults to MCP-native `read`

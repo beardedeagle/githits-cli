@@ -749,14 +749,15 @@ describe("CLI root help smoke contract", () => {
     expect(() => assertRootHelpStructure(help)).not.toThrow();
   });
 
-  it("parses research as canonical while retaining ask in the help alias", () => {
-    const help = rootHelpFixture(EXPECTED_STABLE_TOP_LEVEL_COMMANDS);
+  it("fails when the removed ask alias reappears in root help", () => {
+    const help = rootHelpFixture(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).replace(
+      "  research [options]",
+      "  research|ask [options]",
+    );
 
     expect(help).toContain("  research|ask [options]");
-    expect(parseRootHelpCommands(help)).toEqual([
-      ...EXPECTED_STABLE_TOP_LEVEL_COMMANDS,
-    ]);
-    expect(() => assertRootHelpStructure(help)).not.toThrow();
+    expect(parseRootHelpCommands(help)).toContain("ask");
+    expect(() => assertRootHelpStructure(help)).toThrow("unexpected: ask");
   });
 
   it("fails when a command disappears even if prose still mentions it", () => {
@@ -780,10 +781,9 @@ describe("CLI root help smoke contract", () => {
   });
 
   function rootHelpFixture(commands: readonly string[]): string {
-    const rows = commands.map((command) => {
-      const displayName = command === "research" ? "research|ask" : command;
-      return `  ${displayName} [options]  ${command} description`;
-    });
+    const rows = commands.map(
+      (command) => `  ${command} [options]  ${command} description`,
+    );
     return [
       "Usage: githits [options] [command]",
       "",

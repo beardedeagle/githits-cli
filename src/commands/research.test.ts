@@ -666,7 +666,7 @@ describe("Research positional parsing", () => {
 
 describe("Research registration", () => {
   it.each(
-    ["research", "ask"].flatMap((command) =>
+    ["research"].flatMap((command) =>
       ["", " ", "\t\n"].flatMap((question) => [
         { args: [command, question] },
         { args: [command, "npm:example", question] },
@@ -693,7 +693,7 @@ describe("Research registration", () => {
   );
 
   it.each(
-    ["research", "ask"].flatMap((command) =>
+    ["research"].flatMap((command) =>
       [
         [command, "How does Express routing work?"],
         [
@@ -720,7 +720,7 @@ describe("Research registration", () => {
   });
 
   it.each(
-    ["research", "ask"].flatMap((command) => [
+    ["research"].flatMap((command) => [
       [
         `${command}: missing follow-up question`,
         [command, "--thread", THREAD_ID],

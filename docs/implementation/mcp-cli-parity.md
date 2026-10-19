@@ -274,8 +274,7 @@ test suite anchors the doc.
 - `resolve_target` and `code_diff` are stable CLI/public-MCP pairs, included in
   definitions, descriptors, smoke inventories and public exports. Hosted
   availability follows package release, dependency adoption and deployment.
-  `research` is likewise a stable CLI/public-MCP pair (`githits research`,
-  alias `githits ask`).
+  `research` is likewise a stable CLI/public-MCP pair (`githits research`).
 - Equivalent explicit calls must normalize to identical service params. CLI
   comma-separated registries and MCP registry arrays, CLI repeated intent
   hints and MCP hint arrays, CLI target/range syntax and MCP target/endpoints,

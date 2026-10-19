@@ -221,7 +221,7 @@ New source capabilities still need to work against supported installed catalogs.
 This is an experimental compatibility reset. Older structured-response clients are
 not supported at cutover. Afterward, keep `display_markdown` and request/thread
 semantics stable while presentation evolves. See
-[Ask display and clarification](ask-target-clarification.md) for the wire contract,
+[Research display and clarification](ask-target-clarification.md) for the wire contract,
 JSON tolerance, and coordinated rollout. No hosted MCP package change is required.
 
 ## Migration and future extension

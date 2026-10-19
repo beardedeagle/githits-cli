@@ -121,16 +121,22 @@ async function expectStableSurface(
 ): Promise<void> {
   const root = await runCli(xdgConfigHome, ["--help"], isolatedHome);
   expect(root.exitCode).toBe(0);
-  expect(root.stdout).toMatch(/^\s+research\|ask\b/m);
+  expect(root.stdout).toMatch(/^\s+research \[options\]/m);
+  expect(root.stdout).not.toContain("research|ask");
   expect(root.stdout).toContain('githits research npm:express "How?"');
   expect(root.stdout).toContain("githits resolve express");
 
-  for (const command of ["research", "ask"]) {
-    expectResearchHelp(
-      await runCli(xdgConfigHome, [command, "--help"], isolatedHome),
-      "research",
-    );
-  }
+  expectResearchHelp(
+    await runCli(xdgConfigHome, ["research", "--help"], isolatedHome),
+    "research",
+  );
+  const removedAlias = await runCli(
+    xdgConfigHome,
+    ["ask", "How does Express routing work?"],
+    isolatedHome,
+  );
+  expect(removedAlias.exitCode).not.toBe(0);
+  expect(removedAlias.stderr).toContain("unknown command 'ask'");
   expectResearchHelp(
     await runCli(xdgConfigHome, ["help", "research"], isolatedHome),
     "research",
@@ -166,18 +172,16 @@ describe("stable CLI surface regardless of the experimental setting", () => {
     await withConfig(
       "[experimental]\ntools = false\n",
       async (xdgConfigHome) => {
-        for (const command of ["research", "ask"]) {
-          const result = await runCli(xdgConfigHome, [
-            command,
-            "npm:express",
-            "How is routing implemented?",
-            "--json",
-          ]);
-          expect(result.exitCode).toBe(1);
-          expect(result.stdout).toBe("");
-          expect(result.stderr).not.toContain("Experimental");
-          expect(result.stderr).not.toContain("[experimental]");
-        }
+        const result = await runCli(xdgConfigHome, [
+          "research",
+          "npm:express",
+          "How is routing implemented?",
+          "--json",
+        ]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).not.toContain("Experimental");
+        expect(result.stderr).not.toContain("[experimental]");
       },
     );
   }, 30_000);
