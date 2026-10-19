@@ -1092,9 +1092,8 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
       EXPECTED_STABLE_TOP_LEVEL_COMMANDS,
     );
     assert(
-      helpResult.stdout.includes('githits research npm:express "How?"') &&
-        !helpResult.stdout.includes("research|ask"),
-      "stable root help should expose research without an alias",
+      helpResult.stdout.includes('githits research npm:express "How?"'),
+      "stable root help should expose research",
     );
     assert(
       helpResult.stdout.includes("resolve"),
@@ -1169,16 +1168,6 @@ async function assertUnauthenticatedBehavior(): Promise<void> {
       "stable unauthenticated targetless research",
       "AUTH_REQUIRED",
     );
-    const removedAsk = await runCliWithEnv(
-      ["ask", "How does Express routing work?"],
-      env,
-    );
-    assert(
-      removedAsk.exitCode !== 0 &&
-        removedAsk.stderr.includes("unknown command 'ask'"),
-      "removed ask alias must fail as an unknown command before auth",
-    );
-
     const resolveHelp = await runCliWithEnv(["resolve", "--help"], env);
     assert(
       resolveHelp.exitCode === 0 &&

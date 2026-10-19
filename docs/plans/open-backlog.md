@@ -76,9 +76,3 @@ and provenance; clients can display it without keyword-based guessing or a
 package verdict. This needs backend/domain design and remains outside the
 completed statement migration. Private-code applicability still requires local
 usage inspection and before/after checks by the caller.
-
-## Public vulnerability-scope skill guidance at release
-
-Release follow-up for direct and transitive unknown scopes: update the public `githits-package`
-skill examples and scope guidance once this CLI/MCP behavior is released, per
-the public Agent Skill lifecycle. Do not advertise unreleased flags from `main`.

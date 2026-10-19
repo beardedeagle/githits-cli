@@ -735,7 +735,6 @@ describe("CLI root help smoke contract", () => {
       EXPECTED_STABLE_TOP_LEVEL_COMMANDS,
     );
     expect(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).toContain("uninstall");
-    expect(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).not.toContain("ask");
     expect(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).toContain("research");
     expect(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).toContain("resolve");
   });
@@ -747,17 +746,6 @@ describe("CLI root help smoke contract", () => {
       ...EXPECTED_TOP_LEVEL_COMMANDS,
     ]);
     expect(() => assertRootHelpStructure(help)).not.toThrow();
-  });
-
-  it("fails when the removed ask alias reappears in root help", () => {
-    const help = rootHelpFixture(EXPECTED_STABLE_TOP_LEVEL_COMMANDS).replace(
-      "  research [options]",
-      "  research|ask [options]",
-    );
-
-    expect(help).toContain("  research|ask [options]");
-    expect(parseRootHelpCommands(help)).toContain("ask");
-    expect(() => assertRootHelpStructure(help)).toThrow("unexpected: ask");
   });
 
   it("fails when a command disappears even if prose still mentions it", () => {

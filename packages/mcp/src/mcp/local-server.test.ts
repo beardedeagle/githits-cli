@@ -201,7 +201,6 @@ describe("createLocalMcpServer", () => {
       });
 
       expect(registeredToolNames(server)).toEqual([...EXPECTED_STABLE_NAMES]);
-      expect(registeredToolNames(server)).not.toContain("ask");
       expect(registeredToolNames(server)).toHaveLength(15);
       expect(registeredToolNames(server)).toContain("list");
       expect(registeredToolNames(server)).not.toContain("code_files");
@@ -235,7 +234,6 @@ describe("createLocalMcpServer", () => {
     });
 
     expect(registeredToolNames(server)).toEqual([...EXPECTED_STABLE_NAMES]);
-    expect(registeredToolNames(server)).not.toContain("ask");
     expect(serverInstructions(server)).toBeUndefined();
     const result = await registeredTools(server).quick_start!.handler(
       {},

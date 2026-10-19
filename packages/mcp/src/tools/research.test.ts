@@ -131,7 +131,7 @@ describe("research MCP adapter", () => {
       "Omit target and thread_id to identify the target from the question",
     );
     expect(DESCRIPTION).toContain(
-      "ask the user to select a target before retrying",
+      "retry with the one matching the question's project as target",
     );
     expect(
       z.object(tool.schema).parse({ question: "How does codex work?" }),

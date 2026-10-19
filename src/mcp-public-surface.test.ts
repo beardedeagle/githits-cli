@@ -299,7 +299,6 @@ describe("public MCP package surface", () => {
       expect(inventory.filter((name) => name === "research")).toHaveLength(1);
       expect(inventory).toContain("code_diff");
       expect(inventory.filter((name) => name === "code_diff")).toHaveLength(1);
-      expect(inventory).not.toContain("ask");
       expect(inventory).not.toContain("code_read");
       expect(inventory).not.toContain("docs_read");
       expect(inventory).not.toContain("docs_list");

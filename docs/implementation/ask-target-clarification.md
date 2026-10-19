@@ -19,8 +19,9 @@ accepted requests, and thread semantics backward compatible from this baseline.
 A targetless lookup that needs a choice uses the same HTTP 200 shape, omitting both
 IDs. The backend formats provider order, confidence, related groups, protected
 matches, malicious-status evidence, and truncation notes. Empty candidates explain
-how to retry. Clients do not select a target. Repeat the question with an explicit
-canonical target, without a thread ID:
+how to retry. Client code does not select a target; the agent repeats the question
+with the candidate matching the question's project as an explicit canonical target,
+without a thread ID:
 
 ```sh
 githits research github:openai/codex 'How does codex handle chat compaction?'

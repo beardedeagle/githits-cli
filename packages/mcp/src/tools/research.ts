@@ -66,7 +66,7 @@ const schema: ZodRawShape = {
     ),
 };
 
-export const DESCRIPTION: string = `Research a public repository or package to answer a question with sources. Omit target and thread_id to identify the target from the question. If Research returns candidates, ask the user to select a target before retrying. Supply at most one of target or thread_id. Continue a prior thread by its returned thread_id. Follow-ups can change project, version, or topic; state changes in the question. ${RESEARCH_VERIFIED_ANSWER_GUIDANCE} Sources default to MCP read calls; request source_format=url for original upstream URLs.`;
+export const DESCRIPTION: string = `Research a public repository or package to answer a question with sources. Omit target and thread_id to identify the target from the question. If Research returns candidates, retry with the one matching the question's project as target. Supply at most one of target or thread_id. Continue a prior thread by its returned thread_id. Follow-ups can change project, version, or topic; state changes in the question. ${RESEARCH_VERIFIED_ANSWER_GUIDANCE} Sources default to MCP read calls; request source_format=url for original upstream URLs.`;
 
 export function createResearchTool(
   service: AgenticAskService,

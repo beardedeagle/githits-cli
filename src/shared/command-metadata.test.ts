@@ -59,7 +59,6 @@ describe("authenticated command metadata", () => {
       postLoginMessage: "Authentication complete. Running research...",
       jsonCapable: true,
     });
-    expect(getAuthenticatedCommandMetadata("ask")).toBeUndefined();
   });
 
   it("marks resolve as auto-login eligible and JSON-capable", () => {

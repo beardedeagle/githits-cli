@@ -139,6 +139,7 @@ These workflow mappings do not promise one-to-one flag compatibility. Use each
 MCP tool with its own schema and documented capabilities.
 
 - `githits example` maps to MCP `get_example`.
+- `githits research` maps to MCP `research`; `--thread` maps to `thread_id` and `--source-format url` to `source_format:"url"`.
 - `githits search` maps to MCP `search`.
 - `githits search-status` maps to MCP `search_status`.
 - `githits code files` is a legacy CLI browser; use MCP `list` for package or repository inventories.

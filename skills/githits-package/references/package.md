@@ -11,9 +11,9 @@ Swift package targets use `swift:github.com/<owner>/<repo>` or `swift:gitlab.com
 
 `githits pkg vulns <registry:name[@version]>` lists known OSV/CVE advisories. Omit the version for latest.
 
-Flags: `--severity low|medium|high|critical`, `--scope affected|non_affecting|all`, `--include-withdrawn`, `--transitive`, `--verbose`, `--json`.
+Flags: `--severity low|medium|high|critical`, `--scope affected|non_affecting|unknown|all`, `--include-withdrawn`, `--transitive`, `--verbose`, `--json`.
 
-Direct-only is the default. `--transitive` adds vulnerability evidence for versions in the resolved dependency graph, at additional graph-analysis cost; it does not inspect a local application lockfile. `--severity` and `--scope` apply to root and dependency rows. `--include-withdrawn` affects direct rows only; transitive withdrawn advisories remain excluded. Use `--scope all` for affected plus historical dependency advisories, or `--scope non_affecting` for historical rows.
+Direct-only is the default. `--transitive` adds vulnerability evidence for versions in the resolved dependency graph, at additional graph-analysis cost; it does not inspect a local application lockfile. `--severity` and `--scope` apply to root and dependency rows. `--include-withdrawn` affects direct rows only; transitive withdrawn advisories remain excluded. Use `--scope all` for affected, historical and unknown advisories, `--scope non_affecting` for historical rows, or `--scope unknown` for advisories that could not be evaluated, with readable reasons. Reports show unknown counts; treat an unknown assessment as unresolved, not as affected or safe, and verify it before concluding.
 
 CLI text shows every selected direct and transitive advisory row. `--verbose` adds aliases, dates, malicious-advisory markers, and complete range/fix evidence; `--json` retains structured advisory-wide affected ranges and fixed versions. Compact MCP text remains capped; use `verbose:true` for all selected rows.
 

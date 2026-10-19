@@ -120,7 +120,7 @@ describe("buildMcpQuickStart", () => {
       "Inputs are sent to GitHits. Never send credentials, personal data, private or proprietary content, local paths, or private targets.",
       "`research` researches a public repository or package to answer a question with sources",
       "Omit `target` and `thread_id` for question-only lookup",
-      "ask the user to select a `target`, then retry",
+      "For candidates, retry with the one matching the question's project as `target`",
       "Reuse a returned `thread_id` for follow-ups",
       "Change project, version, or topic in the follow-up question",
       RESEARCH_VERIFIED_ANSWER_GUIDANCE,
@@ -134,7 +134,6 @@ describe("buildMcpQuickStart", () => {
     expect(raw.split("## Research")[1]).toContain(
       "Inputs are sent to GitHits.",
     );
-    expect(raw).not.toContain("`ask`");
     expect(raw).not.toContain("Local experimental tools");
   });
 

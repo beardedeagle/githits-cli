@@ -38,9 +38,6 @@ HTTP URLs instead of CLI source commands.
 
 ## Use the MCP tool
 
-The former `githits ask` alias was removed; `githits ask` now fails as an
-unknown command.
-
 The MCP `research` tool accepts a question alone, a `target`, or a `thread_id`;
 do not combine `target` and `thread_id`. It defaults to MCP-native `read`
 source calls; `source_format: "url"` returns original upstream URLs. JSON
@@ -48,8 +45,8 @@ returns the same display envelope.
 
 When Research cannot confidently select a target, both surfaces return a
 clarification with candidates in `display_markdown`, omitting run and thread
-IDs. Ask the user to choose and repeat the question with that target; do not
-infer identity from popularity.
+IDs. Retry with the candidate matching the project named or implied by the
+question as the target, not the most popular one.
 
 ## Routing guidance
 
