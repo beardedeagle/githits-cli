@@ -19,6 +19,9 @@ const ERROR_DETAIL_MAX_BYTES = 16_384;
 
 export const AGENTIC_ASK_REQUEST_RATE_LIMIT_MESSAGE =
   "Research request rate limit reached.";
+/** The API's daily-limit 429 detail, lowercased for comparison. */
+const AGENTIC_ASK_DAILY_LIMIT_DETAIL =
+  "research daily request limit exceeded; try again after 00:00 utc";
 export const AGENTIC_ASK_DAILY_LIMIT_MESSAGE =
   "Research daily request limit reached for this account or project. Try again after 00:00 UTC; until then, use search, grep, list, or read for evidence. If this persists, contact support@githits.com.";
 
@@ -362,16 +365,16 @@ function parseTargetError(body: string): TargetErrorDetail | undefined {
 }
 
 /**
- * Classify a 429 by its JSON `detail` string. The daily limit
- * ("Research daily request limit exceeded; try again after 00:00 UTC") names
- * "daily"; the short-term limit ("Research request rate limit exceeded") and any
- * 429 without a
- * recognizable detail (for example from a proxy) are treated as request-rate
- * limits, which keep the retryable Retry-After contract.
+ * Classify a 429 by its JSON `detail` string. Only the exact daily-limit detail
+ * (compared trimmed and case-insensitively) is the daily limit. The short-term
+ * limit ("Research request rate limit exceeded") and every other 429, including
+ * one without a recognizable detail, keep the retryable Retry-After contract.
  */
 function parseRateLimitScope(body: string): AgenticAskRateLimitScope {
   const detail = parseHttpErrorDetail(body, ["detail"]);
-  return detail && /\bdaily\b/i.test(detail) ? "daily" : "request";
+  return detail?.trim().toLowerCase() === AGENTIC_ASK_DAILY_LIMIT_DETAIL
+    ? "daily"
+    : "request";
 }
 
 function createHttpError(

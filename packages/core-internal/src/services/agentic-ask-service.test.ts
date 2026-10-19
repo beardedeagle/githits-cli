@@ -705,6 +705,28 @@ describe("AgenticAskServiceImpl", () => {
         message: AGENTIC_ASK_DAILY_LIMIT_MESSAGE,
       },
     ],
+    [
+      "padded, differently cased daily",
+      "  RESEARCH DAILY REQUEST LIMIT EXCEEDED; TRY AGAIN AFTER 00:00 UTC ",
+      "600",
+      {
+        rateLimitScope: "daily",
+        retryable: false,
+        retryAfterSeconds: 600,
+        message: AGENTIC_ASK_DAILY_LIMIT_MESSAGE,
+      },
+    ],
+    [
+      "unrelated daily-mentioning",
+      "daily maintenance window",
+      "30",
+      {
+        rateLimitScope: "request",
+        retryable: true,
+        retryAfterSeconds: 30,
+        message: AGENTIC_ASK_REQUEST_RATE_LIMIT_MESSAGE,
+      },
+    ],
   ] as const)(
     "classifies the %s 429 limit from the backend detail",
     async (_name, detail, retryAfter, expected) => {
