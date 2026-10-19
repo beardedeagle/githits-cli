@@ -1,7 +1,7 @@
 import type { CodeNavigationService } from "@githits/core-internal";
 import {
-  PKGSEER_REGISTRY_ARGS,
   PKGSEER_REGISTRY_LIST,
+  parsePkgseerRegistryArg,
   toPkgseerRegistryLowercase,
 } from "@githits/core-internal";
 import {
@@ -198,11 +198,6 @@ function buildCliListFilesParams(
 // a common user mistake where a package spec is passed together with
 // --repo-url. We'd otherwise silently treat it as a (meaningless)
 // path-prefix.
-const REGISTRY_SPEC_HINT = new RegExp(
-  `^(${PKGSEER_REGISTRY_ARGS.join("|")}):`,
-  "i",
-);
-
 function resolvePositionals(
   firstArg: string | undefined,
   secondArg: string | undefined,
@@ -217,7 +212,12 @@ function resolvePositionals(
         "In --repo-url mode, pass only [path-prefix] — the package spec is replaced by --repo-url.",
       );
     }
-    if (firstArg && REGISTRY_SPEC_HINT.test(firstArg)) {
+    const separator = firstArg?.indexOf(":") ?? -1;
+    if (
+      firstArg &&
+      separator > 0 &&
+      parsePkgseerRegistryArg(firstArg.slice(0, separator))
+    ) {
       throw new InvalidPackageSpecError(
         `'${firstArg}' looks like a package spec. Provide either a package spec or \`--repo-url\` with optional \`--git-ref\`, not both.`,
       );
@@ -247,7 +247,7 @@ approved full HTTPS URLs on github.com, codeberg.org, gitlab.com, git.launchpad.
 Launchpad also accepts git://git.launchpad.net roots; project/default shortcuts are unsupported.
 GitHub also accepts github.com/org/repo and HTTP) OR
 --repo-url <url> [--git-ref <ref>]. Omitted package version means latest release.
-Supported registries: ${PKGSEER_REGISTRY_LIST}.
+Supported registries: ${PKGSEER_REGISTRY_LIST}. The cargo: prefix is an alias for crates: (public crates.io).
 
 By default each result is a bare path for easy piping; pass
 --verbose to include language / file-type / size annotations.

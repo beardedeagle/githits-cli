@@ -272,3 +272,41 @@ describe("package_summary parity", () => {
     );
   });
 });
+
+describe("cargo CLI/MCP parity", () => {
+  it("sends canonical CRATES params and returns identical metadata for alias/canonical targets", async () => {
+    const fixture = {
+      ...defaultPackageSummary,
+      package: {
+        ...defaultPackageSummary.package,
+        registry: "CRATES" as const,
+        name: "serde",
+      },
+    };
+    const packageSummary = mock(
+      (_params: Parameters<PackageIntelligenceService["packageSummary"]>[0]) =>
+        Promise.resolve(fixture),
+    );
+    const service = createMockPackageIntelligenceService({ packageSummary });
+    const outputs: unknown[] = [];
+    for (const target of ["cargo:serde", "CrAtEs:serde", "CARGO:serde"]) {
+      outputs.push(
+        await cliJson(target, cliDeps({ packageIntelligenceService: service })),
+      );
+      const mcp = await mcpJson({ target }, packageSummary as never);
+      expect(mcp.isError).toBeUndefined();
+      outputs.push(mcp.json);
+    }
+    expect(packageSummary).toHaveBeenCalledTimes(6);
+    for (const args of packageSummary.mock.calls)
+      expect(args).toEqual([
+        {
+          registry: "CRATES",
+          packageName: "serde",
+          includeVerboseFields: true,
+        },
+      ]);
+    for (const output of outputs) expect(output).toEqual(outputs[0]);
+    expect(outputs[0]).toMatchObject({ registry: "crates", name: "serde" });
+  });
+});

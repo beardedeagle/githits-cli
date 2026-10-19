@@ -64,6 +64,7 @@ export {
   PKGSEER_REGISTRY_LIST,
   type PkgseerRegistry,
   type PkgseerRegistryArg,
+  parsePkgseerRegistryArg,
   toPkgseerRegistry,
 } from "./shared/pkgseer-registry.js";
 export type { TermsAcceptanceRemediation } from "./shared/terms-acceptance.js";

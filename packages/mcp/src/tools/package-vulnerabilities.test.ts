@@ -695,7 +695,7 @@ describe("createPackageVulnerabilitiesTool — validation errors via shared pars
       createMockPackageIntelligenceService(),
     );
     const result = await tool.handler(
-      { target: "cargo:serde", format: "json" },
+      { target: "foobar:serde", format: "json" },
       {},
     );
     expect(result.isError).toBe(true);

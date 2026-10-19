@@ -568,7 +568,14 @@ Shows a concise latest-version overview for dependency triage: license, descript
 
 `--verbose` adds GitHub language/topics/last-pushed, `Versions <N> published`, a download refresh date appended to the download value when a download count exists, package-wide advisory rows under `Advisory history (all versions)`, and a recent-changes list. `--json` emits the lean hand-crafted envelope and always requests the detailed fields; null scalars and empty blocks/arrays are omitted, while a download block may contain only `refreshedAt`. Vulnerability data is emitted whenever the backend reports a numeric latest-version count, including zero.
 
-**Package spec.** `<registry>:<name>`. Registries: `npm`, `pypi`, `hex`, `crates`, `nuget`, `maven`, `zig`, `vcpkg`, `packagist`, `rubygems`, `go`. Scoped npm names (`npm:@types/node`) are supported.
+`cargo:` is an input alias for `crates:` across compact package targets; structured
+registry inputs also accept `cargo`. Both select public crates.io and normalize to
+canonical `crates` / `CRATES`. Registry spelling is case-insensitive and trims
+surrounding prefix whitespace; names, versions, ranges, and existing command
+restrictions are unchanged. See [registry input aliases](package-registry-aliases.md)
+for forwarding and rollout requirements.
+
+**Package spec.** `<registry>:<name>`. Registries: `npm`, `pypi`, `hex`, `crates`, `nuget`, `maven`, `zig`, `vcpkg`, `packagist`, `rubygems`, `go`, `swift`. Scoped npm names (`npm:@types/node`) are supported.
 
 **Always latest.** `pkg info` returns the latest published version regardless of input. Passing `<spec>@<version>` is rejected with `INVALID_ARGUMENT` and a clear message — the tool never silently swaps to latest. Use `pkg vulns` or `pkg deps` for version-pinned queries.
 
@@ -939,7 +946,9 @@ Lists files in an indexed dependency. `[spec] [path-prefix]` positionals mirror 
 
 **`stdout` vs `stderr` routing (plain mode).** Truncation warnings (`More files available — pass --limit higher …`) and empty-result hints go to **stderr**, not stdout, so they stay visible to humans without polluting pipes. In `--verbose` the same text renders inline.
 
-**Addressing ambiguity guard.** In `--repo-url` mode, a positional that matches a known registry prefix (`npm:`, `pypi:`, `hex:`, `crates:`, `nuget:`, `maven:`, `zig:`, `vcpkg:`, `packagist:`, `rubygems:`, `go:`, `swift:`) is rejected with a "looks like a package spec" error — catches `code files npm:express --repo-url …` typos that would otherwise silently interpret the spec as a path prefix. This list mirrors `PKGSEER_REGISTRY_ARGS`.
+**Addressing ambiguity guard.** In `--repo-url` mode, a positional that matches a known registry prefix (`npm:`, `pypi:`, `hex:`, `crates:`, `nuget:`, `maven:`, `zig:`, `vcpkg:`, `packagist:`, `rubygems:`, `go:`, `swift:`) is rejected with a "looks like a package spec" error — catches `code files npm:express --repo-url …` typos that would otherwise silently interpret the spec as a path prefix. The guard uses the shared registry spelling parser, so it also rejects `cargo:`
+(including malformed package-looking inputs such as `cargo:` or `cargo:serde@`)
+and case/whitespace variants. Canonical registry lists remain unchanged.
 
 **Exit codes.** `0` on success (including empty results — absence of files is not an error). `1` on error (authentication, indexing, invalid arguments, backend failures).
 

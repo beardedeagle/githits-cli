@@ -173,3 +173,14 @@ describe("unified grep request normalization", () => {
       );
   });
 });
+
+describe("transparent cargo grep targets", () => {
+  it.each(["cargo:serde", " CARGO:serde@1.0.228 ", "crates:serde@1.0.228"])(
+    "preserves target bytes for %s",
+    (target) => {
+      expect(
+        buildGrepParams({ ...input, targets: [{ target }] }).targets[0]?.target,
+      ).toBe(target);
+    },
+  );
+});

@@ -20,6 +20,26 @@ describe("buildPackageVulnerabilitiesParams", () => {
     expect(params.packageName).toBe("express");
   });
 
+  it("normalizes cargo spellings before capability checks", () => {
+    const expected = buildPackageVulnerabilitiesParams({
+      registry: "crates",
+      packageName: "serde",
+      version: "1.2.3",
+      minSeverity: "high",
+    });
+
+    for (const registry of ["cargo", "CARGO", " cargo "]) {
+      expect(
+        buildPackageVulnerabilitiesParams({
+          registry,
+          packageName: "serde",
+          version: "1.2.3",
+          minSeverity: "high",
+        }),
+      ).toEqual(expected);
+    }
+  });
+
   it("trims whitespace on packageName and version", () => {
     const { params } = buildPackageVulnerabilitiesParams({
       registry: "npm",
@@ -246,7 +266,7 @@ describe("buildPackageVulnerabilitiesParams", () => {
   it("rejects totally unknown registries with generic message", () => {
     try {
       buildPackageVulnerabilitiesParams({
-        registry: "cargo",
+        registry: "foobar",
         packageName: "serde",
       });
       throw new Error("expected throw");

@@ -2151,3 +2151,86 @@ describe("projectUnifiedSearchPresentation", () => {
     expect(presentation.action).toEqual({ kind: "new_search" });
   });
 });
+
+describe("cargo alias presentation", () => {
+  it.each(["cargo:serde@1.0.228", "CARGO:serde@1.0.228"])(
+    "keeps %s package recovery with repository resolution",
+    (targetLabel) => {
+      const presentation = projectUnifiedSearchPresentation(
+        completed({
+          results: [],
+          sourceStatus: [
+            source({
+              targetLabel,
+              codeIndexState: "NOT_FOUND",
+              resultCount: 0,
+              targetResolution: {
+                requested: { repoUrl: "https://github.com/serde-rs/serde" },
+                availableVersions: [],
+                availableRefs: [],
+              },
+            }),
+          ],
+        }),
+      );
+      expect(presentation.targetGroups[0]?.recovery).toEqual({
+        kind: "fix",
+        family: "package",
+      });
+    },
+  );
+  it("constructs canonical package actions from retained cargo labels in search and status", () => {
+    const sourceStatus = [
+      source({
+        targetLabel: "cargo:serde latest",
+        requestedTarget: "cargo:serde latest",
+        codeIndexState: "UNRESOLVABLE",
+        resultCount: 0,
+        targetResolution: {
+          availableVersions: [{ version: "1.0.228", ref: "v1.0.228" }],
+          availableRefs: [],
+        },
+      }),
+    ];
+    for (const payload of [
+      completed({ results: [], sourceStatus }),
+      statusCompleted(statusResult({ sourceStatus })),
+    ]) {
+      expect(
+        projectUnifiedSearchPresentation(payload).targetGroups[0]?.recovery,
+      ).toEqual({
+        kind: "try",
+        category: "version",
+        target: "crates:serde@1.0.228",
+        additionalTargets: [],
+        truncated: false,
+      });
+    }
+  });
+  it("recognizes progress-only cargo labels for indexed-version actions", () => {
+    const presentation = projectUnifiedSearchPresentation(
+      incomplete({
+        progress: {
+          status: "FAILED",
+          targetsReady: 0,
+          targetsTotal: 1,
+          elapsedMs: 200,
+          targets: [
+            {
+              requested: "cargo:serde latest",
+              freshness: "INDEXING",
+              availableVersions: [{ version: "1.0.228", ref: "v1.0.228" }],
+            },
+          ],
+        },
+      }),
+    );
+    expect(presentation.targetGroups[0]?.recovery).toEqual({
+      kind: "try",
+      category: "version",
+      target: "crates:serde@1.0.228",
+      additionalTargets: [],
+      truncated: false,
+    });
+  });
+});

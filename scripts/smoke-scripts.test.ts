@@ -989,3 +989,14 @@ describe("CLI live smoke cohort reporting", () => {
     );
   });
 });
+
+it("keeps cargo metadata parity smoke on the client-normalized path", () => {
+  expect(
+    JSON_PARITY_FIXTURES.find(({ name }) => name === "pkg_info_cargo"),
+  ).toEqual({
+    name: "pkg_info_cargo",
+    cliArgs: ["pkg", "info", "cargo:serde", "--json"],
+    mcpTool: "pkg_info",
+    mcpArgs: { target: "cargo:serde", format: "json" },
+  });
+});

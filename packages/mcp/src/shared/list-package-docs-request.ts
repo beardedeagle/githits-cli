@@ -1,9 +1,8 @@
 import type { ListPackageDocsParams } from "@githits/core-internal";
 import {
-  isKnownPkgseerRegistryArg,
   PKGSEER_REGISTRY_LIST,
   type PkgseerRegistry,
-  type PkgseerRegistryArg,
+  parsePkgseerRegistryArg,
   toPkgseerRegistry,
 } from "@githits/core-internal";
 import {
@@ -34,14 +33,14 @@ export function buildListPackageDocsParams(
     throw new InvalidPackageSpecError("Package name is required.");
   }
 
-  const registry = input.registry?.trim().toLowerCase() ?? "";
-  if (!isKnownPkgseerRegistryArg(registry)) {
+  const registry = parsePkgseerRegistryArg(input.registry ?? "");
+  if (!registry) {
     throw new UnsupportedRegistryError(
       `Unsupported registry '${input.registry}'. Supported: ${PKGSEER_REGISTRY_LIST}.`,
     );
   }
 
-  const backendRegistry = toPkgseerRegistry(registry as PkgseerRegistryArg);
+  const backendRegistry = toPkgseerRegistry(registry);
   const params: ListPackageDocsParams = {
     registry: backendRegistry,
     packageName: normalisePackageName(rawPackageName, backendRegistry),

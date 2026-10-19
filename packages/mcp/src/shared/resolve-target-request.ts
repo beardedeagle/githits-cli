@@ -1,8 +1,7 @@
 import {
-  isKnownPkgseerRegistryArg,
   PKGSEER_REGISTRY_LIST,
   type PkgseerRegistry,
-  type PkgseerRegistryArg,
+  parsePkgseerRegistryArg,
   type ResolveTargetKind,
   type ResolveTargetParams,
   toPkgseerRegistry,
@@ -105,14 +104,15 @@ function parseRegistries(
   const registries: PkgseerRegistry[] = [];
   const values = Array.isArray(value) ? value : value.split(",");
   for (const raw of values) {
-    const registry = raw.trim().toLowerCase();
-    if (!registry) continue;
-    if (!isKnownPkgseerRegistryArg(registry)) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const registry = parsePkgseerRegistryArg(trimmed);
+    if (!registry) {
       throw new InvalidPackageSpecError(
-        `Unsupported registry '${raw.trim()}'. Supported: ${PKGSEER_REGISTRY_LIST}.`,
+        `Unsupported registry '${trimmed}'. Supported: ${PKGSEER_REGISTRY_LIST}.`,
       );
     }
-    const mapped = toPkgseerRegistry(registry as PkgseerRegistryArg);
+    const mapped = toPkgseerRegistry(registry);
     if (!registries.includes(mapped)) registries.push(mapped);
   }
   return registries;

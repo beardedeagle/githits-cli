@@ -84,6 +84,18 @@ export function isKnownPkgseerRegistryArg(
   return Object.hasOwn(registryMap, value);
 }
 
+/**
+ * Parses a registry spelling for package input, normalizing case and
+ * surrounding whitespace and mapping the Cargo alias to its canonical value.
+ */
+export function parsePkgseerRegistryArg(
+  value: string,
+): PkgseerRegistryArg | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "cargo") return "crates";
+  return isKnownPkgseerRegistryArg(normalized) ? normalized : undefined;
+}
+
 export function knownPkgseerRegistryArgs(): ReadonlyArray<PkgseerRegistryArg> {
   return PKGSEER_REGISTRY_ARGS;
 }
