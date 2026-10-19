@@ -98,7 +98,7 @@ export class AgenticAskHttpError extends Error {
     retryable = false,
     readonly threadId?: string,
     readonly targetError: TargetErrorDetail | undefined = undefined,
-    readonly rateLimitScope?: AgenticAskRateLimitScope,
+    readonly rateLimitScope?: AgenticAskRateLimitScope | undefined,
   ) {
     super(message);
     this.name = "AgenticAskHttpError";
