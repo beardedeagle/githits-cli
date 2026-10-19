@@ -1,1 +1,1 @@
-How does Redis handle key expiration?
+How does OpenCode handle chat compaction?
