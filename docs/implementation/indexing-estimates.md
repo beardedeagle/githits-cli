@@ -42,18 +42,24 @@ There is no automatic retry, polling or new status API.
 Annotated text displays total duration and active elapsed evidence; JSON preserves
 provenance and work identity. Pipe-friendly raw paths and source content remain
 raw. Grep lists resolved sources one per line under `Sources:`, marking sources
-without matches on an incomplete search as `(no results on this page)`, or
+not yet reached by pagination as `(not reached on this page)`, other sources
+without returned matches on an incomplete search as `(no matches returned)`, or
 `(no results)` when the search is complete. A separate
 `Preparing:` block groups actual repository/documentation work and timing once
 per estimate. Duplicate/package requested inputs and their suggestions remain
 attached beneath that work; pending inputs without an estimate keep label-only
-rows. Non-preparation omissions remain under `Omitted:`.
+rows. Non-preparation omissions remain under `Not searched:`, with the supplied
+reason and `you can retry` or `do not retry unchanged`. `you can retry` does not
+guarantee recovery, and `do not retry unchanged` does not mean permanently
+unavailable.
 Hosted-site matches do not establish package-version
-provenance. The existing cursor instructions follow the matches; a short final note
-suggests rerunning the original query with the recommended wait. That retry is a
-fresh first-page request with the same ordered targets and matching controls.
-The cursor retrieves more matches from searched targets and cannot retry omitted
-targets.
+provenance. The existing cursor instructions follow the matches. Follow-up names only the
+original inputs with retryable omissions or scope failures, preserving the pattern
+and matching controls. It names the cursor control to omit for a fresh search;
+preparation also suggests setting a bounded wait and states the maximum in
+seconds. Generic native retryability does not imply preparation. Terminal failures
+do not invite an unchanged retry. The cursor continues the existing search,
+including sources not yet visited, and cannot retry omitted targets.
 
 ## Consistent preparation and error presentation
 

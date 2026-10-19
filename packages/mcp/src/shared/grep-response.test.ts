@@ -93,7 +93,7 @@ describe("unified grep result and text", () => {
     });
     expect(projectGrepResult(page)).toEqual(page);
     const output = formatGrepText(page);
-    expect(output).toContain("  - site:docs.test (no results on this page)");
+    expect(output).toContain("  - site:docs.test (not reached on this page)");
     expect(output).not.toContain("not visited in this page");
     expect(output).not.toContain("inputs 0, 1");
     expect(output).not.toContain("UNSPECIFIED / RESUMABLE_LIMIT");
@@ -289,7 +289,9 @@ describe("unified grep result and text", () => {
       const output = formatGrepText(
         result({ hits: [], totalMatches: 0, targets: [scope] }),
       );
-      expect(output).toContain("No matches found.");
+      expect(output).toContain(
+        "No matches returned; some requested content could not be searched.",
+      );
       expect(output).not.toContain("(no results)");
     }
     const output = formatGrepText(
@@ -324,7 +326,7 @@ describe("unified grep result and text", () => {
       projectGrepResult(result({ unavailableTargets: [omission] }))
         .unavailableTargets[0]?.progressRef,
     ).toBe("crawl:1");
-    expect(output).toContain("Suggested site");
+    expect(output).toContain("Search hosted documentation instead");
     expect(output).toContain("--cursor 'opaque'");
     expect(output).toContain("Repeat the original grep");
     expect(
@@ -340,7 +342,7 @@ describe("unified grep result and text", () => {
       formatGrepText(
         result({ traversal: "CURSOR_EXPIRED", unavailableTargets: [omission] }),
       ),
-    ).toContain("Restart explicitly");
+    ).toContain("To restart the full search");
   });
   it("quotes terminal controls and locator backslashes for exact reads, preserves Unicode and wraps prose only", () => {
     const content = `${"界".repeat(100)}\x1b[31m`;
@@ -421,7 +423,7 @@ describe("grep page and omission outcomes", () => {
     },
   );
   it.each([null, "cursor"])(
-    "explains retryable-only omissions without an exhaustive empty claim",
+    "explains retryable preparation-only omissions without an exhaustive empty claim",
     (nextCursor) => {
       const output = formatGrepText(
         result({
@@ -443,8 +445,8 @@ describe("grep page and omission outcomes", () => {
       );
       expect(output.split("\n")[0]).toBe(
         nextCursor
-          ? "No matches available yet on this page."
-          : "No matches available yet.",
+          ? "No matches on this page; some requested content is still being prepared."
+          : "No matches available yet; some requested content is still being prepared.",
       );
       expect(output).toContain("Preparing:");
       expect(output).toContain("Follow-up:");
@@ -463,9 +465,11 @@ describe("grep page and omission outcomes", () => {
         nextCursor: "cursor",
       }),
     );
-    expect(output.split("\n")[0]).toBe("No matches on this page.");
+    expect(output.split("\n")[0]).toBe(
+      "No matches on this page; some requested content could not be searched.",
+    );
     expect(output).toContain("Repository npm:x:");
-    expect(output).toContain("Skipped 1 binary file(s).");
+    expect(output).toContain("Skipped 1 binary file.");
     expect(output).toContain("--cursor 'cursor'");
     expect(output).not.toContain("(no results)");
   });
@@ -488,8 +492,10 @@ describe("grep page and omission outcomes", () => {
         ],
       }),
     );
-    expect(output.split("\n")[0]).toBe("No matches on this page.");
-    expect(output).toContain("Omitted:\n  - npm:unsupported (unsupported)");
+    expect(output.split("\n")[0]).toBe(
+      "No matches on this page; some requested content could not be searched.",
+    );
+    expect(output).toContain("Not searched:\n  - npm:unsupported: unsupported");
     expect(output).toContain("--cursor 'cursor'");
     expect(output).not.toContain("To retry omitted targets");
   });
@@ -497,7 +503,9 @@ describe("grep page and omission outcomes", () => {
     const output = formatGrepText(
       result({ targets: [{ ...target, readiness: "UNSPECIFIED" }] }),
     );
-    expect(output).toContain("Repository npm:x: source readiness unknown.");
+    expect(output).toContain(
+      "Repository npm:x: source readiness unknown; do not retry unchanged.",
+    );
   });
 });
 
@@ -517,11 +525,14 @@ describe("overall grep traversal limitations", () => {
         expect(output.split("\n")[0]).toBe(
           hits.length
             ? "Found 1 match on 1 line in 1 file."
-            : "No matches on this page.",
+            : "No matches on this page; some requested content could not be searched.",
         );
-        expect(output).toContain(
-          "Some requested content could not be searched.",
+        expect(output.replace(/\s+/g, " ")).toContain(
+          "service did not explain why or whether retrying would help.",
         );
+        expect(
+          output.includes("Some requested content could not be searched;"),
+        ).toBe(hits.length > 0);
         expect(output).toContain("--cursor 'sibling cursor'");
         expect(output).not.toContain("has no continuation cursor");
         expect(output).not.toContain("(no results)");

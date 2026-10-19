@@ -174,7 +174,11 @@ export function createGrepTool(
         return textResult(
           args.format === "json"
             ? JSON.stringify(projected)
-            : formatGrepText(projected, { syntax: "mcp", useColors: false }),
+            : formatGrepText(projected, {
+                syntax: "mcp",
+                useColors: false,
+                requestedTargets: params.targets.map((target) => target.target),
+              }),
         );
       } catch (error) {
         throwIfCallerCancellation(error, context?.signal);

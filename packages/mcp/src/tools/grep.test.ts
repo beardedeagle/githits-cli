@@ -35,6 +35,33 @@ function payload(text: string): Record<string, unknown> {
 }
 
 describe("unified MCP grep", () => {
+  it("uses original request operands for retryable resolved-source failures", async () => {
+    const page: GrepResult = {
+      ...emptyPage,
+      traversal: "FAILED",
+      targets: [
+        {
+          ...parseGrepResult(mixedPage).targets[0]!,
+          requestedInputIndices: [1],
+          readiness: "NOT_AVAILABLE",
+          traversal: "FAILED",
+          retryable: true,
+        },
+      ],
+    };
+    const tool = createGrepTool(service(async () => page));
+    const result = await tool.handler({
+      targets: [{ target: "npm:healthy" }, { target: "npm:requested" }],
+      pattern: "router",
+    });
+    const recovery = result.content[0]!.text.split("Follow-up:\n")[1]!;
+    expect(recovery).toContain(
+      "Repeat the same pattern and options for:\n    npm:requested",
+    );
+    expect(recovery).toContain("Omit cursor to start a new search.");
+    expect(recovery).not.toMatch(/healthy|github|wait_timeout_ms/);
+  });
+
   it.each([
     { name: "omitted", format: undefined },
     { name: "text", format: "text" as const },

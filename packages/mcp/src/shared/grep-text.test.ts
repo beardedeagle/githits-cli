@@ -274,7 +274,7 @@ describe("grep text formatting", () => {
       expect(text).not.toContain("Run grep again");
       expect(text).not.toContain("Use the cursor below");
       expect(lines.at(-1)).toBe(
-        `  To retry omitted targets, rerun the original query with ${syntax === "cli" ? "--wait 100000" : "wait_timeout_ms=100000"}.`,
+        `  Omit ${syntax === "cli" ? "--cursor" : "cursor"}; set ${syntax === "cli" ? "--wait 100000" : "wait_timeout_ms=100000"} to wait up to 100s for preparation.`,
       );
       const cursor = syntax === "cli" ? "  --cursor " : "  cursor=";
       expect(
@@ -296,7 +296,7 @@ describe("grep text formatting", () => {
     );
     expect(text).toContain("  - site:expressjs.com (hosted documentation)");
     expect(text).toContain(
-      "  - github:expressjs/express@dbac741a (no results on this page)",
+      "  - github:expressjs/express@dbac741a (no matches returned)",
     );
   });
 
@@ -327,11 +327,11 @@ describe("grep text formatting", () => {
     for (const syntax of ["cli", "mcp"] as const) {
       const text = formatGrepText(result, { syntax, width: 80 });
       expect(text).toContain(
-        "Sources:\n  - github:expressjs/express@dbac741a\n  - site:expressjs.com (no results on this page, hosted documentation)",
+        "Sources:\n  - github:expressjs/express@dbac741a\n  - site:expressjs.com (not reached on this page, hosted documentation)",
       );
       expect(text).not.toContain("Hosted docs npm:");
       expect(text).not.toContain("not visited");
-      expect(text).not.toContain("Omitted:");
+      expect(text).not.toContain("Not searched:");
       expect(text).not.toContain("To retry omitted targets");
       expect(text).toContain("Repeat the original grep, adding:");
       expect(text).toContain(syntax === "cli" ? "  --cursor " : "  cursor=");
@@ -385,7 +385,7 @@ describe("grep text formatting", () => {
             .split("\n")
             .filter((line) => line.startsWith("  - "));
           expect(bullets).toHaveLength(1);
-          expect(bullets[0]!.includes("no results on this page")).toBe(
+          expect(bullets[0]!.includes("no matches returned")).toBe(
             pageHits.length === 0,
           );
         }
@@ -428,7 +428,7 @@ describe("grep text formatting", () => {
         expect(bullets[0]).toContain(
           "github:expressjs/express@dbac741a (requested: npm:older-version",
         );
-        expect(bullets[0]!.includes("no results on this page")).toBe(
+        expect(bullets[0]!.includes("no matches returned")).toBe(
           pageHits.length === 0,
         );
       }
@@ -471,7 +471,7 @@ describe("grep text formatting", () => {
     for (const syntax of ["cli", "mcp"] as const) {
       const text = formatGrepText(result, { syntax, width: 80 });
       expect(text).toContain(
-        `  - site:${"a".repeat(64)}.test\n    (no results on this page, hosted documentation)`,
+        `  - site:${"a".repeat(64)}.test\n    (not reached on this page, hosted documentation)`,
       );
       expect(text).toContain(
         `  - ${target} (indexing, estimated total: 33-85s, time spent indexing:\n    90s)`,
@@ -591,11 +591,13 @@ describe("grep text formatting", () => {
     for (const syntax of ["cli", "mcp"] as const) {
       const text = formatGrepText(result, { syntax, width: 200 });
       expect(text).toContain(
-        "Preparing:\n  - github:owner/repo@bbbbbbbb (indexing, estimated total: 100-120s)\n    Requested: npm:cold\n      Suggested site: site:docs.example.test",
+        "Preparing:\n  - github:owner/repo@bbbbbbbb (indexing, estimated total: 100-120s)\n    Requested: npm:cold\n      Search hosted documentation instead: site:docs.example.test",
       );
       expect(text.match(/Requested: npm:cold/g)).toHaveLength(1);
       expect(
-        text.match(/Suggested site: site:docs\.example\.test/g),
+        text.match(
+          /Search hosted documentation instead: site:docs\.example\.test/g,
+        ),
       ).toHaveLength(1);
       expect(text.match(/estimated total: 100-120s/g)).toHaveLength(1);
       expect(text).not.toMatch(/\(inputs? \d/);
@@ -649,12 +651,14 @@ describe("grep text formatting", () => {
       const text = formatGrepText(interleaved, { syntax, width: 200 });
       const requestedCold = text.indexOf("Requested: npm:cold");
       const suggestedSite = text.indexOf(
-        "Suggested site: site:docs.example.test",
+        "Search hosted documentation instead: site:docs.example.test",
       );
       const requestedAlias = text.indexOf("Requested: npm:alias");
       expect(text.match(/Requested: npm:cold/g)).toHaveLength(1);
       expect(
-        text.match(/Suggested site: site:docs\.example\.test/g),
+        text.match(
+          /Search hosted documentation instead: site:docs\.example\.test/g,
+        ),
       ).toHaveLength(1);
       expect(text.match(/Requested: npm:alias/g)).toHaveLength(1);
       expect(suggestedSite).toBeGreaterThan(requestedCold);
@@ -725,8 +729,10 @@ describe("grep text formatting", () => {
     };
     const text = formatGrepText(result, { width: 200 });
     expect(text).toContain("Preparing:\n  - github:owner/cold (indexing)");
-    expect(text).toContain("Omitted:\n  - site:missing.example");
-    expect(text).toContain("Suggested site: site:docs.example");
+    expect(text).toContain("Not searched:\n  - site:missing.example");
+    expect(text).toContain(
+      "Search hosted documentation instead: site:docs.example",
+    );
     expect(text).not.toContain("estimated total:");
   });
   it("shared source rows preserve distinct readiness and remove only duplicated served SHA", () => {

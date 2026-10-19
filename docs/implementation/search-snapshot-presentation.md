@@ -542,18 +542,24 @@ its target/query/filter controls; status itself cannot paginate. A missing offse
 gets a truthful availability hint with no invented value. Active search pages
 warn that results can change. Grep preserves the opaque cursor for the original
 ordered targets and controls. Follow-up uses milliseconds for CLI search-status,
-MCP status and grep retries. Ended references never poll.
+MCP status and grep preparation retries. Ended references never poll.
 Counted alternatives say `(+N more)`; unknown `+more` remains unknown.
 
 For grep, CURRENT+RESUMABLE_LIMIT and UNSPECIFIED+RESUMABLE_LIMIT are ordinary
 pagination absent independent errors/skips. The strict exhaustive predicate
-still controls source-level `no results` claims. Retryable-only omitted targets
-use `No matches available yet.` (adding `on this page` beside a cursor), even
-when omission accounting yields NON_RESUMABLE_PARTIAL overall. Preparing/Omitted
-already explains that limit. Independent failed traversal, stale readiness,
+still controls source-level `no results` claims. Retryable preparation-only omitted targets explain that requested
+content is still being prepared, with page-specific copy beside a cursor, even
+when omission accounting yields NON_RESUMABLE_PARTIAL overall. Preparing/Not
+searched already explains that limit. Independent failed traversal, stale readiness,
 errors/skips/issues and expired cursors retain attributed warnings. Unspecified
 readiness outside unvisited pagination is explicitly unknown. Search/grep empty
 continuation pages say `No results on this page.` / `No matches on this page.`
+when coverage has no independent gaps; incomplete grep pages qualify the
+headline. See [unified grep](unified-grep.md) for current headline precedence
+and selective fresh-retry copy, including original target names and exact
+cursor controls. Native reasons/codes have a separate line; terminal omissions
+show the supplied reason and any available documentation alternative. Expired grep cursors offer only the full-search
+restart, without a competing target-subset retry hint.
 
 
 Follow-up verification (2026-10-07): full `bun test` passes 5,624 tests across
