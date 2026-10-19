@@ -310,7 +310,7 @@ describe("runMcpSmoke", () => {
     ["get_example", false],
     ["search_status", undefined],
     ["quick_start", true],
-    ["ask", false],
+    ["unlisted_tool", false],
   ] as const)(
     "rejects incorrect open-world annotation for %s: %s",
     async (name, openWorldHint) => {
@@ -371,12 +371,12 @@ describe("runMcpSmoke", () => {
             destructiveHint: false,
           },
         })),
-        { name: "ask", annotations: { readOnlyHint: false } },
+        { name: "unlisted_tool", annotations: { readOnlyHint: false } },
       ],
     });
     await expect(
       runMcpSmoke(caller, { includeLiveTools: false }),
-    ).rejects.toThrow("ask must advertise readOnlyHint: true");
+    ).rejects.toThrow("unlisted_tool must advertise readOnlyHint: true");
   });
 
   it.each([false, undefined])(

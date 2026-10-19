@@ -619,7 +619,7 @@ mocked service, each with effective after-context 10; no token savings are
 inferred from that replay.
 
 Live stable MCP and CLI/JSON parity passed oversized grep requests. The first
-full MCP invocation later timed out at experimental `ask` URL JSON after
+full MCP invocation later timed out at the experimental research tool's URL JSON after
 60 seconds; the full trace is retained and one rerun was started. Live CLI
 again reached the unchanged experimental `expressjs` resolver assertion and
 failed there. Neither experimental failure changes the grep validation result.
@@ -649,6 +649,6 @@ and one search INVALID_ARGUMENT for an unsupported repository URL. No quality
 score or token-savings claim is attached to this single follow-up run. Neutral
 non-use is explicitly retained rather than counted as successful GitHits usage.
 
-The MCP smoke rerun also passed stable coverage, then timed out at experimental
-`ask` default text after 60 seconds. Both failed experimental attempts remain
+The MCP smoke rerun also passed stable coverage, then timed out at the experimental
+research tool's default text after 60 seconds. Both failed experimental attempts remain
 in the record; no timeout or resolver assertions were weakened.

@@ -9,8 +9,6 @@ part of the stable surface and needs no opt-in:
 | `resolve_target` / `githits resolve` | Stable; see [target resolution](implementation/resolve-target.md) |
 | `code_diff` / `githits code diff` | Stable; see [source diff](implementation/code-diff.md) |
 
-The former `githits ask` alias was removed; use `githits research`.
-
 ## Existing configuration
 
 An existing GitHits `config.toml` with

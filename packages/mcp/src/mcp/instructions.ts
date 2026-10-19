@@ -102,8 +102,8 @@ proprietary content, local paths, or private targets.
 
 \`research\` researches a public repository or package to answer a question
 with sources. Omit \`target\` and \`thread_id\` for question-only lookup. For
-candidates, ask the user to select a \`target\`, then retry. Reuse a returned
-\`thread_id\` for follow-ups. Change project, version, or topic in the
+candidates, retry with the one matching the question's project as
+\`target\`. Reuse a returned \`thread_id\` for follow-ups. Change project, version, or topic in the
 follow-up question. Returns a verified answer that always includes its sources,
 so ask the question directly without requesting citations, an overview or a
 source-cited answer. Cite those sources directly; read one only when the answer

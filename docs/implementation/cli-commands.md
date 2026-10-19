@@ -289,8 +289,7 @@ githits research --thread <UUID> "Where is that checked?"
 githits research "How does Express routing work?" --source-format url --json
 ```
 
-Registered by default under the single name `research`; the former `ask`
-alias was removed and `githits ask` now fails as an unknown command. One positional
+Registered by default as `research`. One positional
 argument is the question; two are target and question. Quote multi-word questions.
 With neither a target nor `--thread`, GitHits uses the question to identify a
 public package or repository.

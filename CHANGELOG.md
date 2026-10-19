@@ -8,26 +8,21 @@ are historical records and change only to correct blatant factual errors.
 ## [githits 0.31.0] - 2026-10-19
 
 Pre-1.0 minor release that makes research stable and adds unknown
-vulnerability assessments. Breaking: `githits ask` is removed; use
-`githits research` with the same arguments and options. Research no longer
-requires `[experimental] tools = true`. Vulnerability reports gain an `unknown`
-advisory scope and unknown counts in text and JSON.
+vulnerability assessments. Research no longer requires
+`[experimental] tools = true`. Vulnerability reports gain an `unknown` advisory
+scope and unknown counts in text and JSON.
 
 ### Added
 
-- **Stable research** - `githits research` and the local MCP `research` tool are available by default; `[experimental] tools = true` is no longer needed and can be removed. Routing guidance is included in `quick_start` and the `githits-mcp` skill. Research rate-limit errors distinguish a short-term limit (retry after the given seconds) from the daily limit, which resets at 00:00 UTC.
+- **Stable research** - `githits research` and the local MCP `research` tool are available by default; `[experimental] tools = true` is no longer needed. Routing guidance is included in `quick_start` and the `githits-mcp` skill. Research rate-limit errors distinguish a short-term limit (retry after the given seconds) from the daily limit, which resets at 00:00 UTC.
 
 - **Unknown vulnerability assessments** - `pkg vulns` and `pkg_vulns` accept `--scope unknown` / `scope:"unknown"` for advisories that could not be evaluated, with readable reasons, for direct and `--transitive` reports. Reports show unknown counts and explain the uncertainty in text; JSON retains assessment status, complete count partitions and unknown-only packages. Transitive text labels confirmed negatives as non-affecting and sorts package count lines by registry, then name. Upgrade reviews retain direct unknown counts.
 
 ### Changed
 
-- **Research question guidance** - Research guidance tells agents to ask the question directly, since answers always include their sources, and to pass a package or repository target rather than a documentation site; research covers both code and docs.
+- **Research question guidance** - Research guidance tells agents to ask the question directly, since answers always include their sources; to pass a package or repository target rather than a documentation site, since research covers both code and docs; and, when research returns candidates, to retry with the one matching the question's project instead of asking the user.
 
 - **Public skill guidance** - The `githits-code` skill covers `githits research` and its MCP mapping; the `githits-package` skill and reference cover the `unknown` vulnerability scope.
-
-### Removed
-
-- **Removed `githits ask`** - Breaking: the `ask` alias of `githits research` is gone and `githits ask` now fails as an unknown command. Scripts and agent instructions that call `githits ask` must switch to `githits research`, which takes the same arguments and options.
 
 ### Fixed
 
@@ -54,7 +49,7 @@ MCP package.
 
 ### Changed
 
-- **Research question guidance** - Research guidance tells agents to ask the question directly, since answers always include their sources, and to pass a package or repository target rather than a documentation site; research covers both code and docs.
+- **Research question guidance** - Research guidance tells agents to ask the question directly, since answers always include their sources; to pass a package or repository target rather than a documentation site, since research covers both code and docs; and, when research returns candidates, to retry with the one matching the question's project instead of asking the user.
 
 ### Fixed
 
