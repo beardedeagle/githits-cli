@@ -1,6 +1,7 @@
 import {
   PKGSEER_REGISTRY_ARGS,
   PKGSEER_REGISTRY_LIST,
+  parsePkgseerRegistryArg,
 } from "@githits/core-internal/browser";
 
 /**
@@ -22,10 +23,10 @@ export interface ParsedPackageSpec {
 
 /**
  * Raised when the caller prefixes the package spec with a string that
- * looks like a registry (contains a `:`) but is not one of
- * `KNOWN_REGISTRIES`. Without this guard the parser used to silently
- * fall back to npm, leaving the user with a confusing "package not
- * found" error on a completely different registry than they intended.
+ * looks like a registry (contains a `:`) but is neither one of
+ * `KNOWN_REGISTRIES` nor a supported input alias. Without this guard the
+ * parser used to silently fall back to npm, leaving the user with a confusing
+ * "package not found" error on a completely different registry than intended.
  */
 export class UnsupportedRegistryError extends Error {
   constructor(public readonly attempted: string) {
@@ -72,9 +73,9 @@ export class InvalidArgumentError extends Error {
  * Rules:
  * - The registry prefix is required. Guessing a default registry is a
  *   footgun because package names can overlap across ecosystems.
- * - The prefix must be a known registry — otherwise `UnsupportedRegistryError`
- *   is thrown. The previous behaviour of treating `foobar:baz` as an npm
- *   package literally named `foobar:baz` was a footgun.
+ * - The prefix must be a known registry or supported input alias — otherwise
+ *   `UnsupportedRegistryError` is thrown. The previous behaviour of treating
+ *   `foobar:baz` as an npm package literally named `foobar:baz` was a footgun.
  * - Scoped npm names (`@types/node`) are preserved unchanged; the
  *   leading `@` is not interpreted as a version delimiter.
  * - `@<version>` is optional and parsed from the last `@` in the
@@ -94,12 +95,13 @@ export function parsePackageSpec(spec: string): ParsedPackageSpec {
   }
 
   const colonIndex = spec.indexOf(":");
-  const potentialRegistry = spec.slice(0, colonIndex).toLowerCase();
-  if (!isKnownRegistry(potentialRegistry)) {
-    throw new UnsupportedRegistryError(potentialRegistry);
+  const registryPrefix = spec.slice(0, colonIndex);
+  const parsedRegistry = parsePkgseerRegistryArg(registryPrefix);
+  if (!parsedRegistry) {
+    throw new UnsupportedRegistryError(registryPrefix.toLowerCase());
   }
 
-  const registry: KnownRegistry = potentialRegistry;
+  const registry: KnownRegistry = parsedRegistry;
   const registryExplicit = true;
   const rest = spec.slice(colonIndex + 1);
 
@@ -130,7 +132,7 @@ export function parsePackageSpec(spec: string): ParsedPackageSpec {
 }
 
 /**
- * Narrows a string to a known registry.
+ * Narrows a string to an exact canonical registry spelling.
  */
 export function isKnownRegistry(value: string): value is KnownRegistry {
   return KNOWN_REGISTRIES.includes(value as KnownRegistry);

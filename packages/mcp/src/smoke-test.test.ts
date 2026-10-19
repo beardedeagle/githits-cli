@@ -1628,8 +1628,14 @@ function smokeJsonResponse(
       return jsonResult({ result: "example" });
     case "pkg_info":
       return jsonResult({
-        registry: "npm",
-        name: "express",
+        registry:
+          args.target === "cargo:serde" || args.target === "crates:serde"
+            ? "crates"
+            : "npm",
+        name:
+          args.target === "cargo:serde" || args.target === "crates:serde"
+            ? "serde"
+            : "express",
         version: "1.0.0",
         versionCount: 42,
         downloads: { refreshedAt: "2024-06-15" },

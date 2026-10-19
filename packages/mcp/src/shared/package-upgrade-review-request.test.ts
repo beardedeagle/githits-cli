@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { InvalidPackageSpecError } from "./package-spec.js";
+import {
+  InvalidPackageSpecError,
+  UnsupportedRegistryError,
+} from "./package-spec.js";
 import {
   buildPackageUpgradeReviewRequest,
   PACKAGE_UPGRADE_REVIEW_MAX_PACKAGES,
@@ -84,6 +87,65 @@ describe("buildPackageUpgradeReviewRequest", () => {
       }
     },
   );
+
+  it("normalizes cargo spellings to the full single-package crates result", () => {
+    const expected = buildPackageUpgradeReviewRequest({
+      registry: "crates",
+      packageName: "serde",
+      currentVersion: "1.0.0",
+      targetVersion: "1.0.1",
+    });
+
+    for (const registry of ["cargo", "CARGO", " cargo "]) {
+      const result = buildPackageUpgradeReviewRequest({
+        registry,
+        packageName: "serde",
+        currentVersion: "1.0.0",
+        targetVersion: "1.0.1",
+      });
+      expect(result).toEqual(expected);
+      expect(result.packages[0]?.registryLabel).toBe("crates");
+    }
+  });
+
+  it("normalizes cargo spellings to the full batch crates result", () => {
+    const expected = buildPackageUpgradeReviewRequest({
+      packages: [
+        {
+          registry: "crates",
+          packageName: "serde",
+          currentVersion: "1.0.0",
+          targetVersion: "1.0.1",
+        },
+      ],
+    });
+    for (const registry of ["cargo", "CARGO", " cargo "]) {
+      const result = buildPackageUpgradeReviewRequest({
+        packages: [
+          {
+            registry,
+            packageName: "serde",
+            currentVersion: "1.0.0",
+            targetVersion: "1.0.1",
+          },
+        ],
+      });
+
+      expect(result).toEqual(expected);
+      expect(result.packages[0]?.registryLabel).toBe("crates");
+    }
+  });
+
+  it("rejects unknown registries", () => {
+    expect(() =>
+      buildPackageUpgradeReviewRequest({
+        registry: "foobar",
+        packageName: "serde",
+        currentVersion: "1.0.0",
+        targetVersion: "1.0.1",
+      }),
+    ).toThrow(UnsupportedRegistryError);
+  });
 
   it.each([
     [

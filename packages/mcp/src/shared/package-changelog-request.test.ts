@@ -344,3 +344,18 @@ describe("view resolution", () => {
     }
   });
 });
+
+describe("cargo changelog request alias", () => {
+  it.each(["", "@1.0.228", "@1.0.220..1.0.228"])(
+    "keeps canonical wire params for %s",
+    (suffix) => {
+      const alias = buildPackageChangelogParams({
+        target: `cargo:serde${suffix}`,
+      });
+      expect(alias).toEqual(
+        buildPackageChangelogParams({ target: `crates:serde${suffix}` }),
+      );
+      expect(alias.params.registry).toBe("CRATES");
+    },
+  );
+});

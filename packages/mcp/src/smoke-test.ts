@@ -1053,6 +1053,26 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
     }),
     "pkg_info json",
   );
+  let rustVersion: string | undefined;
+  for (const target of ["crates:serde", "cargo:serde"]) {
+    const context = `pkg_info ${target}`;
+    const metadata = assertJsonResult(
+      await callTool(caller, "pkg_info", { target, format: "json" }),
+      context,
+    );
+    assertRecord(metadata, context);
+    assert(
+      metadata.registry === "crates" && metadata.name === "serde",
+      `${context}: expected canonical crates identity`,
+    );
+    assert(typeof metadata.version === "string", `${context}: missing version`);
+    if (rustVersion !== undefined)
+      assert(
+        metadata.version === rustVersion,
+        `${context}: alias version mismatch`,
+      );
+    rustVersion = metadata.version;
+  }
   assertRecord(pkgInfoJson, "pkg_info json");
   assert(pkgInfoJson.registry === "npm", "pkg_info json registry mismatch");
   assert(pkgInfoJson.name === "express", "pkg_info json name mismatch");

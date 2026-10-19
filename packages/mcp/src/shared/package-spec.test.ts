@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   InvalidPackageSpecError,
+  isKnownRegistry,
   parsePackageSpec,
   UnsupportedRegistryError,
 } from "./package-spec.js";
@@ -21,6 +22,38 @@ describe("parsePackageSpec", () => {
       registryExplicit: true,
       name: "requests",
     });
+  });
+
+  it("normalizes cargo aliases to the canonical crates registry", () => {
+    expect(parsePackageSpec("cargo:serde")).toEqual(
+      parsePackageSpec("crates:serde"),
+    );
+    expect(parsePackageSpec("CARGO:Serde@v1.2.3")).toEqual(
+      parsePackageSpec("crates:Serde@v1.2.3"),
+    );
+  });
+
+  it("trims whitespace around registry prefixes", () => {
+    expect(parsePackageSpec("cargo\t:serde")).toEqual(
+      parsePackageSpec("crates:serde"),
+    );
+    expect(parsePackageSpec("crates :serde")).toEqual(
+      parsePackageSpec("crates:serde"),
+    );
+  });
+
+  it("preserves package names and version bytes while normalizing the prefix", () => {
+    expect(parsePackageSpec("CARGO:Crate_Name@v01.02+local")).toEqual({
+      registry: "crates",
+      registryExplicit: true,
+      name: "Crate_Name",
+      version: "v01.02+local",
+    });
+  });
+
+  it("keeps registry guards limited to canonical spellings", () => {
+    expect(isKnownRegistry("crates")).toBe(true);
+    expect(isKnownRegistry("cargo")).toBe(false);
   });
 
   it("parses version suffix with @", () => {
@@ -89,6 +122,7 @@ describe("parsePackageSpec", () => {
     try {
       parsePackageSpec("foobar:baz");
     } catch (err) {
+      expect((err as UnsupportedRegistryError).attempted).toBe("foobar");
       expect((err as Error).message).toContain("foobar");
       expect((err as Error).message).toContain("npm");
       expect((err as Error).message).toContain("pypi");
@@ -108,6 +142,13 @@ describe("parsePackageSpec", () => {
 
   it("throws InvalidPackageSpecError when registry prefix has no name", () => {
     expect(() => parsePackageSpec("npm:")).toThrow(InvalidPackageSpecError);
+  });
+
+  it("rejects malformed cargo specs with InvalidPackageSpecError", () => {
+    expect(() => parsePackageSpec("cargo:")).toThrow(InvalidPackageSpecError);
+    expect(() => parsePackageSpec("cargo:serde@")).toThrow(
+      InvalidPackageSpecError,
+    );
   });
 
   it("classifier can see InvalidPackageSpecError as INVALID_ARGUMENT (name contract)", () => {

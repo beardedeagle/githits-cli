@@ -328,3 +328,12 @@ describe("buildListParams", () => {
     expectInvalid("intents", () => buildListParams(input({ intents: ["ı"] })));
   });
 });
+
+describe("transparent cargo list targets", () => {
+  it.each(["cargo:serde", " CARGO:serde@1.0.228 ", "crates:serde@1.0.228"])(
+    "preserves target bytes for %s",
+    (target) => {
+      expect(buildListParams(input({ target })).target).toBe(target);
+    },
+  );
+});

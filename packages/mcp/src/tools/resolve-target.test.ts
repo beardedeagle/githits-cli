@@ -785,7 +785,7 @@ describe("resolve_target MCP adapter", () => {
   it("keeps invalid MCP values in the structured argument envelope", async () => {
     const tool = createResolveTargetTool(createService());
     for (const args of [
-      { name: "express", registries: ["cargo"] },
+      { name: "express", registries: ["foobar"] },
       { name: "express", preferred_kind: "workspace" },
       { name: "express", limit: 1.5 },
       { name: "express", limit: 21 },

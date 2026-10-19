@@ -32,6 +32,19 @@ describe("buildPackageSummaryParams", () => {
     expect(params.registry).toBe("NPM");
   });
 
+  it("normalizes cargo spellings to the full crates result", () => {
+    const expected = buildPackageSummaryParams({
+      registry: "crates",
+      packageName: "serde",
+    });
+
+    for (const registry of ["cargo", "CARGO", " cargo "]) {
+      expect(
+        buildPackageSummaryParams({ registry, packageName: "serde" }),
+      ).toEqual(expected);
+    }
+  });
+
   it("rejects empty packageName with InvalidPackageSpecError", () => {
     expect(() =>
       buildPackageSummaryParams({ registry: "npm", packageName: "" }),
@@ -43,7 +56,7 @@ describe("buildPackageSummaryParams", () => {
 
   it("rejects unknown registry with UnsupportedRegistryError", () => {
     expect(() =>
-      buildPackageSummaryParams({ registry: "cargo", packageName: "serde" }),
+      buildPackageSummaryParams({ registry: "foobar", packageName: "serde" }),
     ).toThrow(UnsupportedRegistryError);
   });
 

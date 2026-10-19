@@ -76,3 +76,69 @@ and provenance; clients can display it without keyword-based guessing or a
 package verdict. This needs backend/domain design and remains outside the
 completed statement migration. Private-code applicability still requires local
 usage inspection and before/after checks by the caller.
+
+
+## Cargo alias rollout and hosted adoption — 2026-10-19
+
+Client implementation accepts `cargo:` / `cargo` as crates.io aliases; canonical
+identity stays `crates` / `CRATES`. See
+[registry input aliases](../implementation/package-registry-aliases.md).
+
+Authenticated dev verification on 2026-10-19 distinguishes two endpoints and
+their observed acceptance over time:
+
+- Parallel AKS, `https://oss-aks-dev.githits.dev`, passes alias/canonical identity,
+  package metadata and forwarded inventory/read/grep (separate authenticated backend evidence).
+  Current built CLI and local MCP also passed 20 paired metadata/search/list/read/
+  grep calls using the existing dev credential profile. Metadata/search/read JSON
+  matched exactly; list differed only in requestedTarget, grep only in two raw
+  target labels. All five payloads matched CLI/MCP for each spelling.
+- Canonical dev, `https://oss-dev.githits.dev`, initially passed `crates` but
+  rejected raw `cargo` with `VALIDATION_ERROR` / invalid_format in separate
+  authenticated backend checks. A later same-day backend identity refresh passed
+  both spellings. At 09:48 UTC, current-built CLI and local MCP then passed all
+  20 paired metadata/search/list/read/grep calls and four missing-version calls
+  on default dev services. Metadata/search/read matched exactly; list differed
+  only in requestedTarget, grep only in two raw target labels. All five payloads
+  matched CLI/MCP for each spelling, and identity/evidence fields matched the
+  preserved AKS run. Missing-version errors and canonical retry actions matched
+  per surface. This records earlier rejection and current acceptance; no DNS,
+  routing or deployment mechanism is inferred. No deployment or routing change
+  was made by this client task. Neither endpoint proves production or published/
+  hosted-client availability.
+
+Client source evidence was pinned to `serde@1.0.228`, served SHA
+`a866b336f14aa57a07f0d0be9f8762746e64ecb4`: search had five code hits and hasMore;
+inventory was CURRENT with three entries; Cargo.toml lines 1–12 matched (SHA256
+`2310fd8f3fe22938fa967d07ce5434378cea7d439e7eaf2525a78a99a994e4a2`). Grep was a
+bounded RESUMABLE_LIMIT page: three repository and two hosted-doc hits, no
+unavailable targets in the client run. The earlier direct backend run had five
+repository hits while selected docs were documentation_publishing. Neither page
+is exhaustive. Latest-only metadata returned serde 1.0.229. After the recovery-only client fix,
+a further four paired missing-version CLI/MCP calls returned equal per-surface
+VERSION_NOT_FOUND payloads and canonical crates:serde@1.0.229 retry actions.
+
+The original AKS run used process-local `GITHITS_ENV=dev` plus
+`GITHITS_CODE_NAV_URL=https://oss-aks-dev.githits.dev`; other service/token overrides
+were cleared. The later default-dev run used only `GITHITS_ENV=dev`, with every
+service URL, token and auth-storage override cleared, including
+`GITHITS_CODE_NAV_URL`. Both used the current Node-built CLI/local stdio MCP with
+normal dev keychain credentials and refresh; no tokens were printed, copied or
+handled manually. The default-dev run used client code at `5907c2b` (docs HEAD
+`aadbc1a`); its captures were saved separately from the original AKS evidence.
+Earlier file-storage source smokes had AUTH_REQUIRED and remain auth-only evidence;
+the neutral targeted eval made zero GitHits calls and remains separate evidence.
+
+After separately authorized publication and a full handoff, reorient the hosted
+repository on current main, released artifact version and consumer lockfile. Use
+its existing dependency-bump workflow; update manifest/lockfile without copying
+package-owned alias logic. Acceptance: intended artifact resolves, consumer checks
+pass and, after separate deployment approval, authenticated paired metadata/search
+and forwarded list/read/grep verify alias parity against the intended deployed
+backend. Revert the dependency for rollback; roll back forwarding clients before
+removing backend admission. Exact artifact and future deployed state remain
+unknown. No merge, release, publication, deployment or other repository edit is
+authorized by this client handoff.
+
+At release, review public package/code skill guidance for the short alias note;
+keep canonical examples and follow the public Agent Skill lifecycle.

@@ -85,10 +85,10 @@ describe("buildResolveTargetParams", () => {
     expect(() =>
       buildResolveTargetParams({
         name: "x",
-        registry: "cargo",
+        registry: "foobar",
         includeDetailedFields: false,
       }),
-    ).toThrow("Unsupported registry 'cargo'");
+    ).toThrow("Unsupported registry 'foobar'");
     expect(() =>
       buildResolveTargetParams({
         name: "x",
@@ -131,8 +131,49 @@ describe("buildResolveTargetParams", () => {
     });
   });
 
+  it("normalizes cargo filter spellings before mapping and deduplication", () => {
+    const expected = buildResolveTargetParams({
+      name: "serde package",
+      registry: "crates",
+      includeDetailedFields: false,
+    });
+
+    for (const registry of ["cargo", "CARGO", " cargo "]) {
+      expect(
+        buildResolveTargetParams({
+          name: "serde package",
+          registry,
+          includeDetailedFields: false,
+        }),
+      ).toEqual(expected);
+    }
+
+    expect(
+      buildResolveTargetParams({
+        name: "serde package",
+        registries: ["cargo", "crates"],
+        includeDetailedFields: false,
+      }),
+    ).toEqual(expected);
+    expect(
+      buildResolveTargetParams({
+        name: "serde package",
+        registries: ["CARGO", " cargo ", "crates"],
+        includeDetailedFields: false,
+      }),
+    ).toEqual(expected);
+    expect(
+      buildResolveTargetParams({
+        name: "serde package",
+        registry: "cargo, CARGO, crates",
+        includeDetailedFields: false,
+      }),
+    ).toEqual(expected);
+  });
+
   it.each([
     ...PKGSEER_REGISTRY_ARGS.map((registry) => `${registry}:example`),
+    "cargo:serde",
     "npm:@types/node",
     "npm:react@18.2.0",
     "npm: react state management",
@@ -184,10 +225,10 @@ describe("buildResolveTargetParams", () => {
     expect(() =>
       buildResolveTargetParams({
         name: "express",
-        registries: ["npm", "cargo"],
+        registries: ["npm", "foobar"],
         includeDetailedFields: false,
       }),
-    ).toThrow("Unsupported registry 'cargo'");
+    ).toThrow("Unsupported registry 'foobar'");
     expect(
       buildResolveTargetParams({
         name: "express",

@@ -1,3 +1,4 @@
+import { parsePkgseerRegistryArg } from "@githits/core-internal/browser";
 import { discoveryIndexingWaitMs } from "./discovery-indexing-wait.js";
 import { isKnownRegistry, parsePackageSpec } from "./package-spec.js";
 import {
@@ -1862,7 +1863,7 @@ function familyForTarget(
   const packageSeparator = target.indexOf(":");
   if (
     packageSeparator > 0 &&
-    isKnownRegistry(target.slice(0, packageSeparator))
+    parsePkgseerRegistryArg(target.slice(0, packageSeparator))
   ) {
     return "package";
   }
@@ -1906,7 +1907,7 @@ function classifyTargetFamily(
   if (isSiteTarget(entry.targetLabel, entry)) return "site";
   const target = entry.targetLabel.trim().toLowerCase();
   const separator = target.indexOf(":");
-  if (separator > 0 && isKnownRegistry(target.slice(0, separator))) {
+  if (separator > 0 && parsePkgseerRegistryArg(target.slice(0, separator))) {
     return "package";
   }
   if (

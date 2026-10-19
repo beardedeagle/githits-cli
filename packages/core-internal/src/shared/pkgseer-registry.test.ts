@@ -5,6 +5,7 @@ import {
   PKGSEER_REGISTRY_VALUES,
   type PkgseerRegistry,
   type PkgseerRegistryArg,
+  parsePkgseerRegistryArg,
   toPkgseerRegistry,
   toPkgseerRegistryLowercase,
 } from "./pkgseer-registry.js";
@@ -61,5 +62,38 @@ describe("isKnownPkgseerRegistryArg", () => {
     expect(isKnownPkgseerRegistryArg("")).toBe(false);
     expect(isKnownPkgseerRegistryArg("constructor")).toBe(false);
     expect(isKnownPkgseerRegistryArg("__proto__")).toBe(false);
+  });
+});
+
+describe("parsePkgseerRegistryArg", () => {
+  it("preserves every canonical registry spelling", () => {
+    for (const arg of knownPkgseerRegistryArgs()) {
+      expect(parsePkgseerRegistryArg(arg)).toBe(arg);
+    }
+  });
+
+  it("normalizes Cargo spellings to the canonical crates registry", () => {
+    expect(parsePkgseerRegistryArg("cargo")).toBe("crates");
+    expect(parsePkgseerRegistryArg("CARGO")).toBe("crates");
+    expect(parsePkgseerRegistryArg("  Cargo  ")).toBe("crates");
+  });
+
+  it("rejects unknown and unsafe property-like spellings", () => {
+    for (const value of [
+      "unknown",
+      "golang",
+      "swiftpm",
+      "",
+      "constructor",
+      "__proto__",
+    ]) {
+      expect(parsePkgseerRegistryArg(value)).toBeUndefined();
+    }
+  });
+
+  it("keeps cargo outside canonical guards and lists", () => {
+    expect(isKnownPkgseerRegistryArg("cargo")).toBe(false);
+    expect(knownPkgseerRegistryArgs()).not.toContain("cargo");
+    expect(PKGSEER_REGISTRY_VALUES.map(String)).not.toContain("CARGO");
   });
 });

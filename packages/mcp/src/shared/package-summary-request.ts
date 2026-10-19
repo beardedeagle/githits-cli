@@ -17,9 +17,8 @@
 
 import type { PackageSummaryParams } from "@githits/core-internal";
 import {
-  isKnownPkgseerRegistryArg,
   PKGSEER_REGISTRY_LIST,
-  type PkgseerRegistryArg,
+  parsePkgseerRegistryArg,
   toPkgseerRegistry,
 } from "@githits/core-internal";
 import {
@@ -46,8 +45,8 @@ export function buildPackageSummaryParams(
     throw new InvalidPackageSpecError("Package name is required.");
   }
 
-  const normalisedRegistry = input.registry?.trim().toLowerCase() ?? "";
-  if (!isKnownPkgseerRegistryArg(normalisedRegistry)) {
+  const registry = parsePkgseerRegistryArg(input.registry ?? "");
+  if (!registry) {
     throw new UnsupportedRegistryError(
       `Unsupported registry '${input.registry}'. Supported: ${PKGSEER_REGISTRY_LIST}.`,
     );
@@ -55,7 +54,7 @@ export function buildPackageSummaryParams(
 
   return {
     params: {
-      registry: toPkgseerRegistry(normalisedRegistry as PkgseerRegistryArg),
+      registry: toPkgseerRegistry(registry),
       packageName: trimmedName,
     },
   };

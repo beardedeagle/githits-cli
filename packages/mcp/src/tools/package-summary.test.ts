@@ -260,7 +260,7 @@ describe("createPackageSummaryTool — validation errors via shared parsing", ()
       createMockPackageIntelligenceService(),
     );
     const result = await tool.handler(
-      { target: "cargo:serde", format: "json" },
+      { target: "foobar:serde", format: "json" },
       {},
     );
     expect(result.isError).toBe(true);

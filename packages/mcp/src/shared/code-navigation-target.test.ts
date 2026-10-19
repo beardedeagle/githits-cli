@@ -106,3 +106,19 @@ describe("parseCodeNavigationTargetSpec", () => {
     );
   });
 });
+
+describe("cargo alias targets", () => {
+  it.each(["cargo", "CARGO", "CrAtEs"])(
+    "canonicalizes %s without changing package/version",
+    (registry) => {
+      for (const suffix of ["", "@1.0.228"]) {
+        expect(
+          parseCodeNavigationTargetSpec(`${registry}:serde${suffix}`),
+        ).toEqual(parseCodeNavigationTargetSpec(`crates:serde${suffix}`));
+        expect(
+          parseCodeNavigationTargetSpec(`${registry}:serde${suffix}`).registry,
+        ).toBe("CRATES");
+      }
+    },
+  );
+});

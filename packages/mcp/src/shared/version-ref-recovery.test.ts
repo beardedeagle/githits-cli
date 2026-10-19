@@ -452,3 +452,110 @@ describe("native version/ref recovery", () => {
     expect(formatMappedErrorText(mapped)).toContain("(+5 more)");
   });
 });
+
+describe("cargo alias version recovery", () => {
+  const mapped: MappedError = {
+    code: "VERSION_NOT_FOUND",
+    message: "Missing version.",
+    details: {
+      package: "crates:serde",
+      requestedVersion: "99",
+      availablePackageVersions: ["1.0.228"],
+    },
+  };
+  const argvCases: string[][] = [
+    ["pkg", "deps", "cargo:serde@99"],
+    ["pkg", "vulns", "CARGO:serde@99"],
+    ["pkg", "changelog", "cargo:serde@99..100"],
+    ["read", "cargo:serde@99#Serialize", "src/lib.rs"],
+    ["list", "cargo:serde@99"],
+    ["grep", "serde", "cargo:serde@99"],
+    ["search", "Serialize", "--in=cargo:serde@99"],
+    ["pkg", "upgrade-review", "--package", "cargo:serde@99..100"],
+  ];
+  it.each(argvCases.map((argv) => ({ argv })))(
+    "matches canonical recovery for CLI argv $argv",
+    ({ argv }) => {
+      const canonical = argv.map((arg) => arg.replace(/cargo:/gi, "crates:"));
+      expect(
+        withVersionRefRecovery(mapped, { syntax: "cli", argv }).details?.action,
+      ).toBe(
+        withVersionRefRecovery(mapped, { syntax: "cli", argv: canonical })
+          .details?.action,
+      );
+      expect(
+        withVersionRefRecovery(mapped, { syntax: "cli", argv }).details?.action,
+      ).toContain("crates:serde@1.0.228");
+    },
+  );
+  it.each(["--from", "--to", "--from=99", "--to=99"])(
+    "matches alias package for %s version flags",
+    (flag) => {
+      const argv = [
+        "pkg",
+        "changelog",
+        "cargo:serde",
+        flag,
+        ...(flag.includes("=") ? [] : ["99"]),
+      ];
+      expect(
+        withVersionRefRecovery(mapped, { syntax: "cli", argv }).details?.action,
+      ).toContain(
+        `${flag.split("=")[0]}${flag.includes("=") ? "=" : " "}1.0.228`,
+      );
+    },
+  );
+  it("normalizes compact MCP targets and structured single/batch upgrade registry", () => {
+    expect(
+      withVersionRefRecovery(mapped, {
+        syntax: "mcp",
+        tool: "pkg_deps",
+        args: { target: "cargo:serde@99" },
+      }).details?.action,
+    ).toBe('Retry pkg_deps with target="crates:serde@1.0.228".');
+    expect(
+      withVersionRefRecovery(mapped, {
+        syntax: "mcp",
+        tool: "search",
+        args: { targets: ["cargo:serde@99"] },
+      }).details?.action,
+    ).toBe('Retry search with targets[0]="crates:serde@1.0.228".');
+    const row = {
+      registry: " CARGO ",
+      package_name: "serde",
+      current_version: "99",
+      target_version: "100",
+    };
+    expect(
+      withVersionRefRecovery(mapped, {
+        syntax: "mcp",
+        tool: "pkg_upgrade_review",
+        args: row,
+      }).details?.action,
+    ).toBe('Retry pkg_upgrade_review with current_version="1.0.228".');
+    expect(
+      withVersionRefRecovery(mapped, {
+        syntax: "mcp",
+        tool: "pkg_upgrade_review",
+        args: { packages: [row] },
+      }).details?.action,
+    ).toBe(
+      'Retry pkg_upgrade_review with packages[0].current_version="1.0.228".',
+    );
+  });
+  it("does not make alias spelling alone a retry for another version", () => {
+    expect(
+      withVersionRefRecovery(mapped, {
+        syntax: "cli",
+        argv: ["pkg", "deps", "cargo:serde@100"],
+      }).details?.action,
+    ).toBeUndefined();
+    expect(
+      withVersionRefRecovery(mapped, {
+        syntax: "mcp",
+        tool: "pkg_deps",
+        args: { target: "cargo:serde@100" },
+      }).details?.action,
+    ).toBeUndefined();
+  });
+});

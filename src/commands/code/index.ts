@@ -22,5 +22,5 @@ export async function registerCodeCommandGroup(
 }
 
 function buildCodeCommandDescription(): string {
-  return "List files, read files, grep substrings, and compare exact trees inside indexed dependency source. Read/list/grep accept either `<spec>` (registry:name[@version]) or `--repo-url <url> [--git-ref <ref>]`; diff keeps both versions or refs in its required `<from>..<to>` range. For package-level metadata use `githits pkg`.";
+  return "List files, read files, grep substrings, and compare exact trees inside indexed dependency source. Read/list/grep accept either `<spec>` (registry:name[@version]) or `--repo-url <url> [--git-ref <ref>]`; diff keeps both versions or refs in its required `<from>..<to>` range. For package-level metadata use `githits pkg`. The `cargo:` prefix is an alias for `crates:` (public crates.io).";
 }

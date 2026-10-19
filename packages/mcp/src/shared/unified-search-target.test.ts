@@ -85,3 +85,19 @@ describe("parseUnifiedSearchTargetSpec", () => {
     );
   });
 });
+
+describe("cargo alias targets", () => {
+  it.each(["cargo", "CARGO", "CrAtEs"])(
+    "canonicalizes %s without changing package/version",
+    (registry) => {
+      for (const suffix of ["", "@1.0.228"]) {
+        expect(
+          parseUnifiedSearchTargetSpec(`${registry}:serde${suffix}`),
+        ).toEqual(parseUnifiedSearchTargetSpec(`crates:serde${suffix}`));
+        expect(
+          parseUnifiedSearchTargetSpec(`${registry}:serde${suffix}`).registry,
+        ).toBe("CRATES");
+      }
+    },
+  );
+});

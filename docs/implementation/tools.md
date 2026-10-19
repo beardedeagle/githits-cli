@@ -205,6 +205,10 @@ names retain their `@` and `:` respectively. Their old separate coordinate input
 are removed, not aliases. `pkg_upgrade_review` still uses the structured inputs
 listed above; CLI positional specs and options for it are unchanged.
 
+Package input spelling accepts `cargo:` as an alias for `crates:` (public
+crates.io), including structured registry inputs. Canonical identities remain
+`crates` / `CRATES`; see [registry input aliases](package-registry-aliases.md).
+
 ## Transitive vulnerability audits
 
 `pkg_vulns` remains direct-only by default. Set MCP `include_transitive: true`

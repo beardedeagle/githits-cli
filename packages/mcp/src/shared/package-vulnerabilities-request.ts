@@ -31,9 +31,8 @@
 
 import type { PackageVulnerabilitiesParams } from "@githits/core-internal";
 import {
-  isKnownPkgseerRegistryArg,
   PKGSEER_REGISTRY_LIST,
-  type PkgseerRegistryArg,
+  parsePkgseerRegistryArg,
   toPkgseerRegistry,
 } from "@githits/core-internal";
 import {
@@ -126,19 +125,17 @@ export function buildPackageVulnerabilitiesParams(
     throw new InvalidPackageSpecError("Package name is required.");
   }
 
-  const normalisedRegistryArg = input.registry?.trim().toLowerCase() ?? "";
-  if (!isKnownPkgseerRegistryArg(normalisedRegistryArg)) {
+  const registryArg = parsePkgseerRegistryArg(input.registry ?? "");
+  if (!registryArg) {
     throw new UnsupportedRegistryError(
       `Unsupported registry '${input.registry}'. Supported: ${PKGSEER_REGISTRY_LIST}.`,
     );
   }
 
-  const registry = toPkgseerRegistry(
-    normalisedRegistryArg as PkgseerRegistryArg,
-  );
+  const registry = toPkgseerRegistry(registryArg);
   if (!supportsVulnerabilitiesRegistry(registry)) {
     throw new UnsupportedVulnerabilitiesRegistryError(
-      `pkg vulns only supports ${SUPPORTED_VULN_REGISTRIES_HUMAN}. Got: ${normalisedRegistryArg}.`,
+      `pkg vulns only supports ${SUPPORTED_VULN_REGISTRIES_HUMAN}. Got: ${registryArg}.`,
     );
   }
 
