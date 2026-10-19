@@ -1,1 +1,1 @@
-How does Codex handle chat compaction?
+How does Redis handle key expiration?
