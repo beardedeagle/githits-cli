@@ -60,7 +60,7 @@ describe("uniform indexing evidence presentation", () => {
       expect(output).toContain("No matches available yet.");
       expect(output).toContain("(indexing, estimated total: 38-57s");
       expect(output).toContain("time spent indexing: 90s");
-      expect(output).toContain("Retry preparing targets without a cursor");
+      expect(output).toContain("Retry preparing targets, without a cursor");
       expect(output).toContain(
         syntax === "cli" ? "--wait 70000" : "wait_timeout_ms=70000",
       );

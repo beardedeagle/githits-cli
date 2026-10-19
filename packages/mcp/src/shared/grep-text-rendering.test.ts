@@ -528,7 +528,7 @@ describe("grep coverage copy", () => {
       expect(text).not.toContain("Traversal is incomplete");
       expect(text).not.toContain("Some requested content");
       expect(text).toContain(
-        "Retry only targets marked retryable without a cursor.",
+        "Retry only targets marked retryable, without a cursor.",
       );
       expect(text).not.toMatch(/--wait|wait_timeout_ms/);
     }
@@ -560,7 +560,7 @@ describe("grep coverage copy", () => {
       );
       expect(text).toContain("npm:retryable (resolution_failed; retryable)");
       expect(text).toContain(
-        "Retry only preparing or retryable targets without a cursor;",
+        "Retry only preparing or retryable targets, without a cursor;",
       );
       expect(text).toContain(
         syntax === "cli"
@@ -598,8 +598,83 @@ describe("grep coverage copy", () => {
     expect(text.startsWith(incomplete)).toBe(true);
     expect(text).toContain("npm:unsupported (resolution_failed; retryable)");
     expect(text).toContain(
-      "Retry only targets marked retryable without a cursor.",
+      "Retry only targets marked retryable, without a cursor.",
     );
     expect(text).not.toMatch(/--wait|wait_timeout_ms|Preparing:/);
+  });
+});
+
+describe("grep recovery precedence", () => {
+  it("keeps cursor expiry restart as the sole recovery action with retained retryable targets", () => {
+    for (const unavailableTargets of [[], [preparing], [preparing, terminal]]) {
+      const data = page([hit()], {
+        traversal: "CURSOR_EXPIRED",
+        unavailableTargets,
+        targets: [
+          scope({
+            readiness: "NOT_AVAILABLE",
+            traversal: "FAILED",
+            retryable: true,
+          }),
+        ],
+      });
+      for (const syntax of ["cli", "mcp"] as const) {
+        const text = formatGrepText(data, { syntax, width: 160 });
+        expect(text).toContain(
+          "Cursor expired. Restart explicitly without the cursor",
+        );
+        expect(text).toContain("[1] github:o/r@sha a.ts\n3: router");
+        if (unavailableTargets.length) expect(text).toContain("Preparing:");
+        expect(text).not.toMatch(/Follow-up:|Retry |--wait|wait_timeout_ms/);
+        expect(text).not.toContain("More results:");
+      }
+    }
+  });
+
+  it("retains otherwise unexplained traversal limits beside skips, file issues or stale snapshots", () => {
+    const gaps: Partial<GrepTargetStatus>[] = [
+      { binaryFilesSkipped: 1 },
+      { filesTooLargeSkipped: 1 },
+      { readiness: "STALE" },
+      {
+        fileIssues: [
+          {
+            filePath: "a.ts",
+            code: "LINE_TOO_LARGE",
+            line: 3,
+            contentSafety: { filtered: false },
+          },
+        ],
+      },
+      { fileIssuesOmitted: 1 },
+    ];
+    for (const gap of gaps) {
+      for (const nextCursor of [null, "sibling cursor"]) {
+        for (const traversal of ["FAILED", "NON_RESUMABLE_PARTIAL"] as const) {
+          const data = page([hit()], {
+            traversal,
+            nextCursor,
+            targets: [scope(gap)],
+          });
+          for (const syntax of ["cli", "mcp"] as const) {
+            const text = formatGrepText(data, { syntax, width: 160 });
+            expect(text.startsWith("Found 1 match on 1 line in 1 file.")).toBe(
+              true,
+            );
+            expect(text).toContain(
+              nextCursor
+                ? "Some requested content could not be searched."
+                : "Search incomplete; no continuation is available.",
+            );
+            if (nextCursor)
+              expect(text).toContain(
+                syntax === "cli"
+                  ? "--cursor 'sibling cursor'"
+                  : 'cursor="sibling cursor"',
+              );
+          }
+        }
+      }
+    }
   });
 });

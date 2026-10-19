@@ -187,7 +187,11 @@ export function formatGrepText(
     result.traversal !== "COMPLETE" &&
     (!result.nextCursor || result.traversal !== "RESUMABLE_LIMIT") &&
     !omissionsOnly &&
-    !scopeCoverageGap &&
+    !result.targets.some(
+      (scope) =>
+        !["COMPLETE", "RESUMABLE_LIMIT"].includes(scope.traversal) ||
+        !["CURRENT", "STALE", "UNSPECIFIED"].includes(scope.readiness),
+    ) &&
     result.hits.length > 0
   )
     prose(
@@ -266,7 +270,10 @@ export function formatGrepText(
     result.targets.some(
       (scope) => scope.retryable && hasPageCoverageGap(scope),
     );
-  if (pending.length || retryableFailures) {
+  if (
+    result.traversal !== "CURSOR_EXPIRED" &&
+    (pending.length || retryableFailures)
+  ) {
     const targets = pending.length
       ? retryableFailures
         ? "only preparing or retryable targets"
@@ -275,7 +282,7 @@ export function formatGrepText(
     const wait = pending.length
       ? `; add ${options.syntax === "mcp" ? `wait_timeout_ms=${indexingWaitMs(result.indexingEstimates)}` : `--wait ${indexingWaitMs(result.indexingEstimates)}`}${retryableFailures ? " for preparation" : ""}`
       : "";
-    followUp.push(...proseLines(`Retry ${targets} without a cursor${wait}.`));
+    followUp.push(...proseLines(`Retry ${targets}, without a cursor${wait}.`));
   }
   appendSearchGrepFooter(
     lines,

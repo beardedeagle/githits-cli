@@ -124,22 +124,43 @@ No third plan round is required for these wording-only fixes.
 
 - Implemented only shared text selection/recovery and the directly affected
   tests/docs; JSON/API, descriptors, request behavior and match rendering unchanged.
-- Final focused command (7 files named in verification above): 103 passed,
-  0 failed, 759 assertions. New matrix reproduced 15 failures before the fix.
+- Final focused command (7 files named in verification above): 105 passed,
+  0 failed, 887 assertions. New matrix reproduced 15 failures before the fix.
 - `bun run build`, `bun run typecheck` and Biome checks for six changed TS files pass.
 - Internal code review direction sound, no code findings; accepted one docs
   correction so all fresh-retry guidance selects only eligible requested targets.
 - Both initial development smoke runs passed isolated auth checks but failed
   the scoped live credential probe before grep. Host development pkg info works;
-  authenticated retries using a privately piped development token are running.
+  authenticated retries using a privately piped development token pass:
+  CLI 168 steps, MCP 86 steps. No credential was printed or persisted.
 - Targeted development `code-grep-investigation` agent eval process/final success;
   high confidence, 6 logical MCP calls (2 grep, 3 read, 1 quick_start), no CLI
   fallback or validation violations. No isolation-violations file emitted; report
   validationViolations is empty. Metrics and final/tool calls inspected. This is
   normal-path qualitative evidence, not graded quality or failure-state proof.
 - Healthy mixed-100 and repository-100 outputs remain byte-identical (6967/5754
-  bytes). Synthetic pending: 149 -> 139 bytes; terminal-only: 96 -> 109;
-  mixed empty: 307 -> 325; native retryable failure: 350 -> 373; partial hits
-  plus retryable failure: 558 -> 569. The necessary qualifications/new retry
+  bytes). Synthetic pending: 149 -> 140 bytes; terminal-only: 96 -> 109;
+  mixed empty: 307 -> 326; native retryable failure: 350 -> 374; partial hits
+  plus retryable failure: 558 -> 570. The necessary qualifications/new retry
   actions add bytes in failures; no claim of runtime or measured token savings.
 - External implementation review, final smoke results and PR delivery pending.
+
+
+## Implementation review round 1 closures
+
+Direction sound; accepted F1-F5 (two code findings, two doc corrections, comma).
+F1 -> competing fresh-subset action beside an expired-cursor restart -> scanned
+all retry/cursor branches and related tests/docs -> suppress selective retry
+footer for CURSOR_EXPIRED; retained evidence and explicit full restart remain.
+F2 -> overly broad suppression of overall traversal limits -> checked stale,
+binary/oversized skips, file issues/omitted counts with hits and optional cursor
+-> suppress only when native traversal/readiness failure attributes the limit;
+otherwise retain the overall notice. Added deterministic regression coverage
+for both failure classes in CLI/MCP syntax. F3/F4 -> stale sibling guide and
+narrow no-scope wording -> corrected unified-grep and search-snapshot docs.
+Comma clarifies that removing the cursor applies to the retry action.
+No new ownership or infrastructure; all fixes remain in the existing formatter.
+
+Revised full delta internal re-review is clean. Focused105 tests/887 assertions,
+root build/typecheck and six-file Biome checks pass. Existing healthy fixtures
+remain byte-identical after review fixes; counts above include the comma.

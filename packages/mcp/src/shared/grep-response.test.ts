@@ -421,7 +421,7 @@ describe("grep page and omission outcomes", () => {
     },
   );
   it.each([null, "cursor"])(
-    "explains retryable-only omissions without an exhaustive empty claim",
+    "explains retryable preparation-only omissions without an exhaustive empty claim",
     (nextCursor) => {
       const output = formatGrepText(
         result({

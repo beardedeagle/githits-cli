@@ -60,10 +60,10 @@ describe("unified grep CLI/MCP parity", () => {
       const mcpText = String(mcp.content[0]?.text);
       expect(cli).toContain("No content could be searched.");
       expect(cli).toContain(
-        "Retry preparing targets without a cursor; add --wait 30000.",
+        "Retry preparing targets, without a cursor; add --wait 30000.",
       );
       expect(mcpText).toContain(
-        "Retry preparing targets without a cursor; add wait_timeout_ms=30000.",
+        "Retry preparing targets, without a cursor; add wait_timeout_ms=30000.",
       );
       expect(cli.replace("--wait 30000", "wait_timeout_ms=30000").trim()).toBe(
         mcpText,

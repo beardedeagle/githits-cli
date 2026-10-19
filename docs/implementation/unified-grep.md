@@ -201,8 +201,9 @@ Stale/failed scopes, skips, issues, omitted issue counts, safety normalization
 and unavailable targets stay visible on zero-hit pages. `No matches found.`
 is reserved for complete traversal without coverage gaps. Other empty results
 say `No matches returned; coverage is incomplete.` If all reported
-scopes failed or were unavailable before scanning, or only terminal omissions
-remain, text says `No content could be searched.` An empty CURRENT + COMPLETE
+scopes failed or were unavailable before scanning, or no native scopes are
+reported and omissions include anything beyond retryable preparation, text says
+`No content could be searched.` An empty CURRENT + COMPLETE
 corpus remains an authoritative negative. Preparation-only retryable gaps retain
 `No matches available yet.`
 
@@ -213,7 +214,8 @@ unexplained overall traversal limitations remain visible beside returned hits
 and any sibling cursor. Cursors and terminal omissions can coexist; both are
 shown. Continue with identical ordered operands and controls.
 `CURSOR_EXPIRED` is a successful result requiring explicit restart; retained
-sibling hits and omissions remain visible.
+sibling hits and omissions remain visible. Expired cursors offer only the
+explicit full-search restart, with no competing target-subset retry hint.
 
 Complete/partial pages exit zero, including zero hits. Failures exit nonzero;
 JSON errors go to stderr with clean stdout. Preparation errors map to `INDEXING`

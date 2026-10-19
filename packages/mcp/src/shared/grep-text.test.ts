@@ -274,7 +274,7 @@ describe("grep text formatting", () => {
       expect(text).not.toContain("Run grep again");
       expect(text).not.toContain("Use the cursor below");
       expect(lines.at(-1)).toBe(
-        `  Retry preparing targets without a cursor; add ${syntax === "cli" ? "--wait 100000" : "wait_timeout_ms=100000"}.`,
+        `  Retry preparing targets, without a cursor; add ${syntax === "cli" ? "--wait 100000" : "wait_timeout_ms=100000"}.`,
       );
       const cursor = syntax === "cli" ? "  --cursor " : "  cursor=";
       expect(
