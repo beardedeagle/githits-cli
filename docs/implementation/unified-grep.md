@@ -152,7 +152,11 @@ Other sources without matches on an incomplete search are marked `(no matches
 returned)`.
 Completed searches use `(no results)`. This
 does not claim that the source has no matches overall. Independent coverage
-failures remain visible. The short repository
+failures remain visible. Affected native scopes and non-preparation omissions
+state `you can retry` or `do not retry unchanged` beside the supplied cause.
+These follow backend retryability: they promise neither eventual retry success
+nor permanent unavailability. Failed scopes without a public reason or error
+code say that no further failure details were provided. The short repository
 SHA is provenance shorthand; each file locator retains the exact opaque
 backend target and repository-root path. The formatter does not canonicalize
 or substitute any read target, path or ref. A differing hosted display URL is
@@ -218,8 +222,10 @@ no scope was searched, or `some requested content` when another scope was search
 Healthy empty continuation pages say `No matches on this page.`; pages with
 gaps say `No matches on this page; some requested content could not be searched.` Attributed
 explanations carry failure details without a second generic caveat. Otherwise
-unexplained overall traversal limitations remain visible beside returned hits
-and any sibling cursor. Cursors and terminal omissions can coexist; both are
+unexplained overall traversal limitations remain visible with or without hits
+and beside any sibling cursor. Because overall traversal has no cause or retry
+flag, those unattributed limits explicitly say the service did not explain why
+the full search stopped or whether retrying would help. Cursors and terminal omissions can coexist; both are
 shown. Continue with identical ordered operands and controls.
 `CURSOR_EXPIRED` is a successful result requiring explicit restart; retained
 sibling hits and omissions remain visible. Expired cursors offer only the

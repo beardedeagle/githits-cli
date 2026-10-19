@@ -48,7 +48,9 @@ without returned matches on an incomplete search as `(no matches returned)`, or
 `Preparing:` block groups actual repository/documentation work and timing once
 per estimate. Duplicate/package requested inputs and their suggestions remain
 attached beneath that work; pending inputs without an estimate keep label-only
-rows. Non-preparation omissions remain under `Not searched:`.
+rows. Non-preparation omissions remain under `Not searched:`, with the supplied
+reason and `you can retry` or `do not retry unchanged`. Retryability is not a
+guarantee of recovery or permanent unavailability.
 Hosted-site matches do not establish package-version
 provenance. The existing cursor instructions follow the matches. Follow-up names only the
 original inputs with retryable omissions or scope failures, preserving the pattern

@@ -549,7 +549,7 @@ describe("grep coverage copy", () => {
       expect(text.startsWith("Found 1 match on 1 line in 1 file.")).toBe(true);
       expect(text).toContain("[1] github:o/r@sha a.ts\n3: router");
       expect(text).toContain(
-        "Repository npm:failed: unavailable; search failed.\n  Reason: Reader unavailable. [READ_FAILED]",
+        "Repository npm:failed: unavailable; search failed; you can retry.\n  Reason: Reader unavailable. [READ_FAILED]",
       );
       expect(text).not.toContain(".;");
       expect(text).not.toContain("Traversal is incomplete");
@@ -702,7 +702,7 @@ describe("grep recovery precedence", () => {
             );
             expect(text).toContain(
               nextCursor
-                ? "Some requested content could not be searched."
+                ? "The service did not explain why the full search stopped or whether retrying would help."
                 : "The search did not finish, and no continuation cursor was returned.",
             );
             if (nextCursor)
@@ -750,6 +750,73 @@ describe("grep omission attribution", () => {
 });
 
 describe("explicit grep recovery", () => {
+  it.each([true, false])(
+    "states the supplied native failure cause and retry advice for retryable=%s",
+    (retryable) => {
+      const data = page([], {
+        targets: [
+          scope({
+            readiness: "READER_OPEN_FAILED",
+            traversal: "FAILED",
+            retryable,
+            errorCode: "OPEN_FAILED",
+            publicMessage: "Reader could not be opened.",
+            filesScanned: 0,
+          }),
+        ],
+      });
+      for (const syntax of ["cli", "mcp"] as const) {
+        const text = formatGrepText(data, { syntax, width: 160 });
+        expect(text).toContain(
+          retryable ? "you can retry" : "do not retry unchanged",
+        );
+        expect(text).toContain(
+          "Reason: Reader could not be opened. [OPEN_FAILED]",
+        );
+        expect(text).not.toMatch(/temporary|permanent/);
+        if (!retryable) expect(text).not.toContain("Follow-up:");
+      }
+    },
+  );
+
+  it("does not invent a cause when a failed scope supplies no further details", () => {
+    const data = page([], {
+      targets: [
+        scope({
+          readiness: "NOT_AVAILABLE",
+          traversal: "FAILED",
+          publicMessage: null,
+          errorCode: null,
+          retryable: true,
+          filesScanned: 0,
+        }),
+      ],
+    });
+    for (const syntax of ["cli", "mcp"] as const) {
+      const text = formatGrepText(data, { syntax });
+      expect(text).toContain("No further failure details were provided.");
+      expect(text).toContain("you can retry");
+      expect(text).not.toMatch(/Reason:|Error:|temporary|permanent/);
+    }
+  });
+
+  it.each(["FAILED", "NON_RESUMABLE_PARTIAL"] as const)(
+    "discloses unknown cause and retryability for an unattributed empty %s search",
+    (traversal) => {
+      const data = page([], { traversal });
+      for (const syntax of ["cli", "mcp"] as const) {
+        const text = formatGrepText(data, { syntax, width: 160 });
+        expect(text).toContain(
+          "The search did not finish, and no continuation cursor was returned.",
+        );
+        expect(text).toContain(
+          "The service did not explain why the full search stopped or whether retrying would help.",
+        );
+        expect(text).not.toContain("Follow-up:");
+      }
+    },
+  );
+
   it("names eligible original operands instead of resolved sources or terminal targets", () => {
     const data = page([], {
       targets: [
@@ -850,6 +917,9 @@ describe("explicit grep recovery", () => {
       });
       for (const syntax of ["cli", "mcp"] as const) {
         const text = formatGrepText(data, { syntax, width: 160 });
+        expect(text).toContain(
+          retryable ? "you can retry" : "do not retry unchanged",
+        );
         expect(
           text.includes(
             "choose a different package, repository or site target",
@@ -897,7 +967,7 @@ describe("explicit grep recovery", () => {
       requestedTargets: ["npm:original"],
     });
     expect(text).toContain(
-      "Not searched:\n  - npm:unsupported: unknown_reason\n    Search hosted documentation instead: site:docs.example",
+      "Not searched:\n  - npm:unsupported: unknown_reason; do not retry unchanged\n    Search hosted documentation instead: site:docs.example",
     );
     expect(text).not.toMatch(
       /Follow-up:|--wait|wait_timeout_ms|Repeat the same pattern/,

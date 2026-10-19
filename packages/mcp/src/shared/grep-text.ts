@@ -174,7 +174,7 @@ export function formatGrepText(
   if (otherOmissions.length) lines.push("", "Not searched:");
   for (const omitted of otherOmissions) {
     prose(
-      `  - ${omitted.target}: ${grepPreparationReason(omitted.reason)}${omitted.reason === "no_grep_scopes" && !omitted.retryable && !omitted.suggestedSiteTargets?.length ? "; choose a different package, repository or site target" : ""}`,
+      `  - ${omitted.target}: ${grepPreparationReason(omitted.reason)}; ${omitted.retryable ? "you can retry" : "do not retry unchanged"}${omitted.reason === "no_grep_scopes" && !omitted.retryable && !omitted.suggestedSiteTargets?.length ? "; choose a different package, repository or site target" : ""}`,
     );
     for (const target of omitted.suggestedSiteTargets ?? [])
       prose(`    Search hosted documentation instead: ${target}`);
@@ -191,13 +191,12 @@ export function formatGrepText(
       (scope) =>
         !["COMPLETE", "RESUMABLE_LIMIT"].includes(scope.traversal) ||
         !["CURRENT", "STALE", "UNSPECIFIED"].includes(scope.readiness),
-    ) &&
-    result.hits.length > 0
+    )
   )
     prose(
       result.nextCursor
-        ? "Some requested content could not be searched."
-        : "The search did not finish, and no continuation cursor was returned.",
+        ? "The service did not explain why the full search stopped or whether retrying would help."
+        : "The search did not finish, and no continuation cursor was returned. The service did not explain why the full search stopped or whether retrying would help.",
     );
   for (const [index, group] of groups.entries()) {
     const first = group.first;
@@ -348,12 +347,16 @@ function renderCoverage(
     notes.push(readinessNote(scope));
   if (scope.traversal !== "COMPLETE" && scope.traversal !== "RESUMABLE_LIMIT")
     notes.push(traversalNote(scope));
+  if (hasPageCoverageGap(scope))
+    notes.push(scope.retryable ? "you can retry" : "do not retry unchanged");
   const details: string[] = [];
   if (scope.publicMessage)
     details.push(
       `Reason: ${scope.publicMessage}${scope.errorCode ? ` [${scope.errorCode}]` : ""}`,
     );
   else if (scope.errorCode) details.push(`Error: ${scope.errorCode}.`);
+  else if (scope.traversal === "FAILED")
+    details.push("No further failure details were provided.");
   if (notes.length || details.length) {
     if (scope.readiness === "STALE" && scope.commitSha)
       details.push(
