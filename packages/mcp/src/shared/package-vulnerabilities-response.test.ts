@@ -566,9 +566,7 @@ describe("buildPackageVulnerabilitiesSuccessPayload — transitive audit", () =>
       useColors: false,
       terminalWidth: 120,
     });
-    expect(output).toContain(
-      "1 advisory occurrence (0 affected, 1 historical) in 1 dependency package",
-    );
+    expect(output).toContain("1 advisory occurrence in 1 dependency package");
     expect(output).toContain("body-parser@1.19.0  [historical]");
   });
 });
@@ -2477,6 +2475,12 @@ describe("reviewed assessment presentation", () => {
   it("separates unknown from historical transitive occurrences in ALL", () => {
     const report = transitiveVulnerabilityFixture();
     report.transitive!.advisoryScope = "ALL";
+    Object.assign(report.transitive!, {
+      affectedCount: 6,
+      nonAffectingCount: 0,
+      unknownCount: 1,
+      totalCount: 7,
+    });
     const row = report.transitive!.packages[0]!.occurrences[0]!;
     Object.assign(row, {
       assessmentStatus: "UNKNOWN",
@@ -2617,5 +2621,194 @@ describe("round 2 occurrence evidence", () => {
     expect(lines.join(" ").replace(/\s+/g, " ")).toContain(
       "8 non-affecting | 3 unknown | 31 all; unknown = not evaluable, list with --scope unknown",
     );
+  });
+});
+
+describe("complete transitive unknown evidence", () => {
+  function unknownReport(): VulnerabilityReport {
+    const report = transitiveVulnerabilityFixture();
+    const occurrence = structuredClone(
+      report.transitive!.packages[0]!.occurrences[0]!,
+    );
+    Object.assign(occurrence, {
+      assessmentStatus: "UNKNOWN",
+      assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+      affectsResolvedVersion: false,
+      matchedAffectedVersionRanges: [],
+      fixVersionsAboveResolved: [],
+      nearestFixedVersion: undefined,
+    });
+    report.transitive = {
+      advisoryScope: "UNKNOWN",
+      totalPackagesAnalyzed: 5,
+      packageCount: 1,
+      occurrenceCount: 1,
+      affectedCount: 19,
+      nonAffectingCount: 115,
+      unknownCount: 1,
+      totalCount: 135,
+      packages: [
+        {
+          registry: "PYPI",
+          name: "unknown-only",
+          occurrenceCount: 1,
+          affectedCount: 0,
+          nonAffectingCount: 0,
+          unknownCount: 1,
+          totalCount: 1,
+          occurrences: [occurrence],
+        },
+      ],
+    };
+    return report;
+  }
+  it("preserves unknown-only package counts and reasons in lean JSON and readable text", () => {
+    const report = unknownReport();
+    const payload = JSON.parse(
+      JSON.stringify(buildPackageVulnerabilitiesSuccessPayload(report)),
+    );
+    expect(payload.transitive).toMatchObject({
+      advisoryScope: "unknown",
+      summary: {
+        affectedCount: 19,
+        nonAffectingCount: 115,
+        unknownCount: 1,
+        totalCount: 135,
+        occurrenceCount: 1,
+      },
+      packages: [
+        {
+          affectedCount: 0,
+          nonAffectingCount: 0,
+          unknownCount: 1,
+          totalCount: 1,
+          occurrences: [
+            {
+              assessmentStatus: "UNKNOWN",
+              assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+            },
+          ],
+        },
+      ],
+    });
+    for (const surface of ["cli", "mcp"] as const) {
+      const text = formatPackageVulnerabilitiesTerminal(report, {
+        surface,
+        terminalWidth: 80,
+      });
+      expect(text).toContain("1 unknown advisory occurrence");
+      expect(text).toContain(
+        "unknown-only: 0 affected | 0 non-affecting | 1 unknown | 1 all",
+      );
+      expect(text).toContain("Advisory range could not be evaluated");
+      expect(text).toContain("FUTURE_REASON");
+      expect(text).toContain("[unknown]");
+      expect(text).not.toContain("[historical]");
+      expect(text).not.toContain("nearest fix");
+    }
+  });
+  it("uses authoritative unknown totals and native hints under affected-only output", () => {
+    const report = unknownReport();
+    report.transitive!.advisoryScope = "AFFECTED";
+    report.transitive!.packages = [];
+    report.transitive!.packageCount = 0;
+    report.transitive!.occurrenceCount = 0;
+    for (const surface of ["cli", "mcp"] as const) {
+      const text = formatPackageVulnerabilitiesTerminal(report, {
+        surface,
+        terminalWidth: 80,
+      });
+      expect(text).toContain(
+        surface === "cli" ? "--scope unknown" : 'advisory_scope="unknown"',
+      );
+      expect(text.replace(/\s+/g, " ")).toContain(
+        "19 affected | 115 non-affecting | 1 unknown | 135 all",
+      );
+      expect(text).toContain("unknown = not evaluable");
+    }
+  });
+  it("shows known package unknown totals when the summary field is absent", () => {
+    const report = unknownReport();
+    delete report.transitive!.unknownCount;
+    expect(formatPackageVulnerabilitiesTerminal(report)).toContain(
+      "unknown-only: 0 affected | 0 non-affecting | 1 unknown | 1 all",
+    );
+    expect(
+      buildPackageVulnerabilitiesSuccessPayload(report).transitive!.summary
+        .unknownCount,
+    ).toBeUndefined();
+  });
+  it("retains nonempty reasons in JSON while omitting affected reason prose", () => {
+    const report = transitiveVulnerabilityFixture();
+    const row = report.transitive!.packages[0]!.occurrences[0]!;
+    Object.assign(row, {
+      assessmentStatus: "AFFECTED",
+      assessmentReasons: ["INVALID_RANGE"],
+    });
+    const occurrence = buildPackageVulnerabilitiesSuccessPayload(report)
+      .transitive!.packages.find(
+        (pkg) => pkg.name === report.transitive!.packages[0]!.name,
+      )!
+      .occurrences.find((o) => o.id === row.advisory.osvId)!;
+    expect(occurrence.assessmentReasons).toEqual(["INVALID_RANGE"]);
+    expect(occurrence.assessmentStatus).toBeUndefined();
+    expect(formatPackageVulnerabilitiesTerminal(report)).not.toContain(
+      "Advisory range could not be evaluated",
+    );
+  });
+  it("preserves empty ALL-scope wording when unknown is zero", () => {
+    const report = transitiveVulnerabilityFixture();
+    Object.assign(report.transitive!, {
+      advisoryScope: "ALL",
+      occurrenceCount: 0,
+      packageCount: 0,
+      affectedCount: 0,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 0,
+      packages: [],
+    });
+    expect(formatPackageVulnerabilitiesTerminal(report)).toContain(
+      "No affected or historical advisory occurrences found;",
+    );
+  });
+  it("keeps zero-unknown text unchanged while retaining zero in JSON", () => {
+    const report = transitiveVulnerabilityFixture();
+    const before = formatPackageVulnerabilitiesTerminal(report);
+    Object.assign(report.transitive!, {
+      affectedCount: 7,
+      nonAffectingCount: 0,
+      unknownCount: 0,
+      totalCount: 7,
+    });
+    for (const pkg of report.transitive!.packages)
+      Object.assign(pkg, { unknownCount: 0 });
+    expect(formatPackageVulnerabilitiesTerminal(report)).toBe(before);
+    const payload = JSON.parse(
+      JSON.stringify(buildPackageVulnerabilitiesSuccessPayload(report)),
+    );
+    expect(payload.transitive.summary.unknownCount).toBe(0);
+    expect(
+      payload.transitive.packages.every(
+        (pkg: { unknownCount: number }) => pkg.unknownCount === 0,
+      ),
+    ).toBe(true);
+  });
+  it("preserves future statuses and raw reasons while sanitizing their prose", () => {
+    const report = unknownReport();
+    const row = report.transitive!.packages[0]!.occurrences[0]!;
+    row.assessmentStatus = "FUTURE_STATUS";
+    row.assessmentReasons = ["FUTURE_REASON\u001b[31m"];
+    const text = formatPackageVulnerabilitiesTerminal(report);
+    expect(text).toContain("[FUTURE_STATUS]");
+    expect(text).not.toContain("\u001b");
+    expect(
+      buildPackageVulnerabilitiesSuccessPayload(report).transitive!.packages[0]!
+        .occurrences[0]!.assessmentReasons,
+    ).toEqual(row.assessmentReasons);
+    row.assessmentReasons = [];
+    expect(
+      JSON.stringify(buildPackageVulnerabilitiesSuccessPayload(report)),
+    ).not.toContain('"assessmentReasons":[]');
   });
 });

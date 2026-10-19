@@ -816,8 +816,41 @@ describe("direct unknown JSON parity", () => {
       ]),
     });
   });
-  it("rejects transitive unknown scope on both surfaces before calling the service", async () => {
-    const call = mock(async () => defaultVulnerabilityReport);
+  it("accepts transitive unknown scope identically on both surfaces", async () => {
+    const report = structuredClone(defaultVulnerabilityReport);
+    report.transitive = {
+      advisoryScope: "UNKNOWN",
+      totalPackagesAnalyzed: 2,
+      packageCount: 1,
+      occurrenceCount: 1,
+      affectedCount: 0,
+      nonAffectingCount: 0,
+      unknownCount: 1,
+      totalCount: 1,
+      packages: [
+        {
+          registry: "PYPI",
+          name: "unknown-only",
+          occurrenceCount: 1,
+          affectedCount: 0,
+          nonAffectingCount: 0,
+          unknownCount: 1,
+          totalCount: 1,
+          occurrences: [
+            {
+              version: "1.0",
+              affectsResolvedVersion: false,
+              assessmentStatus: "UNKNOWN",
+              assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+              matchedAffectedVersionRanges: [],
+              fixVersionsAboveResolved: [],
+              advisory: { osvId: "UNKNOWN-1" },
+            },
+          ],
+        },
+      ],
+    };
+    const call = mock(async () => report);
     const cli = await cliJson(
       "npm:express",
       { scope: "unknown", transitive: true },
@@ -835,16 +868,31 @@ describe("direct unknown JSON parity", () => {
       },
       call,
     );
+    expect(cli).toEqual(mcp.json);
     expect(cli).toMatchObject({
-      code: "INVALID_ARGUMENT",
-      error:
-        "--scope unknown is available for direct reports only; drop --transitive or use --scope affected, non_affecting or all.",
+      transitive: {
+        advisoryScope: "unknown",
+        summary: { unknownCount: 1, totalCount: 1 },
+        packages: [
+          {
+            unknownCount: 1,
+            occurrences: [
+              {
+                assessmentStatus: "UNKNOWN",
+                assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+              },
+            ],
+          },
+        ],
+      },
     });
-    expect(mcp.json).toMatchObject({
-      code: "INVALID_ARGUMENT",
-      error:
-        'advisory_scope="unknown" is available for direct reports only; omit include_transitive or use advisory_scope="affected", "non_affecting" or "all".',
-    });
-    expect(call).not.toHaveBeenCalled();
+    expect(call).toHaveBeenCalledTimes(2);
+    for (const [params] of call.mock.calls as unknown as Array<
+      [Record<string, unknown>]
+    >)
+      expect(params).toMatchObject({
+        advisoryScope: "UNKNOWN",
+        includeTransitive: true,
+      });
   });
 });

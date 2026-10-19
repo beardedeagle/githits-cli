@@ -1114,33 +1114,23 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     expect(wire.query).not.toContain("unknownDetails");
   });
 
-  it("rejects transitive unknown requests at the public service boundary", async () => {
-    const { service, fetchFn } = createAuditService(TRANSITIVE_AUDIT_BODY);
-    await expect(
-      service.packageVulnerabilities({
-        registry: "NPM",
-        packageName: "express",
-        advisoryScope: "UNKNOWN",
-        includeTransitive: true,
-      }),
-    ).rejects.toThrow("available for direct reports only");
-    expect(fetchFn).not.toHaveBeenCalled();
-  });
-
-  it.each(["AFFECTED", "NON_AFFECTING", "ALL"] as const)(
-    "selects transitive assessment status only for ALL: %s",
+  it.each(["AFFECTED", "NON_AFFECTING", "UNKNOWN", "ALL"] as const)(
+    "selects assessment status for UNKNOWN/ALL and conditional reasons otherwise: %s",
     async (scope) => {
       const body = mutableTransitiveAuditBody();
       for (const pkg of body.data.packageDependencies.dependencies.transitive
         .vulnerabilitySummary!.packages) {
         for (const row of pkg.advisoryOccurrences) {
-          if (scope === "NON_AFFECTING" || scope === "ALL") {
+          if (scope !== "AFFECTED") {
             Object.assign(row, {
               affectsResolvedVersion: false,
               matchedAffectedVersionRanges: [],
               fixVersionsAboveResolved: [],
               nearestFixedVersion: null,
-              assessmentStatus: scope === "ALL" ? "UNKNOWN" : "NON_AFFECTING",
+              assessmentStatus:
+                scope === "ALL" || scope === "UNKNOWN"
+                  ? "UNKNOWN"
+                  : "NON_AFFECTING",
             });
           }
         }
@@ -1156,13 +1146,137 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
         [string, RequestInit]
       >;
       const query = JSON.parse(String(calls[1]?.[1]?.body)).query;
-      expect(query.includes("assessmentStatus")).toBe(scope === "ALL");
-      if (scope === "ALL")
+      expect(query.includes("assessmentStatus")).toBe(
+        scope === "ALL" || scope === "UNKNOWN",
+      );
+      expect(query).toContain("assessmentReasons");
+      expect(query.includes("assessmentReasons @include")).toBe(
+        scope !== "ALL" && scope !== "UNKNOWN",
+      );
+      if (scope === "ALL" || scope === "UNKNOWN")
         expect(
           result.transitive?.packages[0]?.occurrences[0]?.assessmentStatus,
         ).toBe("UNKNOWN");
     },
   );
+
+  it("keeps complete counts and unknown-only rows with future assessment evidence", async () => {
+    const body = mutableTransitiveAuditBody();
+    const summary = mutableTransitiveAuditSummary(body);
+    Object.assign(summary, {
+      affected: { totalVulnerabilities: 7 },
+      nonAffecting: { totalVulnerabilities: 3 },
+      combined: { totalVulnerabilities: 12 },
+      futureCounter: 99,
+    });
+    const pkg = mutableFirstAuditPackage(body);
+    Object.assign(pkg, {
+      affectedCount: 0,
+      nonAffectingCount: 0,
+      totalCount: 2,
+    });
+    for (const row of pkg.advisoryOccurrences)
+      Object.assign(row, {
+        affectsResolvedVersion: false,
+        matchedAffectedVersionRanges: [],
+        fixVersionsAboveResolved: [],
+        nearestFixedVersion: null,
+        assessmentStatus: "FUTURE_UNKNOWN",
+        assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+        futureEvidence: "ignored",
+      });
+    const { service, fetchFn } = createAuditService(body);
+    const result = await service.packageVulnerabilities({
+      registry: "NPM",
+      packageName: "express",
+      includeTransitive: true,
+      advisoryScope: "UNKNOWN",
+      includeTransitiveAdvisoryDetails: true,
+    });
+    expect(result.transitive).toMatchObject({
+      advisoryScope: "UNKNOWN",
+      affectedCount: 7,
+      nonAffectingCount: 3,
+      unknownCount: 2,
+      totalCount: 12,
+      occurrenceCount: 2,
+      packageCount: 1,
+      packages: [
+        {
+          affectedCount: 0,
+          nonAffectingCount: 0,
+          unknownCount: 2,
+          totalCount: 2,
+          occurrenceCount: 2,
+          occurrences: [
+            {
+              assessmentStatus: "FUTURE_UNKNOWN",
+              assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+            },
+            {
+              assessmentStatus: "FUTURE_UNKNOWN",
+              assessmentReasons: ["INVALID_RANGE", "FUTURE_REASON"],
+            },
+          ],
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain("futureCounter");
+    expect(JSON.stringify(result)).not.toContain("futureEvidence");
+    const calls = fetchFn.mock.calls as unknown as Array<[string, RequestInit]>;
+    const wire = JSON.parse(String(calls[1]![1].body));
+    expect(wire.variables).toMatchObject({
+      scope: "UNKNOWN",
+      includeTransitiveAdvisoryDetails: true,
+    });
+    expect(wire.query).toContain("selected: unknown");
+    expect(wire.query).toContain("selectedCount: unknownCount");
+    expect(wire.query.match(/totalVulnerabilities/g)).toHaveLength(4);
+    expect(wire.query.match(/\bunknownCount\b/g)).toHaveLength(1);
+    expect(wire.query).toContain("assessmentReasons");
+  });
+
+  it("retains nonempty reasons for JSON detail on affected occurrences", async () => {
+    const body = mutableTransitiveAuditBody();
+    for (const row of mutableFirstAuditPackage(body).advisoryOccurrences)
+      Object.assign(row, {
+        assessmentStatus: "AFFECTED",
+        assessmentReasons: ["INVALID_RANGE"],
+      });
+    const { service, fetchFn } = createAuditService(body);
+    const result = await service.packageVulnerabilities({
+      registry: "NPM",
+      packageName: "express",
+      includeTransitive: true,
+      includeTransitiveAdvisoryDetails: true,
+    });
+    expect(
+      result.transitive!.packages[0]!.occurrences[0]!.assessmentReasons,
+    ).toEqual(["INVALID_RANGE"]);
+    const calls = fetchFn.mock.calls as unknown as Array<[string, RequestInit]>;
+    const wire = JSON.parse(String(calls[1]![1].body));
+    expect(wire.variables.includeTransitiveAdvisoryDetails).toBe(true);
+    expect(wire.query).toContain(
+      "assessmentReasons @include(if: $includeTransitiveAdvisoryDetails)",
+    );
+  });
+
+  it("leaves missing transitive assessment and new count fields absent", async () => {
+    const { service } = createAuditService(TRANSITIVE_AUDIT_BODY);
+    const result = await service.packageVulnerabilities({
+      registry: "NPM",
+      packageName: "express",
+      includeTransitive: true,
+    });
+    expect(result.transitive?.affectedCount).toBe(2);
+    expect(result.transitive?.unknownCount).toBeUndefined();
+    expect(result.transitive?.nonAffectingCount).toBeUndefined();
+    expect(result.transitive?.totalCount).toBeUndefined();
+    expect(result.transitive?.packages[0]?.unknownCount).toBeUndefined();
+    expect(
+      result.transitive?.packages[0]?.occurrences[0]?.assessmentReasons,
+    ).toBeUndefined();
+  });
 
   it("maps a happy-path response to VulnerabilityReport", async () => {
     const fetchFn = mock(() => Promise.resolve(jsonResponse(VULNS_HAPPY_BODY)));
@@ -1668,8 +1782,6 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
     );
     expect(query).not.toContain("limit");
     for (const forbidden of [
-      "nonAffecting",
-      "combined",
       "versions",
       "advisoryIds",
       "mostCritical",
@@ -1924,6 +2036,10 @@ describe("PackageIntelligenceServiceImpl.packageVulnerabilities", () => {
 
     expect(result.transitive).toEqual({
       advisoryScope: "AFFECTED",
+      affectedCount: 0,
+      nonAffectingCount: undefined,
+      unknownCount: undefined,
+      totalCount: undefined,
       totalPackagesAnalyzed: 0,
       packageCount: 0,
       occurrenceCount: 0,

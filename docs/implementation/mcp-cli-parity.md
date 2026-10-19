@@ -619,8 +619,9 @@ When a new tool lands with both MCP and CLI surfaces:
   `transitive` block is complete and lossless: it contains
   `scope: "resolved_dependencies"`, `advisoryScope`,
   `withdrawnAdvisoriesIncluded: false`, a numeric summary
-  (`totalPackagesAnalyzed`, `packageCount`, `occurrenceCount`), and `packages[]`
-  with every selected dependency-version/advisory occurrence, explicit
+  (`totalPackagesAnalyzed`, selected `packageCount` / `occurrenceCount`, complete
+  `affectedCount` / `nonAffectingCount` / `unknownCount` / `totalCount`), and
+  `packages[]` with complete per-package counts and every selected dependency-version/advisory occurrence, explicit
   affectedness, matched ranges, and higher-fix candidates when applicable. The
   raw graph and occurrence cap are not returned; malformed
   identity/count/fix evidence fails closed rather than producing partial direct-only
@@ -635,6 +636,13 @@ When a new tool lands with both MCP and CLI surfaces:
   Verbose text adds detail without changing CLI row completeness and shows all
   MCP rows. The parity test deep-compares equivalent direct and transitive JSON
   payloads across both surfaces.
+- **Unknown assessments.** Both surfaces accept unknown scope in direct and
+  transitive modes. Complete backend totals include unknown-only packages;
+  counts are never inferred from selected rows. Nonzero unknowns add native
+  scope hints under affected-only output and human reasons on unknown rows.
+  JSON preserves non-implied statuses and nonempty reasons; zero counts stay
+  numeric and absent new fields remain absent. See
+  [assessment contracts](package-vulnerability-assessments.md).
 - **Partitioning bySeverity buckets.** `summary.bySeverity` carries
   a `malware` key for `isMalicious === true` advisories; severity
   bands for non-malicious advisories with a positive CVSS score;

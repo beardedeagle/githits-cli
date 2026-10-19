@@ -788,7 +788,7 @@ function assertTransitiveVulnerabilityJson(
     `${context}: unexpected transitive scope`,
   );
   assert(
-    ["affected", "non_affecting", "all"].includes(
+    ["affected", "non_affecting", "unknown", "all"].includes(
       value.transitive.advisoryScope as string,
     ),
     `${context}: unexpected transitive advisory scope`,
@@ -2060,24 +2060,62 @@ async function runLiveSmoke(env: Record<string, string>): Promise<void> {
     typeof unknownVulnsJson.summary.assessmentStatus === "string",
     "pkg vulns missing assessment status in JSON",
   );
-  const transitiveUnknown = await runCli([
-    "pkg",
-    "vulns",
-    "npm:lodash",
-    "--scope",
-    "unknown",
-    "--transitive",
-    "--json",
-  ]);
-  assertJsonErrorCode(
-    transitiveUnknown,
+  const transitiveUnknown = assertJsonOutput(
+    await runCli([
+      "pkg",
+      "vulns",
+      "pypi:torchvision@0.20.1",
+      "--scope",
+      "unknown",
+      "--transitive",
+      "--json",
+    ]),
     "pkg vulns transitive unknown",
-    "INVALID_ARGUMENT",
+  );
+  assertRecord(transitiveUnknown, "pkg vulns transitive unknown");
+  assertRecord(
+    transitiveUnknown.transitive,
+    "pkg vulns transitive unknown audit",
+  );
+  assertRecord(
+    transitiveUnknown.transitive.summary,
+    "pkg vulns transitive unknown summary",
   );
   assert(
-    transitiveUnknown.stderr.includes("available for direct reports only"),
-    "pkg vulns transitive unknown missing guidance",
+    typeof transitiveUnknown.transitive.summary.unknownCount === "number",
+    "pkg vulns missing transitive unknown count",
   );
+  assert(
+    transitiveUnknown.transitive.advisoryScope === "unknown",
+    "pkg vulns missing transitive unknown scope",
+  );
+  assertTransitiveVulnerabilityJson(
+    transitiveUnknown,
+    "pkg vulns transitive unknown",
+  );
+  assert(
+    Array.isArray(transitiveUnknown.transitive.packages),
+    "pkg vulns missing packages",
+  );
+  for (const pkg of transitiveUnknown.transitive.packages) {
+    assertRecord(pkg, "pkg vulns unknown package");
+    assert(Array.isArray(pkg.occurrences), "pkg vulns missing occurrences");
+    for (const row of pkg.occurrences) {
+      assertRecord(row, "pkg vulns unknown occurrence");
+      assert(
+        row.affectsResolvedVersion === false,
+        "pkg vulns unknown row claims a match",
+      );
+      assert(
+        typeof row.assessmentStatus === "string",
+        "pkg vulns missing occurrence status",
+      );
+      assert(
+        Array.isArray(row.assessmentReasons),
+        "pkg vulns missing occurrence reasons",
+      );
+    }
+  }
 
   const changelogText = assertCompleteTerminalOutput(
     await runCli(["pkg", "changelog", "npm:express", "--limit", "1"]),

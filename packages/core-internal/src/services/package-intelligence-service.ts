@@ -127,7 +127,7 @@ export interface PackageVulnerabilitiesParams {
   includeTransitive?: boolean;
   /** Optional internal breadth for advisory-wide transitive detail fields. */
   includeTransitiveAdvisoryDetails?: boolean;
-  /** Advisory rows to return; UNKNOWN is direct-only. Direct counts always include all scopes. */
+  /** Advisory rows to return. Summary counts always include all scopes. */
   advisoryScope?: VulnerabilityScope;
 }
 
@@ -137,7 +137,7 @@ export type VulnerabilityScope =
   | "UNKNOWN"
   | "ALL";
 
-type TransitiveVulnerabilityScope = Exclude<VulnerabilityScope, "UNKNOWN">;
+type TransitiveVulnerabilityScope = VulnerabilityScope;
 
 export interface PackageVersionIdentity {
   name: string;
@@ -186,7 +186,15 @@ export interface VulnerabilityReport {
   transitive?: TransitiveVulnerabilityAudit;
 }
 
-export interface TransitiveVulnerabilityAudit {
+export interface TransitiveVulnerabilityAuditCounts {
+  affectedCount?: number;
+  nonAffectingCount?: number;
+  unknownCount?: number;
+  totalCount?: number;
+}
+
+export interface TransitiveVulnerabilityAudit
+  extends TransitiveVulnerabilityAuditCounts {
   /** Advisory scope applied to dependency-package occurrences. */
   advisoryScope: TransitiveVulnerabilityScope;
   /** Number of resolved package-version graph nodes checked. */
@@ -199,7 +207,8 @@ export interface TransitiveVulnerabilityAudit {
   packages: TransitiveVulnerabilityAuditPackage[];
 }
 
-export interface TransitiveVulnerabilityAuditPackage {
+export interface TransitiveVulnerabilityAuditPackage
+  extends TransitiveVulnerabilityAuditCounts {
   registry: string;
   name: string;
   occurrenceCount: number;
@@ -563,6 +572,7 @@ export interface VulnerabilitySummaryDetail {
 
 export interface TransitiveDependencyVulnerability {
   assessmentStatus?: string;
+  assessmentReasons?: string[];
   version: string;
   affectsResolvedVersion: boolean;
   matchedAffectedVersionRanges: string[];
@@ -1263,6 +1273,7 @@ const transitiveAuditAdvisorySchema = z.object({
 
 const transitiveAuditOccurrenceSchema = z.object({
   assessmentStatus: z.string().nullable().optional(),
+  assessmentReasons: z.array(z.string()).nullable().optional(),
   version: z.string(),
   affectsResolvedVersion: z.boolean(),
   matchedAffectedVersionRanges: z.array(z.string()),
@@ -1275,6 +1286,10 @@ const transitiveAuditPackageSchema = z.object({
   registry: z.string(),
   name: z.string(),
   selectedCount: z.number().int().nonnegative(),
+  affectedCount: z.number().int().nonnegative().optional(),
+  nonAffectingCount: z.number().int().nonnegative().optional(),
+  unknownCount: z.number().int().nonnegative().optional(),
+  totalCount: z.number().int().nonnegative().optional(),
   advisoryOccurrences: z
     .array(transitiveAuditOccurrenceSchema)
     .nullable()
@@ -1283,6 +1298,18 @@ const transitiveAuditPackageSchema = z.object({
 
 const transitiveAuditSummarySchema = z.object({
   selected: z.object({ totalVulnerabilities: z.number().int().nonnegative() }),
+  affected: z
+    .object({ totalVulnerabilities: z.number().int().nonnegative() })
+    .optional(),
+  nonAffecting: z
+    .object({ totalVulnerabilities: z.number().int().nonnegative() })
+    .optional(),
+  unknown: z
+    .object({ totalVulnerabilities: z.number().int().nonnegative() })
+    .optional(),
+  combined: z
+    .object({ totalVulnerabilities: z.number().int().nonnegative() })
+    .optional(),
   totalPackagesAnalyzed: z.number().int().nonnegative(),
   packages: z.array(transitiveAuditPackageSchema),
   calculatedAt: z.string().nullable().optional(),
@@ -1387,6 +1414,7 @@ const TRANSITIVE_AUDIT_SCOPE_FIELDS: Readonly<
     summary: "nonAffecting",
     packageCount: "nonAffectingCount",
   },
+  UNKNOWN: { summary: "unknown", packageCount: "unknownCount" },
   ALL: { summary: "combined", packageCount: "totalCount" },
 };
 
@@ -1394,6 +1422,9 @@ function buildPackageTransitiveVulnerabilityAuditQuery(
   scope: TransitiveVulnerabilityScope,
 ): string {
   const fields = TRANSITIVE_AUDIT_SCOPE_FIELDS[scope];
+  const otherFields = Object.entries(TRANSITIVE_AUDIT_SCOPE_FIELDS)
+    .filter(([candidate]) => candidate !== scope)
+    .map(([, fields]) => fields);
   return `
 query PackageTransitiveVulnerabilityAudit(
   $registry: Registry!
@@ -1420,16 +1451,19 @@ query PackageTransitiveVulnerabilityAudit(
           selected: ${fields.summary} {
             totalVulnerabilities
           }
+          ${otherFields.map(({ summary }) => `${summary} { totalVulnerabilities }`).join("\n          ")}
           totalPackagesAnalyzed
           calculatedAt
           packages {
             registry
             name
             selectedCount: ${fields.packageCount}
+            ${otherFields.map(({ packageCount }) => packageCount).join("\n            ")}
             advisoryOccurrences(scope: $scope, minSeverity: $minSeverity) {
               version
               affectsResolvedVersion
-              ${scope === "ALL" ? "assessmentStatus" : ""}
+              ${scope === "ALL" || scope === "UNKNOWN" ? "assessmentStatus" : ""}
+              assessmentReasons ${scope === "ALL" || scope === "UNKNOWN" ? "" : "@include(if: $includeTransitiveAdvisoryDetails)"}
               matchedAffectedVersionRanges
               fixVersionsAboveResolved
               nearestFixedVersion
@@ -3280,14 +3314,6 @@ export class PackageIntelligenceServiceImpl
   async packageVulnerabilities(
     params: PackageVulnerabilitiesParams,
   ): Promise<VulnerabilityReport> {
-    if (
-      params.includeTransitive === true &&
-      params.advisoryScope === "UNKNOWN"
-    ) {
-      throw new PackageIntelligenceValidationError(
-        'Advisory scope "unknown" is available for direct reports only; drop transitive mode or use affected, non_affecting or all.',
-      );
-    }
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.vulnerabilities.request",
@@ -3376,10 +3402,7 @@ export class PackageIntelligenceServiceImpl
       : firstPage;
 
     const report = this.normaliseVulnerabilityReport(data);
-    if (
-      params.includeTransitive === true &&
-      params.advisoryScope !== "UNKNOWN"
-    ) {
+    if (params.includeTransitive === true) {
       report.transitive = await this.fetchTransitiveVulnerabilityAudit(
         token,
         report.package,
@@ -3610,6 +3633,8 @@ export class PackageIntelligenceServiceImpl
     summary: z.infer<typeof transitiveAuditSummarySchema>,
     advisoryScope: TransitiveVulnerabilityScope,
   ): TransitiveVulnerabilityAudit {
+    const fields = TRANSITIVE_AUDIT_SCOPE_FIELDS[advisoryScope];
+    const counts = { ...summary, [fields.summary]: summary.selected };
     const packages = summary.packages
       .filter((pkg) => pkg.selectedCount > 0)
       .map((pkg) => {
@@ -3620,15 +3645,22 @@ export class PackageIntelligenceServiceImpl
           );
         }
 
+        const counts = { ...pkg, [fields.packageCount]: pkg.selectedCount };
         return {
           registry: pkg.registry,
           name: pkg.name,
+          affectedCount: counts.affectedCount,
+          nonAffectingCount: counts.nonAffectingCount,
+          unknownCount: counts.unknownCount,
+          totalCount: counts.totalCount,
           occurrenceCount: pkg.selectedCount,
           occurrences: occurrences.map((occurrence) => {
             const isAffected = occurrence.affectsResolvedVersion;
             if (
               (advisoryScope === "AFFECTED" && !isAffected) ||
-              (advisoryScope === "NON_AFFECTING" && isAffected)
+              ((advisoryScope === "NON_AFFECTING" ||
+                advisoryScope === "UNKNOWN") &&
+                isAffected)
             ) {
               throw new MalformedPackageIntelligenceResponseError(
                 "Transitive vulnerability audit occurrence differs from the requested scope.",
@@ -3662,6 +3694,7 @@ export class PackageIntelligenceServiceImpl
               version: occurrence.version,
               affectsResolvedVersion: occurrence.affectsResolvedVersion,
               assessmentStatus: occurrence.assessmentStatus ?? undefined,
+              assessmentReasons: occurrence.assessmentReasons ?? undefined,
               matchedAffectedVersionRanges:
                 occurrence.matchedAffectedVersionRanges,
               fixVersionsAboveResolved: occurrence.fixVersionsAboveResolved,
@@ -3687,6 +3720,10 @@ export class PackageIntelligenceServiceImpl
 
     return {
       advisoryScope,
+      affectedCount: counts.affected?.totalVulnerabilities,
+      nonAffectingCount: counts.nonAffecting?.totalVulnerabilities,
+      unknownCount: counts.unknown?.totalVulnerabilities,
+      totalCount: counts.combined?.totalVulnerabilities,
       totalPackagesAnalyzed: summary.totalPackagesAnalyzed,
       packageCount: packages.length,
       occurrenceCount,

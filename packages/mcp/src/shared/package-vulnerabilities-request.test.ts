@@ -338,16 +338,17 @@ describe("unknown advisory scope", () => {
     expect(result.params.advisoryScope).toBe("UNKNOWN");
     expect(result.filter?.advisoryScope).toBe("unknown");
   });
-  it("rejects transitive unknown scope before a request", () => {
-    expect(() =>
-      buildPackageVulnerabilitiesParams({
-        registry: "pypi",
-        packageName: "torch",
-        advisoryScope: "unknown",
-        includeTransitive: true,
-      }),
-    ).toThrow(
-      "--scope unknown is available for direct reports only; drop --transitive or use --scope affected, non_affecting or all.",
-    );
+  it("accepts transitive unknown scope", () => {
+    const result = buildPackageVulnerabilitiesParams({
+      registry: "pypi",
+      packageName: "torchvision",
+      advisoryScope: "unknown",
+      includeTransitive: true,
+    });
+    expect(result.params).toMatchObject({
+      advisoryScope: "UNKNOWN",
+      includeTransitive: true,
+    });
+    expect(result.filter?.advisoryScope).toBe("unknown");
   });
 });

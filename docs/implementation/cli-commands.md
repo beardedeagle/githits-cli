@@ -607,6 +607,7 @@ githits pkg vulns crates:serde --json
 githits pkg vulns npm:minimatch --include-withdrawn --verbose
 githits pkg vulns npm:express --scope non_affecting
 githits pkg vulns npm:express@4.17.1 --transitive
+githits pkg vulns pypi:torchvision@0.20.1 --transitive --scope unknown
 ```
 
 Lists known CVE / OSV advisories for a package: severity, affected version
@@ -623,19 +624,28 @@ vulnerabilities affecting dependency versions resolved in the package graph. It
 adds graph-analysis cost and is separate from package-wide advisory history.
 Without it, the command remains direct-only. `--severity` and `--scope` apply
 to both direct and transitive evidence. `--scope all` therefore includes
-historical advisories for dependency packages as well as advisories affecting
-their resolved versions. `--include-withdrawn` applies only to direct package
+historical and unknown advisories for dependency packages as well as advisories
+affecting their resolved versions. `--scope unknown` lists advisories whose effect
+could not be determined, including unknown-only dependency packages, with human
+reasons. Default output lists affected rows and, when unknowns exist, adds a
+count reconciliation and an unknown-scope hint. `--include-withdrawn` applies only to direct package
 rows, and transitive withdrawn advisories remain excluded.
 
 Transitive `--json` output adds a complete `transitive` object with
 `scope: "resolved_dependencies"`, `advisoryScope`,
 `withdrawnAdvisoriesIncluded: false`, and a numeric summary of
-`totalPackagesAnalyzed`, `packageCount`, `occurrenceCount`, and an optional
+`totalPackagesAnalyzed`, selected `packageCount` / `occurrenceCount`, complete
+`affectedCount` / `nonAffectingCount` / `unknownCount` / `totalCount`, and an optional
 `bySeverity` partition of all rows selected by `advisoryScope`, followed by
-`packages[]` containing resolved dependency versions, explicit affectedness,
+`packages[]` containing complete per-package counts, resolved dependency versions,
+explicit affectedness,
 matched affected ranges, and all higher-fix candidates when applicable. The
-severity partition is not affected-only under `all` or `non_affecting`; use each
-occurrence's `affectsResolvedVersion` for that distinction. The
+severity partition is not affected-only under `all`, `unknown` or `non_affecting`.
+False `affectsResolvedVersion` means no confirmed match; explicit assessment
+status distinguishes unknown from confirmed non-affecting. JSON omits only
+implied statuses and empty reason arrays, keeping uncertainty and raw reason
+strings. Missing new fields stay absent. See
+[assessment contracts](package-vulnerability-assessments.md). The
 occurrence-specific `matchedAffectedVersionRanges` and
 `fixVersionsAboveResolved` fields remain distinct from optional advisory-wide
 `affectedRanges` and `fixedIn` arrays; the latter are omitted when unavailable.

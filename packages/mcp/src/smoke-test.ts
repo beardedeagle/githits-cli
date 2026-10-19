@@ -135,7 +135,7 @@ function assertTransitiveVulnerabilityJson(
     `${context}: unexpected transitive scope`,
   );
   assert(
-    ["affected", "non_affecting", "all"].includes(
+    ["affected", "non_affecting", "unknown", "all"].includes(
       value.transitive.advisoryScope as string,
     ),
     `${context}: unexpected transitive advisory scope`,
@@ -1322,23 +1322,59 @@ async function runLiveSmoke(caller: McpSmokeCaller): Promise<void> {
     typeof unknownVulnsJson.summary.assessmentStatus === "string",
     "pkg_vulns missing assessment status in JSON",
   );
-  const transitiveUnknownError = assertCleanErrorEnvelope(
+  const transitiveUnknown = assertJsonResult(
     await callTool(caller, "pkg_vulns", {
-      target: "npm:lodash",
+      target: "pypi:torchvision@0.20.1",
       advisory_scope: "unknown",
       include_transitive: true,
       format: "json",
     }),
-    "pkg_vulns transitive unknown rejection",
+    "pkg_vulns transitive unknown",
+  );
+  assertRecord(transitiveUnknown, "pkg_vulns transitive unknown");
+  assertRecord(
+    transitiveUnknown.transitive,
+    "pkg_vulns transitive unknown audit",
+  );
+  assertRecord(
+    transitiveUnknown.transitive.summary,
+    "pkg_vulns transitive unknown summary",
   );
   assert(
-    transitiveUnknownError.code === "INVALID_ARGUMENT",
-    "pkg_vulns transitive unknown must be invalid",
+    typeof transitiveUnknown.transitive.summary.unknownCount === "number",
+    "pkg_vulns missing transitive unknown count",
   );
   assert(
-    transitiveUnknownError.error.includes("available for direct reports only"),
-    "pkg_vulns transitive unknown missing guidance",
+    transitiveUnknown.transitive.advisoryScope === "unknown",
+    "pkg_vulns missing transitive unknown scope",
   );
+  assertTransitiveVulnerabilityJson(
+    transitiveUnknown,
+    "pkg_vulns transitive unknown",
+  );
+  assert(
+    Array.isArray(transitiveUnknown.transitive.packages),
+    "pkg_vulns missing packages",
+  );
+  for (const pkg of transitiveUnknown.transitive.packages) {
+    assertRecord(pkg, "pkg_vulns unknown package");
+    assert(Array.isArray(pkg.occurrences), "pkg_vulns missing occurrences");
+    for (const row of pkg.occurrences) {
+      assertRecord(row, "pkg_vulns unknown occurrence");
+      assert(
+        row.affectsResolvedVersion === false,
+        "pkg_vulns unknown row claims a match",
+      );
+      assert(
+        typeof row.assessmentStatus === "string",
+        "pkg_vulns missing occurrence status",
+      );
+      assert(
+        Array.isArray(row.assessmentReasons),
+        "pkg_vulns missing occurrence reasons",
+      );
+    }
+  }
 
   // Complete statement and original-note views have no fixed text-size bound.
   const changelogText = assertToolText(
