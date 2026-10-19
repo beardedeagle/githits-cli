@@ -825,8 +825,8 @@ describe("package_dependencies parity", () => {
   });
 
   it("PARITY-ERROR-ENVELOPE: INVALID_ARGUMENT (unknown registry) — shape match", async () => {
-    const cli = await cliJson("cargo:foo");
-    const { json, isError } = await mcpJson({ target: "cargo:foo" });
+    const cli = await cliJson("foobar:foo");
+    const { json, isError } = await mcpJson({ target: "foobar:foo" });
     expect(isError).toBe(true);
     expect(cli).toMatchObject({
       code: "INVALID_ARGUMENT",

@@ -40,8 +40,26 @@ describe("buildPackageDependenciesParams — registry matrix", () => {
 
   it("rejects truly unknown registries via the shared UnsupportedRegistryError", () => {
     expect(() =>
-      buildPackageDependenciesParams({ registry: "cargo", packageName: "x" }),
+      buildPackageDependenciesParams({ registry: "foobar", packageName: "x" }),
     ).toThrow(UnsupportedRegistryError);
+  });
+
+  it("normalizes cargo spellings to the full crates result with exact version", () => {
+    const expected = buildPackageDependenciesParams({
+      registry: "crates",
+      packageName: "serde",
+      version: "1.2.3",
+    });
+
+    for (const registry of ["cargo", "CARGO", " cargo "]) {
+      expect(
+        buildPackageDependenciesParams({
+          registry,
+          packageName: "serde",
+          version: "1.2.3",
+        }),
+      ).toEqual(expected);
+    }
   });
 
   it("requires a non-empty package name", () => {

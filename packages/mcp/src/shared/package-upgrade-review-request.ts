@@ -3,10 +3,9 @@ import type {
   PackageUpgradeDependencyProbeParams,
 } from "@githits/core-internal";
 import {
-  isKnownPkgseerRegistryArg,
   PKGSEER_REGISTRY_LIST,
   type PkgseerRegistry,
-  type PkgseerRegistryArg,
+  parsePkgseerRegistryArg,
   toPkgseerRegistry,
 } from "@githits/core-internal";
 import {
@@ -200,8 +199,8 @@ function parseBatch(
 function parsePackageInput(
   input: UpgradeReviewPackageInput,
 ): UpgradeReviewPackageRequest {
-  const registryArg = input.registry?.trim().toLowerCase() ?? "";
-  if (!isKnownPkgseerRegistryArg(registryArg)) {
+  const registryArg = parsePkgseerRegistryArg(input.registry ?? "");
+  if (!registryArg) {
     throw new UnsupportedRegistryError(
       `Unsupported registry '${input.registry}'. Supported: ${PKGSEER_REGISTRY_LIST}.`,
     );
@@ -210,7 +209,7 @@ function parsePackageInput(
   if (packageName.length === 0) {
     throw new InvalidPackageSpecError("Package name is required.");
   }
-  const registry = toPkgseerRegistry(registryArg as PkgseerRegistryArg);
+  const registry = toPkgseerRegistry(registryArg);
   const currentVersion = normaliseVersion(
     input.currentVersion,
     "current_version",

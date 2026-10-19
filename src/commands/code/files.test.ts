@@ -292,30 +292,37 @@ describe("pkgFilesAction", () => {
     exitSpy.mockRestore();
   });
 
-  it.each(["rubygems:rails", "go:golang.org/x/text"])(
-    "rejects package spec %s in --repo-url mode",
-    async (spec) => {
-      const errorSpy = spyOn(console, "error").mockImplementation(() => {});
-      const exitSpy = spyOn(process, "exit").mockImplementation(() => {
-        throw new Error("process.exit");
-      });
-      try {
-        await pkgFilesAction(
-          spec,
-          undefined,
-          { repoUrl: "https://github.com/x/y", gitRef: "main" },
-          createDeps(),
-        );
-      } catch {
-        /* expected */
-      }
-      expect(errorSpy.mock.calls[0]?.[0]).toContain(
-        "looks like a package spec",
+  it.each([
+    "rubygems:rails",
+    "go:golang.org/x/text",
+    "cargo:serde",
+    "CARGO:serde@1.0.0",
+    "cargo:",
+    "cargo:serde@",
+    "cargo :serde",
+  ])("rejects package spec %s in --repo-url mode", async (spec) => {
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    const exitSpy = spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit");
+    });
+    const listFiles = mock(() => Promise.resolve(defaultListFilesResult));
+    try {
+      await pkgFilesAction(
+        spec,
+        undefined,
+        { repoUrl: "https://github.com/x/y", gitRef: "main" },
+        createDeps({
+          codeNavigationService: createMockCodeNavigationService({ listFiles }),
+        }),
       );
-      errorSpy.mockRestore();
-      exitSpy.mockRestore();
-    },
-  );
+    } catch {
+      /* expected */
+    }
+    expect(errorSpy.mock.calls[0]?.[0]).toContain("looks like a package spec");
+    expect(listFiles).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+    exitSpy.mockRestore();
+  });
 
   it("emits the JSON envelope with --json", async () => {
     const logSpy = spyOn(console, "log").mockImplementation(() => {});

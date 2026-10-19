@@ -135,3 +135,14 @@ describe("parsePackageChangelogTarget", () => {
     expect(() => parsePackageChangelogTarget("   ")).toThrow(/cannot be empty/);
   });
 });
+
+describe("cargo changelog target alias", () => {
+  it.each(["", "@1.0.228", "@1.0.220..1.0.228", "@1.0.220..", "@..1.0.228"])(
+    "preserves changelog mode and endpoints for %s",
+    (suffix) => {
+      expect(parsePackageChangelogTarget(`CARGO:serde${suffix}`)).toEqual(
+        parsePackageChangelogTarget(`crates:serde${suffix}`),
+      );
+    },
+  );
+});

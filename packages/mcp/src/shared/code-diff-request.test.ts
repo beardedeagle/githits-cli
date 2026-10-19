@@ -416,3 +416,47 @@ describe("buildCodeDiffMcpParams", () => {
     }
   });
 });
+
+describe("cargo source diff alias", () => {
+  it("produces the same CLI and MCP canonical comparison params", () => {
+    const canonical = buildCodeDiffParams({
+      target: "crates:serde",
+      range: "1.0.220..1.0.228",
+    });
+    expect(
+      buildCodeDiffParams({ target: "CARGO:serde", range: "1.0.220..1.0.228" }),
+    ).toEqual(canonical);
+    expect(
+      buildCodeDiffMcpParams({
+        target: "cargo:serde",
+        from: "1.0.220",
+        to: "1.0.228",
+      }),
+    ).toEqual(canonical);
+    expect(canonical.params.target).toEqual({
+      registry: "CRATES",
+      packageName: "serde",
+    });
+  });
+  it("retains pinned-target and malformed-range rejection for cargo", () => {
+    expect(() =>
+      buildCodeDiffParams({
+        target: "cargo:serde@1.0.220",
+        range: "1.0.220..1.0.228",
+      }),
+    ).toThrow("must not include a version");
+    expect(() =>
+      buildCodeDiffMcpParams({
+        target: "cargo:serde@1.0.220",
+        from: "1.0.220",
+        to: "1.0.228",
+      }),
+    ).toThrow("must not include a version");
+    expect(() =>
+      buildCodeDiffParams({
+        target: "cargo:serde",
+        range: "1.0.220...1.0.228",
+      }),
+    ).toThrow();
+  });
+});

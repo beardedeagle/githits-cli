@@ -108,6 +108,12 @@ export const JSON_PARITY_FIXTURES: JsonParityFixture[] = [
     mcpArgs: { target: "npm:express", format: "json" },
   },
   {
+    name: "pkg_info_cargo",
+    cliArgs: ["pkg", "info", "cargo:serde", "--json"],
+    mcpTool: "pkg_info",
+    mcpArgs: { target: "cargo:serde", format: "json" },
+  },
+  {
     name: "pkg_deps",
     cliArgs: ["pkg", "deps", "npm:express", "--json"],
     mcpTool: "pkg_deps",
@@ -1743,6 +1749,26 @@ async function runLiveSmoke(env: Record<string, string>): Promise<void> {
     await runCli(["pkg", "info", "npm:express", "--json"]),
     "pkg info json",
   );
+  let rustVersion: string | undefined;
+  for (const target of ["crates:serde", "cargo:serde"]) {
+    const context = `pkg info ${target}`;
+    const metadata = assertJsonOutput(
+      await runCli(["pkg", "info", target, "--json"]),
+      context,
+    );
+    assertRecord(metadata, context);
+    assert(
+      metadata.registry === "crates" && metadata.name === "serde",
+      `${context}: expected canonical crates identity`,
+    );
+    assert(typeof metadata.version === "string", `${context}: missing version`);
+    if (rustVersion !== undefined)
+      assert(
+        metadata.version === rustVersion,
+        `${context}: alias version mismatch`,
+      );
+    rustVersion = metadata.version;
+  }
   assertRecord(pkgInfoJson, "pkg info json");
   assert(pkgInfoJson.registry === "npm", "pkg info json registry mismatch");
   assert(pkgInfoJson.name === "express", "pkg info json name mismatch");

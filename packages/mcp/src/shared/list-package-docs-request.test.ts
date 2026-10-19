@@ -1,7 +1,36 @@
 import { describe, expect, it } from "bun:test";
 import { buildListPackageDocsParams } from "./list-package-docs-request.js";
+import { UnsupportedRegistryError } from "./package-spec.js";
 
 describe("buildListPackageDocsParams", () => {
+  it("normalizes cargo spellings to the full crates result with exact version", () => {
+    const expected = buildListPackageDocsParams({
+      registry: "crates",
+      packageName: "serde",
+      version: "1.2.3",
+      limit: 25,
+      after: "page-token",
+    });
+
+    for (const registry of ["cargo", "CARGO", " cargo "]) {
+      expect(
+        buildListPackageDocsParams({
+          registry,
+          packageName: "serde",
+          version: "1.2.3",
+          limit: 25,
+          after: "page-token",
+        }),
+      ).toEqual(expected);
+    }
+  });
+
+  it("rejects unknown registries", () => {
+    expect(() =>
+      buildListPackageDocsParams({ registry: "foobar", packageName: "serde" }),
+    ).toThrow(UnsupportedRegistryError);
+  });
+
   it.each([
     ["1.24.0", "v1.24.0"],
     ["v1.24.0", "v1.24.0"],

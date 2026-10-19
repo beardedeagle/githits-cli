@@ -76,3 +76,30 @@ and provenance; clients can display it without keyword-based guessing or a
 package verdict. This needs backend/domain design and remains outside the
 completed statement migration. Private-code applicability still requires local
 usage inspection and before/after checks by the caller.
+
+
+## Cargo alias rollout and hosted adoption — 2026-10-19
+
+Client implementation accepts `cargo:` / `cargo` as crates.io aliases while
+canonical identity stays `crates` / `CRATES`. See
+[registry input aliases](../implementation/package-registry-aliases.md).
+Backend PR #3424 merged as `1eb8b98768c362668cac0bccaeca513dd388b012` (user handoff);
+that does not establish deployment. A dev source probe using explicit file auth
+storage returned `AUTH_REQUIRED`; authenticated backend alias availability has not
+been established from this worktree. Publication requires paired Rust metadata,
+search and byte-forwarded list/read/grep verification against the alias build.
+This deployment/access gate does not block preparation of the client draft PR.
+
+After separately authorized publication and a full handoff, reorient the hosted
+repository on current main, released artifact version and consumer lockfile. Use
+its existing MCP dependency-bump workflow; update manifest/lockfile without
+copying package-owned alias logic. Acceptance: intended published artifact resolves,
+consumer checks pass and, after separate deployment approval, authenticated hosted
+paired metadata/search and forwarded list/read/grep verify alias parity. Revert the
+dependency for rollback; roll back forwarding clients before removing backend
+admission. Exact artifact/deployed state is unknown until that increment. No
+merge, release, publication, deployment or other repository edit is authorized by
+this client handoff.
+
+At release, add the short alias note to public package/code skill guidance if
+useful; keep canonical examples and follow the public Agent Skill lifecycle.

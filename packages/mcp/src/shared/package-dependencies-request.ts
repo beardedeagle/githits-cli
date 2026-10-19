@@ -19,9 +19,8 @@
 
 import type { PackageDependenciesParams } from "@githits/core-internal";
 import {
-  isKnownPkgseerRegistryArg,
   PKGSEER_REGISTRY_LIST,
-  type PkgseerRegistryArg,
+  parsePkgseerRegistryArg,
   toPkgseerRegistry,
 } from "@githits/core-internal";
 import {
@@ -102,16 +101,14 @@ export function buildPackageDependenciesParams(
     throw new InvalidPackageSpecError("Package name is required.");
   }
 
-  const normalisedRegistryArg = input.registry?.trim().toLowerCase() ?? "";
-  if (!isKnownPkgseerRegistryArg(normalisedRegistryArg)) {
+  const registryArg = parsePkgseerRegistryArg(input.registry ?? "");
+  if (!registryArg) {
     throw new UnsupportedRegistryError(
       `Unsupported registry '${input.registry}'. Supported: ${PKGSEER_REGISTRY_LIST}.`,
     );
   }
 
-  const registry = toPkgseerRegistry(
-    normalisedRegistryArg as PkgseerRegistryArg,
-  );
+  const registry = toPkgseerRegistry(registryArg);
 
   const version = normalisePackageVersion(input.version, registry, {
     rejectLeadingV: true,
