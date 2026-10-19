@@ -21,6 +21,7 @@ import {
   isResolveTargetIdentityActionable,
   type ResolveTargetEvidenceOptions,
 } from "../shared/resolve-target-response.js";
+import { serviceRequestArgs } from "../shared/service-request-args.js";
 import { sanitizeTerminalText } from "../shared/terminal-text.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
 import {
@@ -113,7 +114,10 @@ export function createResolveTargetTool(
           includeDetailedFields: !textFormat,
           includeNameSimilarity: args.verbose === true || !textFormat,
         });
-        const result = await service.resolveTarget(params);
+        const result = await service.resolveTarget(
+          params,
+          ...serviceRequestArgs(context?.signal),
+        );
         if (textFormat) {
           return textResult(
             formatResolveTargetMcpText(result, {

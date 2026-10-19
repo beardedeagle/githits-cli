@@ -8,6 +8,11 @@ export interface ExecuteWithTokenRefreshOptions<T> {
   forceRefresh: () => Promise<string | undefined>;
   executeWithToken: (token: string) => Promise<T>;
   shouldRefresh: (error: unknown) => boolean;
+  /**
+   * Optional caller cancellation. Once aborted, the helper rejects with the
+   * signal's reason at the next step and never refreshes or retries.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -17,7 +22,10 @@ export interface ExecuteWithTokenRefreshOptions<T> {
 export async function executeWithTokenRefresh<T>(
   options: ExecuteWithTokenRefreshOptions<T>,
 ): Promise<T> {
+  const { signal } = options;
+  signal?.throwIfAborted();
   const token = await options.getToken();
+  signal?.throwIfAborted();
   if (!token) {
     throw new AuthenticationError(
       LOCAL_AUTHENTICATION_MISSING_MESSAGE,
@@ -28,6 +36,9 @@ export async function executeWithTokenRefresh<T>(
   try {
     return await options.executeWithToken(token);
   } catch (error) {
+    // A cancelled caller no longer wants the result; surface the caller's
+    // reason instead of refreshing credentials for a retry.
+    signal?.throwIfAborted();
     // Opaque ghi-* credentials are re-evaluated server-side and have no local
     // refresh flow. Do not invoke the provider's refresh hook for them.
     if (token.startsWith("ghi-") || !options.shouldRefresh(error)) {
@@ -35,6 +46,7 @@ export async function executeWithTokenRefresh<T>(
     }
 
     const refreshedToken = await options.forceRefresh();
+    signal?.throwIfAborted();
     if (!refreshedToken) {
       throw error;
     }

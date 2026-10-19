@@ -1136,6 +1136,34 @@ The layering is intentional:
 
 This separation means tool logic can be tested without HTTP calls, and service logic can be tested without MCP SDK dependencies.
 
+### Caller cancellation
+
+Every network-backed tool forwards the caller's cancellation signal to its
+backend request: `get_example`, `search`, `search_status`, `research`, `list`,
+`read`, `grep`, `resolve_target`, `code_diff`, `pkg_info`, `pkg_vulns`,
+`pkg_deps`, `pkg_changelog`, and `pkg_upgrade_review`. The server adapter
+copies the MCP request's abort signal into `ToolExecutionContext.signal`; the
+MCP SDK aborts it when the client sends a cancellation notification or the
+connection closes. A cancelled or disconnected call therefore aborts its
+in-flight HTTP request instead of letting it run to completion.
+
+- Service methods accept an optional trailing `ServiceRequestOptions`
+  (`{ signal?: AbortSignal }`, exported from `@githits/mcp/client`). Tools pass
+  it only when a signal exists, so signal-free callers keep their
+  single-argument call shape. CLI commands do not pass a signal and behave as
+  before.
+- Services combine the signal with their own request deadline. It covers both
+  response headers and body reads, and every request of multi-request
+  operations such as paginated advisories, transitive audits, and changelog or
+  upgrade statement pages.
+- A caller abort rejects with the signal's reason, and
+  `throwIfCallerCancellation` rethrows it from the handler instead of
+  returning an error `ToolResult`. An internal deadline keeps each service's
+  existing timeout error mapping.
+- `executeWithTokenRefresh` checks the signal before reading a token, after a
+  failed attempt, and after a refresh, so a cancelled call never refreshes
+  credentials or retries.
+
 ## Browser-callable surface
 
 `@githits/mcp/tools` is a deliberately narrow public entry for a frontend
@@ -1254,6 +1282,8 @@ See `docs/guidelines/TESTING.md` for the full testing pattern.
 | `packages/mcp/src/tools/search-status.ts` | Follow-up MCP tool for incomplete unified searches |
 | `packages/mcp/src/tools/types.ts` | `ToolDefinition` interface, `textResult`/`errorResult` helpers |
 | `packages/mcp/src/tools/shared.ts` | Shared MCP error/action helpers |
+| `packages/mcp/src/shared/service-request-args.ts` | Optional caller-signal forwarding to service calls |
+| `packages/mcp/src/tools/network-tool-cancellation.test.ts` | Per-tool caller-cancellation contract |
 | `packages/mcp/src/services/test-helpers.ts` | Mock service factories |
 | `packages/mcp/src/mcp/server.ts` | Transport-neutral MCP server construction and tool registration |
 | `packages/mcp/src/mcp/instructions.ts` | Stable guide builder returned by `quick_start` and copied into the loaded `githits-mcp` skill |

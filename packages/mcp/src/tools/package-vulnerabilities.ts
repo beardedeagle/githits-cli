@@ -7,6 +7,7 @@ import {
   buildPackageVulnerabilitiesSuccessPayload,
   formatPackageVulnerabilitiesTerminal,
 } from "../shared/package-vulnerabilities-response.js";
+import { serviceRequestArgs } from "../shared/service-request-args.js";
 import { PKG_VULNS_GUARDRAIL } from "./guardrails.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
 import {
@@ -113,7 +114,10 @@ export function createPackageVulnerabilitiesTool(
             (args.verbose === true &&
               (builtParams.advisoryScope ?? "AFFECTED") !== "AFFECTED"),
         };
-        const report = await service.packageVulnerabilities(params);
+        const report = await service.packageVulnerabilities(
+          params,
+          ...serviceRequestArgs(context?.signal),
+        );
         const payload = buildPackageVulnerabilitiesSuccessPayload(report, {
           requestedVersion: params.version,
           filter,

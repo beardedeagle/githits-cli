@@ -40,6 +40,7 @@ import {
   type ServiceDiagnostics,
   withServiceDiagnostics,
 } from "./runtime-diagnostics.js";
+import type { ServiceRequestOptions } from "./service-request-options.js";
 import type { TokenProvider } from "./token-provider.js";
 
 export interface ReadParams {
@@ -102,7 +103,10 @@ export type ReadResult =
   | ReadSymbolResolutionResult;
 
 export interface ReadService {
-  read(params: ReadParams): Promise<ReadResult>;
+  read(
+    params: ReadParams,
+    options?: ServiceRequestOptions,
+  ): Promise<ReadResult>;
 }
 
 interface ReadServiceRuntime {
@@ -258,7 +262,11 @@ export class ReadServiceImpl implements ReadService {
     private readonly runtime: ReadServiceRuntime = {},
   ) {}
 
-  async read(params: ReadParams): Promise<ReadResult> {
+  async read(
+    params: ReadParams,
+    options?: ServiceRequestOptions,
+  ): Promise<ReadResult> {
+    const signal = options?.signal;
     const request = normaliseReadRequest(params);
     return withServiceDiagnostics(
       this.runtime.diagnostics,
@@ -268,7 +276,8 @@ export class ReadServiceImpl implements ReadService {
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
-          executeWithToken: (token) => this.executeRead(token, request),
+          signal,
+          executeWithToken: (token) => this.executeRead(token, request, signal),
         }),
     );
   }
@@ -276,6 +285,7 @@ export class ReadServiceImpl implements ReadService {
   private async executeRead(
     token: string,
     request: ReadParams,
+    signal: AbortSignal | undefined,
   ): Promise<ReadResult> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -287,6 +297,7 @@ export class ReadServiceImpl implements ReadService {
           request.waitTimeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS,
         ),
         variables: buildReadVariables(request),
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,

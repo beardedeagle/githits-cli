@@ -13,6 +13,7 @@ import { buildListParams } from "../shared/list-request.js";
 import { projectListResult } from "../shared/list-response.js";
 import { formatListText } from "../shared/list-text.js";
 import { withIndexingRetryAction } from "../shared/mapped-error-text.js";
+import { serviceRequestArgs } from "../shared/service-request-args.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
 import {
   OPEN_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
@@ -153,7 +154,10 @@ export function createListTool(
           includeDetailedFields: args.format === "json",
           includeTargetProvenance: true,
         });
-        const result = await service.list(builtParams);
+        const result = await service.list(
+          builtParams,
+          ...serviceRequestArgs(context?.signal),
+        );
         const payload = projectListResult(result);
         if (args.format !== "json") {
           return textResult(

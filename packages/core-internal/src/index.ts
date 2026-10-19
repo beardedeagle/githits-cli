@@ -15,6 +15,7 @@ export * from "./services/read-target.js";
 export * from "./services/refreshing-githits-service.js";
 export * from "./services/resolve-target-service.js";
 export * from "./services/runtime-diagnostics.js";
+export * from "./services/service-request-options.js";
 export * from "./services/token-provider.js";
 export * from "./services/version-ref-recovery.js";
 export * from "./shared/fetch-timeout.js";

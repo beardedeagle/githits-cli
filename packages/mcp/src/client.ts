@@ -98,6 +98,7 @@ export type {
   ResolveTargetService,
   ResolveTargetTarget,
   ServiceDiagnostics,
+  ServiceRequestOptions,
   TokenProvider,
 } from "@githits/core-internal";
 

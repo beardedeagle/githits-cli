@@ -17,6 +17,7 @@ import {
 } from "../shared/read-request.js";
 import { formatReadResult } from "../shared/read-result-response.js";
 import { createReadFileServiceAdapter } from "../shared/read-service-adapters.js";
+import { serviceRequestArgs } from "../shared/service-request-args.js";
 import { CODE_READ_GUARDRAIL } from "./guardrails.js";
 import { readSourceFile } from "./read-file.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
@@ -149,16 +150,23 @@ export function createReadTool(
         isSiteReadTarget(locator.target)
       ) {
         try {
-          const response = await services.readService.read({
-            target: locator.target,
-            ...(locator.path ? { path: locator.path } : {}),
-            ...(args.selector !== undefined ? { selector: args.selector } : {}),
-            ...(args.start_line !== undefined
-              ? { startLine: args.start_line }
-              : {}),
-            ...(args.end_line !== undefined ? { endLine: args.end_line } : {}),
-            waitTimeoutMs: wait,
-          });
+          const response = await services.readService.read(
+            {
+              target: locator.target,
+              ...(locator.path ? { path: locator.path } : {}),
+              ...(args.selector !== undefined
+                ? { selector: args.selector }
+                : {}),
+              ...(args.start_line !== undefined
+                ? { startLine: args.start_line }
+                : {}),
+              ...(args.end_line !== undefined
+                ? { endLine: args.end_line }
+                : {}),
+              waitTimeoutMs: wait,
+            },
+            ...serviceRequestArgs(context?.signal),
+          );
           return textResult(
             formatReadResult(
               response,
@@ -200,7 +208,11 @@ export function createReadTool(
           path: locator.path,
           wait_timeout_ms: wait,
         },
-        createReadFileServiceAdapter(services.readService, locator.target),
+        createReadFileServiceAdapter(
+          services.readService,
+          locator.target,
+          context?.signal,
+        ),
         context,
       );
     },

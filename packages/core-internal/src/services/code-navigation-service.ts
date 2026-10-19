@@ -43,6 +43,7 @@ import {
   selectedReadTargetSchema,
 } from "./read-target.js";
 import type { ServiceDiagnostics } from "./runtime-diagnostics.js";
+import type { ServiceRequestOptions } from "./service-request-options.js";
 import type { TokenProvider } from "./token-provider.js";
 import {
   parseVersionRefRecovery,
@@ -964,7 +965,10 @@ export interface CodeNavigationService {
 
 /** Additive client capability for the unpromoted CodeDiff surface. */
 export interface CodeDiffService {
-  codeDiff(params: CodeDiffParams): Promise<CodeDiffResult>;
+  codeDiff(
+    params: CodeDiffParams,
+    options?: ServiceRequestOptions,
+  ): Promise<CodeDiffResult>;
 }
 
 export class CodeNavigationAccessError extends Error {
@@ -2734,6 +2738,7 @@ export class CodeNavigationServiceImpl
       getToken: () => this.tokenProvider.getToken(),
       forceRefresh: () => this.tokenProvider.forceRefresh(),
       shouldRefresh: isTokenRefreshableError,
+      signal: options?.signal,
       executeWithToken: (token) =>
         this.executeUnifiedSearch(
           token,
@@ -2755,6 +2760,7 @@ export class CodeNavigationServiceImpl
       getToken: () => this.tokenProvider.getToken(),
       forceRefresh: () => this.tokenProvider.forceRefresh(),
       shouldRefresh: isTokenRefreshableError,
+      signal: options?.signal,
       executeWithToken: (token) =>
         this.executeUnifiedSearchStatus(
           token,
@@ -2765,19 +2771,25 @@ export class CodeNavigationServiceImpl
     });
   }
 
-  async codeDiff(params: CodeDiffParams): Promise<CodeDiffResult> {
+  async codeDiff(
+    params: CodeDiffParams,
+    options?: ServiceRequestOptions,
+  ): Promise<CodeDiffResult> {
     validateCodeDiffParams(params);
+    const signal = options?.signal;
     return executeWithTokenRefresh({
       getToken: () => this.tokenProvider.getToken(),
       forceRefresh: () => this.tokenProvider.forceRefresh(),
       shouldRefresh: isTokenRefreshableError,
-      executeWithToken: (token) => this.executeCodeDiff(token, params),
+      signal,
+      executeWithToken: (token) => this.executeCodeDiff(token, params, signal),
     });
   }
 
   private async executeCodeDiff(
     token: string,
     params: CodeDiffParams,
+    signal: AbortSignal | undefined,
   ): Promise<CodeDiffResult> {
     const query = buildCodeDiffQuery(params.mode);
     const variables = buildCodeDiffVariables(params);
@@ -2794,6 +2806,7 @@ export class CodeNavigationServiceImpl
         token,
         query,
         variables,
+        signal,
       });
     } catch (cause) {
       if (cause instanceof PkgseerTransportError) {
