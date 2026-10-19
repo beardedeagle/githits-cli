@@ -1,4 +1,5 @@
 import type {
+  AgenticAskRateLimitScope,
   AuthenticationErrorSource,
   CodeDiffPackageInfo,
   CodeDiffRefResolution,
@@ -52,6 +53,12 @@ export interface MappedErrorDetails {
   indexingEstimates?: DiscoveryIndexingEstimate[];
   status?: number;
   retryAfterSeconds?: number;
+  /**
+   * Research rate-limit scope: `request` is the short-term limit (retry after
+   * `retryAfterSeconds`); `daily` is the daily limit, which resets at
+   * 00:00 UTC and is not retryable before then.
+   */
+  rateLimitScope?: AgenticAskRateLimitScope;
   timeoutMs?: number;
   graphqlCode?: string;
   /**

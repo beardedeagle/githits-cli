@@ -1,3 +1,4 @@
+import { parseHttpErrorDetail } from "../shared/http-error-detail.js";
 import type { ClientHeaderBuilder } from "../shared/request-headers.js";
 import { throwIfTermsAcceptanceRequired } from "../shared/terms-acceptance.js";
 import { validateServiceUrl } from "./config.js";
@@ -14,6 +15,12 @@ import type { TokenProvider } from "./token-provider.js";
 
 export const AGENTIC_ASK_REQUEST_TIMEOUT_MS = 210_000;
 export const AGENTIC_ASK_MAX_RESPONSE_BYTES: number = 4 * 1024 * 1024;
+const ERROR_DETAIL_MAX_BYTES = 16_384;
+
+export const AGENTIC_ASK_REQUEST_RATE_LIMIT_MESSAGE =
+  "Research request rate limit reached.";
+export const AGENTIC_ASK_DAILY_LIMIT_MESSAGE =
+  "Research daily request limit reached for this account or project. Try again after 00:00 UTC; until then, use search, grep, list, or read for evidence. If this persists, contact support@githits.com.";
 
 const UUID_V7_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -69,6 +76,12 @@ export type AgenticAskHttpErrorCode =
   | "TIMEOUT"
   | "HTTP_ERROR";
 
+/**
+ * Which Research limit rejected a 429 request: the short-term request rate or
+ * the daily limit, which resets at 00:00 UTC.
+ */
+export type AgenticAskRateLimitScope = "request" | "daily";
+
 /** A safe, status-derived failure returned by the Agentic Ask endpoint. */
 export class AgenticAskHttpError extends Error {
   readonly retryable: boolean;
@@ -82,6 +95,7 @@ export class AgenticAskHttpError extends Error {
     retryable = false,
     readonly threadId?: string,
     readonly targetError: TargetErrorDetail | undefined = undefined,
+    readonly rateLimitScope?: AgenticAskRateLimitScope,
   ) {
     super(message);
     this.name = "AgenticAskHttpError";
@@ -213,18 +227,26 @@ export class AgenticAskServiceImpl implements AgenticAskService {
     );
     if (!response.ok) {
       let targetError: TargetErrorDetail | undefined;
-      if (response.status === 403 || response.status === 400) {
+      let rateLimitScope: AgenticAskRateLimitScope | undefined;
+      if (
+        response.status === 403 ||
+        response.status === 400 ||
+        response.status === 429
+      ) {
         let body = "";
         try {
           body = await readBoundedResponseBody(
             response,
-            response.status === 400 ? 16_384 : AGENTIC_ASK_MAX_RESPONSE_BYTES,
+            response.status === 403
+              ? AGENTIC_ASK_MAX_RESPONSE_BYTES
+              : ERROR_DETAIL_MAX_BYTES,
           );
         } catch (cause) {
           if (signal.aborted) throw signal.reason ?? cause;
         }
         if (response.status === 403) throwIfTermsAcceptanceRequired(body);
-        else targetError = parseTargetError(body);
+        else if (response.status === 400) targetError = parseTargetError(body);
+        else rateLimitScope = parseRateLimitScope(body);
       } else {
         await response.body?.cancel().catch(() => undefined);
       }
@@ -234,6 +256,7 @@ export class AgenticAskServiceImpl implements AgenticAskService {
         threadId,
         request,
         targetError,
+        rateLimitScope,
       );
     }
 
@@ -338,12 +361,26 @@ function parseTargetError(body: string): TargetErrorDetail | undefined {
   }
 }
 
+/**
+ * Classify a 429 by its JSON `detail` string. The daily limit
+ * ("Research daily request limit exceeded; try again after 00:00 UTC") names
+ * "daily"; the short-term limit ("Research request rate limit exceeded") and any
+ * 429 without a
+ * recognizable detail (for example from a proxy) are treated as request-rate
+ * limits, which keep the retryable Retry-After contract.
+ */
+function parseRateLimitScope(body: string): AgenticAskRateLimitScope {
+  const detail = parseHttpErrorDetail(body, ["detail"]);
+  return detail && /\bdaily\b/i.test(detail) ? "daily" : "request";
+}
+
 function createHttpError(
   response: Response,
   toolCallId: string | undefined,
   threadId: string | undefined,
   request: AgenticAskRequest,
   targetError?: TargetErrorDetail,
+  rateLimitScope?: AgenticAskRateLimitScope,
 ): AgenticAskHttpError {
   const status = response.status;
   switch (status) {
@@ -412,16 +449,37 @@ function createHttpError(
         false,
         threadId,
       );
-    case 429:
-      return new AgenticAskHttpError(
-        "RATE_LIMITED",
-        "Research is rate limited.",
-        status,
-        toolCallId,
-        parseRetryAfterSeconds(response.headers.get("Retry-After"), Date.now()),
-        true,
-        threadId,
+    case 429: {
+      const retryAfterSeconds = parseRetryAfterSeconds(
+        response.headers.get("Retry-After"),
+        Date.now(),
       );
+      // The daily allowance resets at 00:00 UTC; retrying sooner always fails,
+      // so it is not retryable even though Retry-After is present.
+      return rateLimitScope === "daily"
+        ? new AgenticAskHttpError(
+            "RATE_LIMITED",
+            AGENTIC_ASK_DAILY_LIMIT_MESSAGE,
+            status,
+            toolCallId,
+            retryAfterSeconds,
+            false,
+            threadId,
+            undefined,
+            "daily",
+          )
+        : new AgenticAskHttpError(
+            "RATE_LIMITED",
+            AGENTIC_ASK_REQUEST_RATE_LIMIT_MESSAGE,
+            status,
+            toolCallId,
+            retryAfterSeconds,
+            true,
+            threadId,
+            undefined,
+            "request",
+          );
+    }
     case 500:
       return new AgenticAskHttpError(
         "EXECUTION_FAILED",

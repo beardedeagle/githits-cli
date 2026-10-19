@@ -1,7 +1,9 @@
 import { describe, expect, it, mock } from "bun:test";
 import { TermsAcceptanceRequiredError } from "../shared/terms-acceptance.js";
 import {
+  AGENTIC_ASK_DAILY_LIMIT_MESSAGE,
   AGENTIC_ASK_MAX_RESPONSE_BYTES,
+  AGENTIC_ASK_REQUEST_RATE_LIMIT_MESSAGE,
   AgenticAskConnectionError,
   AgenticAskHttpError,
   AgenticAskRequestTimeoutError,
@@ -636,7 +638,7 @@ describe("AgenticAskServiceImpl", () => {
       "This Research thread cannot accept another follow-up.",
     ],
     [422, "INVALID_REQUEST", false, "GitHits rejected the Research request."],
-    [429, "RATE_LIMITED", true, "Research is rate limited."],
+    [429, "RATE_LIMITED", true, AGENTIC_ASK_REQUEST_RATE_LIMIT_MESSAGE],
     [500, "EXECUTION_FAILED", false, "Research failed."],
     [503, "SERVICE_UNAVAILABLE", true, "Research is temporarily unavailable."],
     [504, "TIMEOUT", true, "Research timed out."],
@@ -679,6 +681,63 @@ describe("AgenticAskServiceImpl", () => {
       }
     },
   );
+
+  it.each([
+    [
+      "per-minute",
+      "Research request rate limit exceeded",
+      "37",
+      {
+        rateLimitScope: "request",
+        retryable: true,
+        retryAfterSeconds: 37,
+        message: AGENTIC_ASK_REQUEST_RATE_LIMIT_MESSAGE,
+      },
+    ],
+    [
+      "daily",
+      "Research daily request limit exceeded; try again after 00:00 UTC",
+      "43200",
+      {
+        rateLimitScope: "daily",
+        retryable: false,
+        retryAfterSeconds: 43200,
+        message: AGENTIC_ASK_DAILY_LIMIT_MESSAGE,
+      },
+    ],
+  ] as const)(
+    "classifies the %s 429 limit from the backend detail",
+    async (_name, detail, retryAfter, expected) => {
+      const fetchFn = mock(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ detail }), {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": retryAfter,
+            },
+          }),
+        ),
+      ) as unknown as typeof fetch;
+
+      const error = await createService(fetchFn)
+        .ask({ target: "npm:example", question: "How?" })
+        .catch((cause: unknown) => cause);
+      expect(error).toBeInstanceOf(AgenticAskHttpError);
+      expect(error).toMatchObject({
+        code: "RATE_LIMITED",
+        status: 429,
+        ...expected,
+      });
+    },
+  );
+
+  it("keeps the daily message actionable without exposing the backend detail", () => {
+    expect(AGENTIC_ASK_DAILY_LIMIT_MESSAGE).toContain("daily request limit");
+    expect(AGENTIC_ASK_DAILY_LIMIT_MESSAGE).toContain("00:00 UTC");
+    expect(AGENTIC_ASK_DAILY_LIMIT_MESSAGE).not.toContain("Agentic");
+    expect(AGENTIC_ASK_REQUEST_RATE_LIMIT_MESSAGE).not.toContain("daily");
+  });
 
   it("times out the entire request and aborts the transport", async () => {
     let capturedSignal: AbortSignal | undefined;
