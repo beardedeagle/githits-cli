@@ -8,6 +8,7 @@ import {
 } from "../shared/code-diff-request.js";
 import { buildCodeDiffSuccessPayload } from "../shared/code-diff-response.js";
 import { mapCodeNavigationError } from "../shared/code-navigation-error-map.js";
+import { serviceRequestArgs } from "../shared/service-request-args.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
 import {
   OPEN_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
@@ -100,7 +101,10 @@ export function createCodeDiffTool(
           maxFiles: args.max_files,
           maxPatchBytes: args.max_patch_bytes,
         });
-        const result = await service.codeDiff(build.params);
+        const result = await service.codeDiff(
+          build.params,
+          ...serviceRequestArgs(context?.signal),
+        );
         const payload = buildCodeDiffSuccessPayload(result, {
           target: build.params.target,
           view: build.view,

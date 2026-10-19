@@ -22,3 +22,24 @@ export function createMockTokenProvider(
     ...impl,
   };
 }
+
+/**
+ * Simulate a caller cancelling while a follow-up request is in flight: abort
+ * `controller`, then settle the request the way fetch does for its signal.
+ * When the request's signal did not receive the caller abort, it rejects with
+ * a distinct error so tests fail fast instead of waiting for a deadline.
+ */
+export function abortDuringRequest(
+  controller: AbortController,
+  reason: unknown,
+  init: RequestInit | undefined,
+): Promise<never> {
+  controller.abort(reason);
+  const signal = init?.signal;
+  if (!signal?.aborted) {
+    return Promise.reject(
+      new Error("follow-up request did not receive the caller signal"),
+    );
+  }
+  return Promise.reject(signal.reason);
+}

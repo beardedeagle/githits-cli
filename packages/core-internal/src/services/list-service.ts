@@ -35,6 +35,7 @@ import {
   type ServiceDiagnostics,
   withServiceDiagnostics,
 } from "./runtime-diagnostics.js";
+import type { ServiceRequestOptions } from "./service-request-options.js";
 import type { TokenProvider } from "./token-provider.js";
 import {
   parseVersionRefRecovery,
@@ -187,7 +188,10 @@ export interface ListResult {
 }
 
 export interface ListService {
-  list(params: ListParams): Promise<ListResult>;
+  list(
+    params: ListParams,
+    options?: ServiceRequestOptions,
+  ): Promise<ListResult>;
 }
 
 interface ListServiceRuntime {
@@ -527,7 +531,11 @@ export class ListServiceImpl implements ListService {
     private readonly runtime: ListServiceRuntime = {},
   ) {}
 
-  async list(params: ListParams): Promise<ListResult> {
+  async list(
+    params: ListParams,
+    options?: ServiceRequestOptions,
+  ): Promise<ListResult> {
+    const signal = options?.signal;
     params = {
       ...params,
       waitTimeoutMs: params.waitTimeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS,
@@ -540,7 +548,8 @@ export class ListServiceImpl implements ListService {
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
-          executeWithToken: (token) => this.executeList(token, params),
+          signal,
+          executeWithToken: (token) => this.executeList(token, params, signal),
         }),
     );
   }
@@ -548,6 +557,7 @@ export class ListServiceImpl implements ListService {
   private async executeList(
     token: string,
     params: ListParams,
+    signal: AbortSignal | undefined,
   ): Promise<ListResult> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -559,6 +569,7 @@ export class ListServiceImpl implements ListService {
           params.waitTimeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS,
         ),
         variables: buildListVariables(params),
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,

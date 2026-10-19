@@ -8,6 +8,7 @@ import {
 } from "../shared/grep-request.js";
 import { projectGrepResult } from "../shared/grep-response.js";
 import { formatGrepText } from "../shared/grep-text.js";
+import { serviceRequestArgs } from "../shared/service-request-args.js";
 import { CODE_GREP_GUARDRAIL } from "./guardrails.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
 import {
@@ -167,7 +168,9 @@ export function createGrepTool(
           waitTimeoutMs: args.wait_timeout_ms,
           includeDetailedFields: args.format === "json",
         });
-        const projected = projectGrepResult(await service.grep(params));
+        const projected = projectGrepResult(
+          await service.grep(params, ...serviceRequestArgs(context?.signal)),
+        );
         return textResult(
           args.format === "json"
             ? JSON.stringify(projected)

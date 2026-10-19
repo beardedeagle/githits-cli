@@ -20,6 +20,7 @@ import type {
   UpgradeChangelogSelection,
   UpgradeReviewPackageRequest,
 } from "./package-upgrade-review-request.js";
+import { serviceRequestArgs } from "./service-request-args.js";
 import { sanitizeTerminalText, wrapTerminalProse } from "./terminal-text.js";
 import {
   formatAssessmentUncertainty,
@@ -205,21 +206,25 @@ export async function buildPackageUpgradeReview(
   service: PackageIntelligenceService,
   packages: readonly UpgradeReviewPackageRequest[],
   options: PackageUpgradeReviewOptions,
+  signal?: AbortSignal,
 ): Promise<UpgradeReviewResponse> {
-  const response = await service.packageUpgradeReview({
-    packages: packages.map((pkg) => ({
-      registry: pkg.registry,
-      name: pkg.packageName,
-      currentVersion: pkg.currentVersion,
-      targetVersion: pkg.targetVersion,
-    })),
-    changelogView: options.changelogView,
-    statementTiers: options.statementTiers,
-    includeTransitiveSecurity: options.includeTransitiveSecurity,
-    includeDependencyIssues: options.includeDependencyIssues,
-    changelogLimit: options.changelogLimit,
-    minSeverity: options.minSeverity,
-  });
+  const response = await service.packageUpgradeReview(
+    {
+      packages: packages.map((pkg) => ({
+        registry: pkg.registry,
+        name: pkg.packageName,
+        currentVersion: pkg.currentVersion,
+        targetVersion: pkg.targetVersion,
+      })),
+      changelogView: options.changelogView,
+      statementTiers: options.statementTiers,
+      includeTransitiveSecurity: options.includeTransitiveSecurity,
+      includeDependencyIssues: options.includeDependencyIssues,
+      changelogLimit: options.changelogLimit,
+      minSeverity: options.minSeverity,
+    },
+    ...serviceRequestArgs(signal),
+  );
   const result = normaliseBackendUpgradeReviewResponse(
     response,
     options.changesSelection,

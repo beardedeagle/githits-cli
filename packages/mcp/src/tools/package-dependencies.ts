@@ -10,6 +10,7 @@ import {
 } from "../shared/package-dependencies-response.js";
 import { mapPackageIntelligenceError } from "../shared/package-intelligence-error-map.js";
 import { parsePackageSpec } from "../shared/package-spec.js";
+import { serviceRequestArgs } from "../shared/service-request-args.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
 import {
   OPEN_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
@@ -119,11 +120,14 @@ export function createPackageDependenciesTool(
           canonicalLifecycles.length > 0 &&
           !canonicalLifecycles.every((item) => item === "runtime");
         const textFormat = isTextFormat(args.format);
-        const report = await service.packageDependencies({
-          ...params,
-          includeTransitiveDetails: includeTransitiveOutput,
-          includeGroups: showGroups || textFormat,
-        });
+        const report = await service.packageDependencies(
+          {
+            ...params,
+            includeTransitiveDetails: includeTransitiveOutput,
+            includeGroups: showGroups || textFormat,
+          },
+          ...serviceRequestArgs(context?.signal),
+        );
         if (textFormat) {
           const textLifecycles =
             canonicalLifecycles.length > 0

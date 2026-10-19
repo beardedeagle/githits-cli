@@ -32,6 +32,7 @@ import {
   type ServiceDiagnostics,
   withServiceDiagnostics,
 } from "./runtime-diagnostics.js";
+import type { ServiceRequestOptions } from "./service-request-options.js";
 import type { TokenProvider } from "./token-provider.js";
 
 export type GrepCorpus = "SOURCE" | "DOCUMENTATION" | "ALL";
@@ -169,7 +170,10 @@ export interface GrepResult {
   totalMatches: number;
 }
 export interface GrepService {
-  grep(params: GrepParams): Promise<GrepResult>;
+  grep(
+    params: GrepParams,
+    options?: ServiceRequestOptions,
+  ): Promise<GrepResult>;
 }
 interface GrepServiceRuntime {
   clientHeaders?: ClientHeaderBuilder;
@@ -458,7 +462,11 @@ export class GrepServiceImpl implements GrepService {
     private readonly runtime: GrepServiceRuntime = {},
   ) {}
 
-  async grep(params: GrepParams): Promise<GrepResult> {
+  async grep(
+    params: GrepParams,
+    options?: ServiceRequestOptions,
+  ): Promise<GrepResult> {
+    const signal = options?.signal;
     params = {
       ...params,
       waitTimeoutMs:
@@ -472,7 +480,8 @@ export class GrepServiceImpl implements GrepService {
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
-          executeWithToken: (token) => this.executeGrep(token, params),
+          signal,
+          executeWithToken: (token) => this.executeGrep(token, params, signal),
         }),
     );
   }
@@ -480,6 +489,7 @@ export class GrepServiceImpl implements GrepService {
   private async executeGrep(
     token: string,
     params: GrepParams,
+    signal: AbortSignal | undefined,
   ): Promise<GrepResult> {
     let response: PkgseerGraphqlResponse;
     const { includeDetailedFields, ...controls } = params;
@@ -489,6 +499,7 @@ export class GrepServiceImpl implements GrepService {
         token,
         query: GRAPHQL_QUERY,
         variables: { ...controls, includeDetailedFields },
+        signal,
         timeoutMs: indexingRequestTimeoutMs(
           params.waitTimeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS,
         ),

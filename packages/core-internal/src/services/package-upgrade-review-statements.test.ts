@@ -6,7 +6,7 @@ import {
   type PackageUpgradeReviewParams,
   packageUpgradeReviewQuery,
 } from "./package-intelligence-service.js";
-import { createMockTokenProvider } from "./test-helpers.js";
+import { abortDuringRequest, createMockTokenProvider } from "./test-helpers.js";
 
 const identity = {
   registry: "NPM",
@@ -141,9 +141,16 @@ function continuation(statements = page(101, 100)) {
     },
   };
 }
+interface CancelAt {
+  /** Zero-based request index at which the caller cancels. */
+  request: number;
+  controller: AbortController;
+  reason: unknown;
+}
 function setup(
   responses: unknown[],
   changes: Partial<PackageUpgradeReviewParams> = {},
+  cancel?: CancelAt,
 ) {
   const requests: {
     query: string;
@@ -156,6 +163,9 @@ function setup(
   const fetchFn = mock(
     async (_: unknown, init?: RequestInit): Promise<Response> => {
       requests.push(JSON.parse(String(init?.body)));
+      if (cancel?.request === requests.length - 1) {
+        return abortDuringRequest(cancel.controller, cancel.reason, init);
+      }
       return new Response(JSON.stringify(responses[requests.length - 1]), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -176,7 +186,15 @@ function setup(
     changelogView: "json",
     ...changes,
   };
-  return { requests, run: () => service.packageUpgradeReview(params) };
+  return {
+    requests,
+    fetchFn,
+    run: () =>
+      service.packageUpgradeReview(
+        params,
+        ...(cancel ? [{ signal: cancel.controller.signal }] : []),
+      ),
+  };
 }
 
 describe("complete upgrade statement retrieval", () => {
@@ -270,6 +288,21 @@ describe("complete upgrade statement retrieval", () => {
     expect(requests).toHaveLength(1);
     expect(requests[0]!.variables.packages).toHaveLength(31);
   });
+  it("aborts a statement continuation page when the caller cancels", async () => {
+    const controller = new AbortController();
+    const reason = new Error("caller cancelled during continuation");
+    const { run, requests, fetchFn } = setup(
+      [initial(), continuation()],
+      {},
+      { request: 1, controller, reason },
+    );
+
+    await expect(run()).rejects.toBe(reason);
+    expect(requests).toHaveLength(2);
+    expect(requests[1]!.variables.offset).toBe(100);
+    expect(fetchFn.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
+  });
+
   it("collects past both the legacy cap and first page without repeating aggregate fields", async () => {
     const { run, requests } = setup([initial(), continuation()]);
     const result = await run();

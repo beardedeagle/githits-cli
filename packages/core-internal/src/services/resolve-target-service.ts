@@ -18,6 +18,7 @@ import {
   type ServiceDiagnostics,
   withServiceDiagnostics,
 } from "./runtime-diagnostics.js";
+import type { ServiceRequestOptions } from "./service-request-options.js";
 import type { TokenProvider } from "./token-provider.js";
 
 export type ResolveTargetKind = "PACKAGE" | "REPOSITORY" | "SITE";
@@ -120,7 +121,10 @@ export interface ResolveTargetResult {
 }
 
 export interface ResolveTargetService {
-  resolveTarget(params: ResolveTargetParams): Promise<ResolveTargetResult>;
+  resolveTarget(
+    params: ResolveTargetParams,
+    options?: ServiceRequestOptions,
+  ): Promise<ResolveTargetResult>;
 }
 
 const latestVersionMaliciousEvidenceSchema = z
@@ -324,7 +328,9 @@ export class ResolveTargetServiceImpl implements ResolveTargetService {
 
   async resolveTarget(
     params: ResolveTargetParams,
+    options?: ServiceRequestOptions,
   ): Promise<ResolveTargetResult> {
+    const signal = options?.signal;
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "resolve-target.request",
@@ -333,7 +339,9 @@ export class ResolveTargetServiceImpl implements ResolveTargetService {
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: (error) => error instanceof AuthenticationError,
-          executeWithToken: (token) => this.executeResolveTarget(token, params),
+          signal,
+          executeWithToken: (token) =>
+            this.executeResolveTarget(token, params, signal),
         }),
     );
   }
@@ -341,6 +349,7 @@ export class ResolveTargetServiceImpl implements ResolveTargetService {
   private async executeResolveTarget(
     token: string,
     params: ResolveTargetParams,
+    signal: AbortSignal | undefined,
   ): Promise<ResolveTargetResult> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -349,6 +358,7 @@ export class ResolveTargetServiceImpl implements ResolveTargetService {
         token,
         query: RESOLVE_TARGET_QUERY,
         variables: buildVariables(params),
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,

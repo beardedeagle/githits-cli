@@ -13,6 +13,7 @@ import {
   formatPackageChangelogTerminal,
 } from "../shared/package-changelog-response.js";
 import { mapPackageIntelligenceError } from "../shared/package-intelligence-error-map.js";
+import { serviceRequestArgs } from "../shared/service-request-args.js";
 import { PKG_CHANGELOG_GUARDRAIL } from "./guardrails.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
 import {
@@ -123,10 +124,13 @@ export function createPackageChangelogTool(
             view,
             changes: args.changes,
           });
-        const report = await service.packageChangelog({
-          ...params,
-          includeJsonFields: !textFormat,
-        });
+        const report = await service.packageChangelog(
+          {
+            ...params,
+            includeJsonFields: !textFormat,
+          },
+          ...serviceRequestArgs(context?.signal),
+        );
         const payload = buildPackageChangelogSuccessPayload(report, {
           registry: toPkgseerRegistryLowercase(params.registry),
           name: params.packageName,

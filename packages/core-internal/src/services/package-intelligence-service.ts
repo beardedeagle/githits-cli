@@ -49,6 +49,7 @@ import {
   type ServiceDiagnostics,
   withServiceDiagnostics,
 } from "./runtime-diagnostics.js";
+import type { ServiceRequestOptions } from "./service-request-options.js";
 import type { TokenProvider } from "./token-provider.js";
 import {
   parseVersionRefRecovery,
@@ -915,22 +916,38 @@ export interface PackageDocResult {
 }
 
 export interface PackageIntelligenceService {
-  packageSummary(params: PackageSummaryParams): Promise<PackageSummary>;
+  packageSummary(
+    params: PackageSummaryParams,
+    options?: ServiceRequestOptions,
+  ): Promise<PackageSummary>;
   packageVulnerabilities(
     params: PackageVulnerabilitiesParams,
+    options?: ServiceRequestOptions,
   ): Promise<VulnerabilityReport>;
   packageDependencies(
     params: PackageDependenciesParams,
+    options?: ServiceRequestOptions,
   ): Promise<DependencyReport>;
   packageUpgradeDependencyProbe(
     params: PackageUpgradeDependencyProbeParams,
+    options?: ServiceRequestOptions,
   ): Promise<DependencyReport>;
   packageUpgradeReview(
     params: PackageUpgradeReviewParams,
+    options?: ServiceRequestOptions,
   ): Promise<PackageUpgradeReviewResponse>;
-  packageChangelog(params: PackageChangelogParams): Promise<ChangelogReport>;
-  listPackageDocs(params: ListPackageDocsParams): Promise<PackageDocsList>;
-  readPackageDoc(params: ReadPackageDocParams): Promise<PackageDocResult>;
+  packageChangelog(
+    params: PackageChangelogParams,
+    options?: ServiceRequestOptions,
+  ): Promise<ChangelogReport>;
+  listPackageDocs(
+    params: ListPackageDocsParams,
+    options?: ServiceRequestOptions,
+  ): Promise<PackageDocsList>;
+  readPackageDoc(
+    params: ReadPackageDocParams,
+    options?: ServiceRequestOptions,
+  ): Promise<PackageDocResult>;
 }
 
 // --------------------------------------------------------------------
@@ -3141,7 +3158,11 @@ export class PackageIntelligenceServiceImpl
     } = {},
   ) {}
 
-  async packageSummary(params: PackageSummaryParams): Promise<PackageSummary> {
+  async packageSummary(
+    params: PackageSummaryParams,
+    options?: ServiceRequestOptions,
+  ): Promise<PackageSummary> {
+    const signal = options?.signal;
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.summary.request",
@@ -3150,8 +3171,9 @@ export class PackageIntelligenceServiceImpl
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
+          signal,
           executeWithToken: (token) =>
-            this.executePackageSummary(token, params),
+            this.executePackageSummary(token, params, signal),
         }),
     );
   }
@@ -3159,6 +3181,7 @@ export class PackageIntelligenceServiceImpl
   private async executePackageSummary(
     token: string,
     params: PackageSummaryParams,
+    signal: AbortSignal | undefined,
   ): Promise<PackageSummary> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -3171,6 +3194,7 @@ export class PackageIntelligenceServiceImpl
           name: params.packageName,
           includeVerboseFields: params.includeVerboseFields !== false,
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,
@@ -3298,7 +3322,9 @@ export class PackageIntelligenceServiceImpl
 
   async packageVulnerabilities(
     params: PackageVulnerabilitiesParams,
+    options?: ServiceRequestOptions,
   ): Promise<VulnerabilityReport> {
+    const signal = options?.signal;
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.vulnerabilities.request",
@@ -3307,8 +3333,9 @@ export class PackageIntelligenceServiceImpl
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
+          signal,
           executeWithToken: (token) =>
-            this.executePackageVulnerabilities(token, params),
+            this.executePackageVulnerabilities(token, params, signal),
         }),
     );
   }
@@ -3316,6 +3343,7 @@ export class PackageIntelligenceServiceImpl
   private async executePackageVulnerabilities(
     token: string,
     params: PackageVulnerabilitiesParams,
+    signal: AbortSignal | undefined,
   ): Promise<VulnerabilityReport> {
     let after: string | null = null;
     let firstPage:
@@ -3329,6 +3357,7 @@ export class PackageIntelligenceServiceImpl
         token,
         params,
         after,
+        signal,
       );
       if (!firstPage) firstPage = page;
 
@@ -3394,6 +3423,7 @@ export class PackageIntelligenceServiceImpl
         params.minSeverity,
         params.advisoryScope ?? "AFFECTED",
         params,
+        signal,
       );
     }
     return report;
@@ -3403,6 +3433,7 @@ export class PackageIntelligenceServiceImpl
     token: string,
     params: PackageVulnerabilitiesParams,
     after: string | null,
+    signal: AbortSignal | undefined,
   ): Promise<z.infer<typeof vulnerabilityReportResponseSchema>> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -3419,6 +3450,7 @@ export class PackageIntelligenceServiceImpl
           scope: params.advisoryScope,
           after,
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,
@@ -3528,6 +3560,7 @@ export class PackageIntelligenceServiceImpl
     minSeverity: number | undefined,
     advisoryScope: VulnerabilityScope,
     params: PackageVulnerabilitiesParams,
+    signal: AbortSignal | undefined,
   ): Promise<TransitiveVulnerabilityAudit> {
     if (!directIdentity.registry) {
       throw new MalformedPackageIntelligenceResponseError(
@@ -3550,6 +3583,7 @@ export class PackageIntelligenceServiceImpl
           includeTransitiveAdvisoryDetails:
             params.includeTransitiveAdvisoryDetails === true,
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,
@@ -3718,7 +3752,9 @@ export class PackageIntelligenceServiceImpl
 
   async packageDependencies(
     params: PackageDependenciesParams,
+    options?: ServiceRequestOptions,
   ): Promise<DependencyReport> {
+    const signal = options?.signal;
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.dependencies.request",
@@ -3727,15 +3763,18 @@ export class PackageIntelligenceServiceImpl
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
+          signal,
           executeWithToken: (token) =>
-            this.executePackageDependencies(token, params),
+            this.executePackageDependencies(token, params, signal),
         }),
     );
   }
 
   async packageUpgradeDependencyProbe(
     params: PackageUpgradeDependencyProbeParams,
+    options?: ServiceRequestOptions,
   ): Promise<DependencyReport> {
+    const signal = options?.signal;
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.upgrade-dependency-probe.request",
@@ -3744,15 +3783,18 @@ export class PackageIntelligenceServiceImpl
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
+          signal,
           executeWithToken: (token) =>
-            this.executePackageUpgradeDependencyProbe(token, params),
+            this.executePackageUpgradeDependencyProbe(token, params, signal),
         }),
     );
   }
 
   async packageUpgradeReview(
     params: PackageUpgradeReviewParams,
+    options?: ServiceRequestOptions,
   ): Promise<PackageUpgradeReviewResponse> {
+    const signal = options?.signal;
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.upgrade-review.request",
@@ -3761,8 +3803,9 @@ export class PackageIntelligenceServiceImpl
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
+          signal,
           executeWithToken: (token) =>
-            this.executePackageUpgradeReview(token, params),
+            this.executePackageUpgradeReview(token, params, signal),
         }),
     );
   }
@@ -3770,6 +3813,7 @@ export class PackageIntelligenceServiceImpl
   private async executePackageUpgradeReview(
     token: string,
     params: PackageUpgradeReviewParams,
+    signal: AbortSignal | undefined,
   ): Promise<PackageUpgradeReviewResponse> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -3787,6 +3831,7 @@ export class PackageIntelligenceServiceImpl
           minSeverity: params.minSeverity,
           changelogLimit: params.changelogLimit,
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,
@@ -3889,6 +3934,7 @@ export class PackageIntelligenceServiceImpl
           params,
           review,
           offset,
+          signal,
         );
       }
       // Upgrade counters were read on page one, so even unfiltered assessment
@@ -3926,6 +3972,7 @@ export class PackageIntelligenceServiceImpl
       "registry" | "name" | "currentVersion" | "targetVersion"
     >,
     offset: number,
+    signal: AbortSignal | undefined,
   ): Promise<ChangelogStatementPage> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -3945,6 +3992,7 @@ export class PackageIntelligenceServiceImpl
           offset,
           tiers: params.statementTiers,
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,
@@ -3986,6 +4034,7 @@ export class PackageIntelligenceServiceImpl
   private async executePackageUpgradeDependencyProbe(
     token: string,
     params: PackageUpgradeDependencyProbeParams,
+    signal: AbortSignal | undefined,
   ): Promise<DependencyReport> {
     const includeTransitiveRisk =
       params.includeTransitiveSecurity === true ||
@@ -4009,6 +4058,7 @@ export class PackageIntelligenceServiceImpl
           lifecycle: params.includeGroups === true ? ["peer"] : undefined,
           minSeverity: params.minSeverity,
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,
@@ -4054,6 +4104,7 @@ export class PackageIntelligenceServiceImpl
   private async executePackageDependencies(
     token: string,
     params: PackageDependenciesParams,
+    signal: AbortSignal | undefined,
   ): Promise<DependencyReport> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -4081,6 +4132,7 @@ export class PackageIntelligenceServiceImpl
               ? params.lifecycle
               : undefined,
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,
@@ -4414,7 +4466,9 @@ export class PackageIntelligenceServiceImpl
 
   async packageChangelog(
     params: PackageChangelogParams,
+    options?: ServiceRequestOptions,
   ): Promise<ChangelogReport> {
+    const signal = options?.signal;
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.changelog.request",
@@ -4423,8 +4477,9 @@ export class PackageIntelligenceServiceImpl
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
+          signal,
           executeWithToken: (token) =>
-            this.executePackageChangelog(token, params),
+            this.executePackageChangelog(token, params, signal),
         }),
     );
   }
@@ -4432,13 +4487,19 @@ export class PackageIntelligenceServiceImpl
   private async executePackageChangelog(
     token: string,
     params: PackageChangelogParams,
+    signal: AbortSignal | undefined,
   ): Promise<ChangelogReport> {
     const pages: ChangelogStatementPage[] = [];
     let nextOffset: number | null = 0;
     let report: ChangelogReport | undefined;
     while (nextOffset !== null) {
       const offset: number = nextOffset;
-      const page = await this.fetchPackageChangelogPage(token, params, offset);
+      const page = await this.fetchPackageChangelogPage(
+        token,
+        params,
+        offset,
+        signal,
+      );
       if (offset === 0) report = page.report;
       if ((params.view ?? "statements") !== "statements") break;
       const statements = page.statements;
@@ -4507,6 +4568,7 @@ export class PackageIntelligenceServiceImpl
     token: string,
     params: PackageChangelogParams,
     offset: number,
+    signal: AbortSignal | undefined,
   ): Promise<{ report: ChangelogReport; statements?: ChangelogStatementPage }> {
     const exact = params.version !== undefined;
     const statementView = (params.view ?? "statements") === "statements";
@@ -4528,6 +4590,7 @@ export class PackageIntelligenceServiceImpl
               }),
           ...(statementView ? { offset, tiers: params.statementTiers } : {}),
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,
@@ -4618,7 +4681,9 @@ export class PackageIntelligenceServiceImpl
 
   async listPackageDocs(
     params: ListPackageDocsParams,
+    options?: ServiceRequestOptions,
   ): Promise<PackageDocsList> {
+    const signal = options?.signal;
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.docs.list",
@@ -4627,8 +4692,9 @@ export class PackageIntelligenceServiceImpl
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
+          signal,
           executeWithToken: (token) =>
-            this.executeListPackageDocs(token, params),
+            this.executeListPackageDocs(token, params, signal),
         }),
     );
   }
@@ -4636,6 +4702,7 @@ export class PackageIntelligenceServiceImpl
   private async executeListPackageDocs(
     token: string,
     params: ListPackageDocsParams,
+    signal: AbortSignal | undefined,
   ): Promise<PackageDocsList> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -4650,6 +4717,7 @@ export class PackageIntelligenceServiceImpl
           limit: params.limit,
           after: params.after,
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,
@@ -4730,7 +4798,9 @@ export class PackageIntelligenceServiceImpl
 
   async readPackageDoc(
     params: ReadPackageDocParams,
+    options?: ServiceRequestOptions,
   ): Promise<PackageDocResult> {
+    const signal = options?.signal;
     return withServiceDiagnostics(
       this.runtime.diagnostics,
       "pkg-intel.docs.read",
@@ -4739,8 +4809,9 @@ export class PackageIntelligenceServiceImpl
           getToken: () => this.tokenProvider.getToken(),
           forceRefresh: () => this.tokenProvider.forceRefresh(),
           shouldRefresh: isTokenRefreshableError,
+          signal,
           executeWithToken: (token) =>
-            this.executeReadPackageDoc(token, params),
+            this.executeReadPackageDoc(token, params, signal),
         }),
     );
   }
@@ -4748,6 +4819,7 @@ export class PackageIntelligenceServiceImpl
   private async executeReadPackageDoc(
     token: string,
     params: ReadPackageDocParams,
+    signal: AbortSignal | undefined,
   ): Promise<PackageDocResult> {
     let response: PkgseerGraphqlResponse;
     try {
@@ -4762,6 +4834,7 @@ export class PackageIntelligenceServiceImpl
             : {}),
           ...(params.endLine !== undefined ? { endLine: params.endLine } : {}),
         },
+        signal,
         fetchFn: this.fetchFn,
         clientHeaders: this.runtime.clientHeaders,
         userAgent: this.runtime.userAgent,

@@ -157,6 +157,8 @@ boundary is authenticated and reached.
 
 The package expects callers to provide service implementations through `McpToolServices` or a request-scoped `McpToolServicesProvider`. `McpToolServices.readService` is required for the advertised compact `read` tool; remote hosts should construct the `ReadServiceImpl` instance per request with that request's endpoint, token, headers, fetch function, and diagnostics. GitHits does not populate MCP initialize instructions because hosts expose them inconsistently; `quick_start` owns shared guidance instead. Callers may still pass their own `instructions` explicitly. Use `quickStartOptions` to configure the guide. Servers can pass `traceTool` to `createMcpServer()` or `registerMcpTools()` to wrap public tool execution for instrumentation without receiving arguments or auth data.
 
+Network-backed tools forward the MCP request's abort signal to their service call as an optional trailing `ServiceRequestOptions` argument (`{ signal }`), so a cancelled call or closed connection aborts the backend request. The bundled service implementations behind these tools honor it; custom service implementations should forward `options?.signal` to their own requests. Calls without a signal keep their single-argument shape.
+
 Only imports from `@githits/mcp`, `@githits/mcp/client`, `@githits/mcp/smoke-test`, `@githits/mcp/tools`, and `@githits/mcp/package.json` are public. The workspace alias `@githits/mcp/internal` is not exported, is not supported for external consumers, and must not be used by remote MCP server implementations.
 
 Remote MCP servers should provide request-scoped services through `createMcpServer()` and keep transport, auth/session handling, deployment config, and observability outside this package.

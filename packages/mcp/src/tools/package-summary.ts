@@ -11,6 +11,7 @@ import {
   buildPackageSummarySuccessPayload,
   formatPackageSummaryTerminal,
 } from "../shared/package-summary-response.js";
+import { serviceRequestArgs } from "../shared/service-request-args.js";
 import { PKG_INFO_GUARDRAIL } from "./guardrails.js";
 import { mcpMappedErrorResult, throwIfCallerCancellation } from "./shared.js";
 import {
@@ -82,10 +83,13 @@ export function createPackageSummaryTool(
           packageName: target.name,
         });
         const textFormat = isTextFormat(args.format);
-        const summary = await service.packageSummary({
-          ...params,
-          includeVerboseFields: !textFormat || args.verbose === true,
-        });
+        const summary = await service.packageSummary(
+          {
+            ...params,
+            includeVerboseFields: !textFormat || args.verbose === true,
+          },
+          ...serviceRequestArgs(context?.signal),
+        );
         const payload = buildPackageSummarySuccessPayload(summary);
         if (textFormat) {
           return textResult(

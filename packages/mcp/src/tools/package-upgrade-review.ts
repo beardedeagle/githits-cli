@@ -165,6 +165,7 @@ export function createPackageUpgradeReviewTool(
           service,
           request.packages,
           request.options,
+          context?.signal,
         );
         if (args.format === "json") return textResult(JSON.stringify(response));
         return textResult(
