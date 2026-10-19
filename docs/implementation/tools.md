@@ -1162,7 +1162,8 @@ in-flight HTTP request instead of letting it run to completion.
   existing timeout error mapping.
 - `executeWithTokenRefresh` checks the signal before reading a token, after a
   failed attempt, and after a refresh, so a cancelled call never refreshes
-  credentials or retries.
+  credentials or retries. If a token lookup or refresh fails after the caller
+  aborted, the caller's reason surfaces instead of the provider error.
 
 ## Browser-callable surface
 
