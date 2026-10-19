@@ -183,7 +183,12 @@ fuzzy discovery. Direct canonical targets bypass fuzzy resolve by contract.
 
 `bun test` passed 6,148 cases across 242 files after the final error-mapping
 fix. Typecheck, build, public-package validation, format check and plugin
-generation/check passed. Generated manifests were unchanged.
+generation/check passed. Generated manifests were unchanged. After review simplification, 475 focused
+parser, adapter, diff and help tests passed, and typecheck/build passed again.
+Internal pre-flight and external implementation review were clean; the external
+second round confirmed all findings closed. The final design keeps capability
+availability backend-owned and avoids repeated transport checks after shared
+recognition.
 
 Built CLI development checks passed on software-properties at
 `02bfa5ae3026843835e540bc507a517863e39c64`, apport at
