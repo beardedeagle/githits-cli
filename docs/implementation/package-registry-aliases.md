@@ -39,8 +39,9 @@ actual selected backend before publication.
 Configuration belongs to the client: `GITHITS_ENV=dev` selects dev services and
 the dev credential namespace; `GITHITS_CODE_NAV_URL` independently overrides only
 the package/source endpoint. Use the normal CLI credential store and refresh path,
-never a manually extracted token. A parallel backend can pass while canonical dev
-routing still serves an older build. Current rollout evidence belongs in the
+never a manually extracted token. A parallel backend can pass while default dev
+rejects the same input; verify the selected endpoint directly. Current rollout
+evidence belongs in the
 [rollout backlog](../plans/open-backlog.md#cargo-alias-rollout-and-hosted-adoption--2026-10-19).
 
 Hosted MCP receives this behavior only after the public MCP package is released,

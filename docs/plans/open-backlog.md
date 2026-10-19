@@ -84,7 +84,8 @@ Client implementation accepts `cargo:` / `cargo` as crates.io aliases; canonical
 identity stays `crates` / `CRATES`. See
 [registry input aliases](../implementation/package-registry-aliases.md).
 
-Authenticated dev verification distinguishes two endpoints:
+Authenticated dev verification on 2026-10-19 distinguishes two endpoints and
+their observed acceptance over time:
 
 - Parallel AKS, `https://oss-aks-dev.githits.dev`, passes alias/canonical identity,
   package metadata and forwarded inventory/read/grep (separate authenticated backend evidence).
@@ -92,11 +93,19 @@ Authenticated dev verification distinguishes two endpoints:
   grep calls using the existing dev credential profile. Metadata/search/read JSON
   matched exactly; list differed only in requestedTarget, grep only in two raw
   target labels. All five payloads matched CLI/MCP for each spelling.
-- Canonical dev, `https://oss-dev.githits.dev`, passed `crates` but rejected raw
-  `cargo` with `VALIDATION_ERROR` / invalid_format in separate authenticated backend
-  checks. Parallel AKS evidence does not establish canonical dev readiness or
-  production/hosted availability. No deployment or routing change was made by this
-  client task.
+- Canonical dev, `https://oss-dev.githits.dev`, initially passed `crates` but
+  rejected raw `cargo` with `VALIDATION_ERROR` / invalid_format in separate
+  authenticated backend checks. A later same-day backend identity refresh passed
+  both spellings. At 09:48 UTC, current-built CLI and local MCP then passed all
+  20 paired metadata/search/list/read/grep calls and four missing-version calls
+  on default dev services. Metadata/search/read matched exactly; list differed
+  only in requestedTarget, grep only in two raw target labels. All five payloads
+  matched CLI/MCP for each spelling, and identity/evidence fields matched the
+  preserved AKS run. Missing-version errors and canonical retry actions matched
+  per surface. This records earlier rejection and current acceptance; no DNS,
+  routing or deployment mechanism is inferred. No deployment or routing change
+  was made by this client task. Neither endpoint proves production or published/
+  hosted-client availability.
 
 Client source evidence was pinned to `serde@1.0.228`, served SHA
 `a866b336f14aa57a07f0d0be9f8762746e64ecb4`: search had five code hits and hasMore;
@@ -109,10 +118,14 @@ is exhaustive. Latest-only metadata returned serde 1.0.229. After the recovery-o
 a further four paired missing-version CLI/MCP calls returned equal per-surface
 VERSION_NOT_FOUND payloads and canonical crates:serde@1.0.229 retry actions.
 
-Endpoint selection was process-local `GITHITS_ENV=dev` plus
+The original AKS run used process-local `GITHITS_ENV=dev` plus
 `GITHITS_CODE_NAV_URL=https://oss-aks-dev.githits.dev`; other service/token overrides
-were cleared. The current Node-built CLI/local stdio MCP used normal keychain
-credentials and refresh; no tokens were printed, copied or handled manually.
+were cleared. The later default-dev run used only `GITHITS_ENV=dev`, with every
+service URL, token and auth-storage override cleared, including
+`GITHITS_CODE_NAV_URL`. Both used the current Node-built CLI/local stdio MCP with
+normal dev keychain credentials and refresh; no tokens were printed, copied or
+handled manually. The default-dev run used client code at `5907c2b` (docs HEAD
+`aadbc1a`); its captures were saved separately from the original AKS evidence.
 Earlier file-storage source smokes had AUTH_REQUIRED and remain auth-only evidence;
 the neutral targeted eval made zero GitHits calls and remains separate evidence.
 
