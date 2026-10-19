@@ -209,8 +209,8 @@ The targeted local descriptor-only Codex intent probe loaded `quick_start` and
 attempted `search` with canonical Launchpad targets for both pinned repositories.
 The isolated request returned AUTH_REQUIRED. Its final result was inconclusive,
 with medium reported confidence; the agent used external source evidence after
-the failure. Two logical MCP calls completed in 52.1 seconds, with no reported
-isolation violations. This establishes attempted routing only, not authenticated
+the failure. The run took 52.1 seconds and recorded two logical MCP calls (successful
+quick_start and failed search), with no reported isolation violations. This establishes attempted routing only, not authenticated
 answer quality; no independent quality grading was performed.
 
 ## Review disposition (2026-09-07)
