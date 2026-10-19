@@ -20,6 +20,7 @@ import type {
   ChangelogEntry,
   PackageSecurityOverview,
   PackageSummary,
+  RegistryRepository,
   VulnerabilityOverview,
 } from "@githits/core-internal";
 import { toPkgseerRegistryLowercase } from "@githits/core-internal";
@@ -77,6 +78,7 @@ export interface LeanPackageSummary {
   registry: string;
   name: string;
   version: string;
+  registryRepository?: RegistryRepository;
   versionCount?: number;
   description?: string;
   license?: string;
@@ -110,6 +112,7 @@ export function buildPackageSummarySuccessPayload(
   assignIfDefined(payload, "license", pkg.license);
   assignIfDefined(payload, "homepage", pkg.homepage);
   assignIfDefined(payload, "repository", pkg.repositoryUrl);
+  assignIfDefined(payload, "registryRepository", pkg.registryRepository);
   assignIfDefined(
     payload,
     "publishedAt",
@@ -414,6 +417,13 @@ function buildFieldList(
   width: number,
 ): string[] {
   const fields: LabelledField[] = [];
+
+  if (lean.registryRepository) {
+    fields.push({
+      label: "Registry repo",
+      value: `${lean.registryRepository.name} (${colorize(lean.registryRepository.url, "cyan", useColors)})`,
+    });
+  }
 
   if (lean.repository) {
     const repositoryParts = [colorize(lean.repository, "cyan", useColors)];

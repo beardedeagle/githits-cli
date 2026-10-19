@@ -310,3 +310,70 @@ describe("cargo CLI/MCP parity", () => {
     expect(outputs[0]).toMatchObject({ registry: "crates", name: "serde" });
   });
 });
+
+describe("registry repository CLI/MCP parity", () => {
+  for (const registryRepository of [
+    {
+      id: "maven:google",
+      name: "Google Maven",
+      url: "https://dl.google.com/dl/android/maven2",
+    },
+    {
+      id: "maven:central",
+      name: "Maven Central",
+      url: "https://repo1.maven.org/maven2",
+    },
+    undefined,
+  ]) {
+    it(`retains text and JSON provenance: ${registryRepository?.id ?? "unknown"}`, async () => {
+      const fixture = structuredClone(defaultPackageSummary);
+      fixture.package.registryRepository = registryRepository;
+      const packageSummary = mock(() => Promise.resolve(fixture));
+      const service = createMockPackageIntelligenceService({ packageSummary });
+      const cli = await cliJson(
+        "npm:express",
+        cliDeps({ packageIntelligenceService: service }),
+      );
+      const mcp = await mcpJson({ target: "npm:express" }, packageSummary);
+      expect(cli).toEqual(mcp.json);
+      expect(mcp.isError).toBeUndefined();
+      expect(
+        (cli as { registryRepository?: unknown }).registryRepository,
+      ).toEqual(registryRepository);
+
+      const writes: string[] = [];
+      const writeSpy = spyOn(process.stdout, "write").mockImplementation(((
+        chunk: string | Uint8Array,
+      ) => {
+        writes.push(
+          typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk),
+        );
+        return true;
+      }) as typeof process.stdout.write);
+      try {
+        await pkgInfoAction(
+          "npm:express",
+          {},
+          cliDeps({ packageIntelligenceService: service }),
+        );
+      } finally {
+        writeSpy.mockRestore();
+      }
+      const tool = createParityMcpTool("pkg_info", {
+        packageIntelligenceService: service,
+      });
+      const result = await tool.handler({ target: "npm:express" }, {});
+      for (const text of [writes.join(""), result.content[0]?.text ?? ""]) {
+        if (registryRepository) {
+          expect(text).toContain("Registry repo");
+          expect(text).toContain(registryRepository.name);
+          expect(text).toContain(registryRepository.url);
+        } else {
+          expect(text).not.toContain("Registry repo");
+        }
+        expect(text).toContain("History:");
+        expect(text).toContain("Repository");
+      }
+    });
+  }
+});
