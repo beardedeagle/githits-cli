@@ -328,11 +328,12 @@ Use --lines for a bounded range (e.g. \`--lines 10-40\`) or append a
 range directly to the path (e.g. \`src/index.js:10-40\`). The \`path\`
 comes directly from \`githits code files\`.
 
-Addressing: <target> (registry:name[@version], github:org/repo[@ref], codeberg:owner/repo[@ref], gitlab:group[/subgroup...]/project[@ref],
-launchpad:~owner/[project/]+git/repo[@ref] or launchpad:~owner/distro/+source/source/+git/repo[@ref] (lp: also accepted),
-approved full HTTPS URLs on github.com, codeberg.org, gitlab.com, git.launchpad.net or code.launchpad.net;
-Launchpad also accepts git://git.launchpad.net roots; project/default shortcuts are unsupported.
-GitHub also accepts github.com/org/repo and HTTP) OR
+Addressing: <target> accepts registry:name[@version], github:org/repo[@ref], codeberg:owner/repo[@ref], gitlab:group[/subgroup...]/project[@ref],
+launchpad:~owner/+git/repo[@ref], launchpad:~owner/project/+git/repo[@ref],
+or launchpad:~owner/distro/+source/source/+git/repo[@ref] (lp: also accepted).
+Full HTTPS repository URLs are accepted on github.com, codeberg.org, gitlab.com, git.launchpad.net or code.launchpad.net.
+Launchpad also accepts git://git.launchpad.net roots; project shortcuts are unsupported.
+GitHub also accepts github.com/org/repo and HTTP. Alternatively, use
 --repo-url <url> [--git-ref <ref>]. <path> is package-relative for package targets
 and repo-relative for repo targets.
 

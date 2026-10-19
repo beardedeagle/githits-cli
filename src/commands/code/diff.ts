@@ -313,7 +313,7 @@ glob. It supports *, ?, and an exact ** path component; it is not a full Git
 pathspec. A backslash escapes one following non-slash character.
 
 Target examples: \`npm:express\`, \`github:expressjs/express\`, or
-\`launchpad:~owner/[project/]+git/repo\` (\`lp:\` also accepted); keep versions
+\`launchpad:~owner/+git/repo\` (\`lp:\` also accepted); keep versions
 and refs in <from>..<to>. Empty diffs exit 0; suppressed patch output exits 1.
 Raw diffs do not prove upgrade safety.
 Patch output is applicable unified-diff content and may omit Git metadata such

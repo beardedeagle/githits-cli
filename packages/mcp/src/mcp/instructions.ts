@@ -76,7 +76,8 @@ unverified paths.
   a provider. Launchpad requires a complete owner-qualified path:
   \`launchpad:~owner/+git/repo\`, \`launchpad:~owner/project/+git/repo\`, or
   \`launchpad:~owner/distro/+source/source/+git/repo\`. Case-insensitive
-  \`lp:\` is also accepted; project/default shortcuts are unsupported.
+  \`lp:\` is also accepted. Project shortcuts such as \`lp:beautifulsoup\`
+  are unsupported; use a complete path or Git HTTPS clone URL.
 - Docs sites: \`site:host[/path]\`. Research takes the project's package or
   repository instead; it covers code and docs.
 - Omit the suffix for the latest package version or default branch. A ref may

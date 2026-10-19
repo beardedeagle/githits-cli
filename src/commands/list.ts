@@ -194,6 +194,10 @@ export function registerListCommand(
     .description(
       "List files and documentation paths in one package, repository, or hosted site. Paths are target-relative literals or globs for every target. Directories show immediate children; add --recursive to expand them. Text includes read and continuation guidance. Use --silent for paths only and --json only for programmatic processing.",
     )
+    .addHelpText(
+      "after",
+      "\nExamples:\n  githits list npm:express\n  githits list lp:~ubuntu-core-dev/software-properties/+git/software-properties",
+    )
     .argument("<target>", "Package, repository, or site target")
     .argument("[paths...]", "Literal path selectors or glob patterns")
     .option("-R, --recursive", "Traverse matched directories recursively")

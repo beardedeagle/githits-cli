@@ -73,8 +73,22 @@ coverage requirement is inferred from GA promotion.
 After the Launchpad behavior is released or included on its release branch,
 update `skills/githits-code/SKILL.md` and `references/code-and-docs.md` with the
 three complete owner-qualified path forms, case-insensitive `lp:` input,
-canonical `launchpad:` replay and unequal raw-diff limitation. The stable MCP
+canonical `launchpad:` replay and backend-owned raw-diff availability. The stable MCP
 guide/copy already move with implementation under their bounded parity rule.
-Acceptance: CLI examples match the released behavior; project/default shortcuts
-stay unsupported, raw-diff availability is truthful, and plugin checks pass.
+Acceptance: CLI examples match released addressing and raw-diff behavior,
+avoid claiming unsupported shortcut resolution, and plugin checks pass.
 This timing follows the public Agent Skill lifecycle; no runtime work is deferred.
+
+## Launchpad project shortcut resolution in the backend
+
+`lp:beautifulsoup` and `lp:~leonardr/beautifulsoup` currently fail repository
+validation; the CLI requires a complete Git repository path. The backend owns
+repository identity and mutable-default acquisition. Investigate and implement
+shortcut resolution there, then update CLI admission and guidance against the
+verified contract. Do not add Launchpad API lookups or guessed identities in
+the CLI. This is a backend follow-up to the owner-qualified CLI support PR.
+
+Acceptance: supported shortcuts resolve to a verified canonical Git URL and
+revision, with replayable read/list/grep/search targets; missing or ambiguous
+Git defaults produce actionable errors. Existing complete paths and escaping
+remain compatible. Test both CLI and MCP against the implemented backend.

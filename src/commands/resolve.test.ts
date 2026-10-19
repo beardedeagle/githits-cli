@@ -485,7 +485,7 @@ describe("registerResolveCommand", () => {
       "rank retrieved candidates and do not expand candidate retrieval",
     );
     expect(resolveCommand?.description()).toContain(
-      "Pass canonical registry:name, github:owner/repo, codeberg:owner/repo, gitlab:group/subgroup/project, launchpad:~owner/[project/]+git/repo (lp: also accepted), or site:<host[/path]> targets",
+      "Pass canonical registry:name, github:owner/repo, codeberg:owner/repo, gitlab:group/subgroup/project, launchpad:~owner/+git/repo (lp: also accepted), or site:<host[/path]> targets",
     );
     expect(resolveCommand?.description()).toContain(
       "standalone documentation-site targets",

@@ -140,7 +140,7 @@ const PROVIDERS: readonly ProviderGrammar[] = Object.freeze([
   }),
 ]);
 const REPOSITORY_TARGET_ERROR =
-  "Repository target must be github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/[project/]+git/repo (lp: also accepted), or an approved full HTTPS URL, with optional @gitRef suffix.";
+  "Repository target must be github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/+git/repo (lp: also accepted), or an approved full HTTPS URL, with optional @gitRef suffix.";
 
 /** Marker for callers that migrate only the retired repository ref spelling. */
 export class LegacyRepositoryRefError extends InvalidArgumentError {}
@@ -280,7 +280,7 @@ function parseRepositoryTarget(
           LAUNCHPAD_NAMESPACE_PATTERN.test(parts[1] ?? "")))
     )
       throw new UnsupportedLaunchpadShortcutError(
-        "Launchpad project shortcuts are not supported; a full Git repository path is required. Open the project's Code page and copy a Git repository's HTTPS clone URL, such as https://git.launchpad.net/~owner/project/+git/repo. Use that URL as the target, or lp:~owner/project/+git/repo. Bazaar repositories are not supported.",
+        "Launchpad project shortcuts are not supported. Copy a Git repository's HTTPS clone URL from the project's Code page and use it as the target.",
       );
     if (provider.prefix === "github:" && parts.length === 2)
       throw new InvalidArgumentError(
@@ -382,6 +382,6 @@ export function buildInvalidTargetSpecError(
   return new InvalidArgumentError(
     `${prefix}Expected package target <registry>:<name>[@<version>] (supported registries: ${KNOWN_REGISTRIES.join(
       ", ",
-    )}) or repository target github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/[project/]+git/repo (lp: also accepted) with optional @ref (approved full HTTPS URLs also accepted; GitHub additionally supports github.com/owner/repo and HTTP).`,
+    )}) or repository target github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/+git/repo (lp: also accepted) with optional @ref (approved full HTTPS URLs also accepted; GitHub additionally supports github.com/owner/repo and HTTP).`,
   );
 }

@@ -795,7 +795,7 @@ describe("unified list CLI", () => {
           "Launchpad project shortcuts are not supported",
         );
         expect(message).toContain("HTTPS clone URL");
-        expect(message).toContain("lp:~owner/project/+git/repo");
+        expect(message).toContain("use it as the target");
         expect(message).not.toContain("Correct the request and try again");
         expect(list).toHaveBeenCalledTimes(1);
         expect(list.mock.calls[0]?.[0].target).toBe("lp:beautifulsoup");

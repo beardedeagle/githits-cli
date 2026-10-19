@@ -63,7 +63,7 @@ describe("registerUnifiedSearchCommands", () => {
 
     expect(searchHelp).toContain("swift:github.com/<owner>/<repo>");
     expect(searchHelp).toContain("zig:gh/<owner>/<repo>");
-    expect(searchHelp).toContain("artifact/manifest-root");
+    expect(searchHelp).toContain("artifact/manifest root");
     expect(searchHelp).toContain("public repository");
     expect(searchHelp).toContain("full repositories or sibling packages");
   });

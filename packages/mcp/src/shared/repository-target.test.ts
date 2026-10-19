@@ -226,13 +226,13 @@ describe("Launchpad repository grammar", () => {
     "https://code.launchpad.net/~leonardr/beautifulsoup",
   ])("explains how to replace the unsupported shortcut %s", (target) => {
     expect(() => parseRepositoryTargetSpec(target)).toThrow(
-      "Launchpad project shortcuts are not supported; a full Git repository path is required.",
+      "Launchpad project shortcuts are not supported.",
     );
     expect(() => parseRepositoryTargetSpec(target)).toThrow(
-      "Open the project's Code page and copy a Git repository's HTTPS clone URL",
+      "Copy a Git repository's HTTPS clone URL from the project's Code page",
     );
     expect(() => parseRepositoryTargetSpec(target)).toThrow(
-      "lp:~owner/project/+git/repo",
+      "use it as the target",
     );
   });
   it.each(["launchpad:", "LAUNCHPAD:", "lp:", "LP:", "lP:", "Lp:"])(
