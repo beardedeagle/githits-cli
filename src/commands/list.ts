@@ -125,7 +125,7 @@ function handleListError(
   hasAfter: boolean,
   target: string,
 ): never {
-  const sharedMapped = mapListErrorForCli(error, { hasAfter });
+  const sharedMapped = mapListErrorForCli(error, { hasAfter, target });
   const mapped = withIndexingRetryAction(
     error instanceof InvalidListRequestError
       ? {

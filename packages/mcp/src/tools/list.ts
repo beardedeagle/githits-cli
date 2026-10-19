@@ -169,6 +169,7 @@ export function createListTool(
         throwIfCallerCancellation(error, context?.signal);
         const mapped = mapListError(error, {
           hasAfter: builtParams?.after !== undefined,
+          target: builtParams?.target,
         });
         return mcpMappedErrorResult(
           withIndexingRetryAction(mapped, "list", "mcp", {

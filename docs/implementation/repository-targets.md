@@ -49,6 +49,11 @@ letter/digit and may then contain letters/digits and `+._-`; repository names
 also allow `@`. A `.git` suffix is rejected. Project/default addresses such
 as `lp:beautifulsoup` or `lp:~leonardr/beautifulsoup` remain unsupported;
 fuzzy resolver package suggestions do not resolve a Git default.
+For these shortcuts, parser errors explain the missing Git identity and direct
+the caller to copy a Git repository's HTTPS clone URL from the project's Code
+page. Unified list uses this specific shortcut diagnostic after backend validation
+fails, retaining its error code and metadata in CLI and MCP JSON. Other failures
+retain backend guidance, and valid target bytes and requests are unchanged.
 
 Input accepts `launchpad:` and case-insensitive `lp:`, complete HTTPS roots
 on `git.launchpad.net` or `code.launchpad.net`, and Git transport roots only

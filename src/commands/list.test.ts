@@ -765,6 +765,48 @@ describe("unified list CLI", () => {
     }
   });
 
+  it.each([false, true])(
+    "explains Launchpad shortcuts in CLI json=%s",
+    async (json) => {
+      const list = mock(async (_params: ListParams) => {
+        throw new ListGraphQLError(
+          "Only supported public repository targets are accepted",
+          "VALIDATION_ERROR",
+        );
+      });
+      const error = spyOn(console, "error").mockImplementation(() => {});
+      const exit = spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("process.exit");
+      });
+      try {
+        await expect(
+          listAction(
+            "lp:beautifulsoup",
+            undefined,
+            { json },
+            createDeps({
+              listService: createMockListService({ list }),
+            }),
+          ),
+        ).rejects.toThrow("process.exit");
+        const output = String(error.mock.calls[0]?.[0]);
+        const message = json ? JSON.parse(output).error : output;
+        expect(message).toContain(
+          "Launchpad project shortcuts are not supported",
+        );
+        expect(message).toContain("HTTPS clone URL");
+        expect(message).toContain("lp:~owner/project/+git/repo");
+        expect(message).not.toContain("Correct the request and try again");
+        expect(list).toHaveBeenCalledTimes(1);
+        expect(list.mock.calls[0]?.[0].target).toBe("lp:beautifulsoup");
+        if (json) expect(JSON.parse(output).code).toBe("INVALID_ARGUMENT");
+      } finally {
+        error.mockRestore();
+        exit.mockRestore();
+      }
+    },
+  );
+
   it("maps cursor validation errors with restart guidance and never falls back", async () => {
     const list = mock((_params: ListParams) =>
       Promise.reject(new ListGraphQLError("bad cursor", "VALIDATION_ERROR")),

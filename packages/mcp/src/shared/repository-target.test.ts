@@ -210,6 +210,31 @@ describe("GitLab reserved web routes", () => {
 });
 
 describe("Launchpad repository grammar", () => {
+  it.each(["lp:", "lp:~owner", "lp:~owner/+git"])(
+    "keeps the full grammar diagnostic for an incomplete identity %s",
+    (target) => {
+      expect(() => parseRepositoryTargetSpec(target)).toThrow(
+        "Repository URL targets must point to git.launchpad.net/",
+      );
+    },
+  );
+  it.each([
+    "lp:beautifulsoup",
+    "LP:beautifulsoup@main",
+    "launchpad:~leonardr/beautifulsoup",
+    "https://git.launchpad.net/beautifulsoup",
+    "https://code.launchpad.net/~leonardr/beautifulsoup",
+  ])("explains how to replace the unsupported shortcut %s", (target) => {
+    expect(() => parseRepositoryTargetSpec(target)).toThrow(
+      "Launchpad project shortcuts are not supported; a full Git repository path is required.",
+    );
+    expect(() => parseRepositoryTargetSpec(target)).toThrow(
+      "Open the project's Code page and copy a Git repository's HTTPS clone URL",
+    );
+    expect(() => parseRepositoryTargetSpec(target)).toThrow(
+      "lp:~owner/project/+git/repo",
+    );
+  });
   it.each(["launchpad:", "LAUNCHPAD:", "lp:", "LP:", "lP:", "Lp:"])(
     "normalizes %s preserving escaped identity and ref bytes",
     (prefix) => {

@@ -3,6 +3,7 @@ import { InvalidArgumentError, KNOWN_REGISTRIES } from "./package-spec.js";
 
 const GITHUB_OWNER_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 const REPO_PATTERN = /^[A-Za-z0-9._-]+$/;
+const LAUNCHPAD_NAMESPACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9+._-]*$/;
 
 interface ProviderGrammar {
   readonly prefix: string;
@@ -73,7 +74,7 @@ function validLaunchpadPath(parts: string[]): boolean {
   } else return false;
   const repo = parts.at(-1)!;
   return (
-    namespace.every((part) => /^[A-Za-z0-9][A-Za-z0-9+._-]*$/.test(part)) &&
+    namespace.every((part) => LAUNCHPAD_NAMESPACE_PATTERN.test(part)) &&
     /^[A-Za-z0-9][A-Za-z0-9+._@-]*$/.test(repo) &&
     !repo.endsWith(".git")
   );
@@ -143,6 +144,9 @@ const REPOSITORY_TARGET_ERROR =
 
 /** Marker for callers that migrate only the retired repository ref spelling. */
 export class LegacyRepositoryRefError extends InvalidArgumentError {}
+
+/** Unsupported mutable-default spelling, distinct from other target failures. */
+export class UnsupportedLaunchpadShortcutError extends InvalidArgumentError {}
 
 /** Recognize explicit repository forms without guessing a provider. */
 export function normaliseRepositoryTargetSpec(
@@ -267,6 +271,17 @@ function parseRepositoryTarget(
     );
   const parts = repositoryPathParts(path, provider);
   if (!provider.validatePath(parts)) {
+    if (
+      provider.prefix === "launchpad:" &&
+      ((parts.length === 1 &&
+        LAUNCHPAD_NAMESPACE_PATTERN.test(parts[0] ?? "")) ||
+        (parts.length === 2 &&
+          parts[0]?.startsWith("~") &&
+          LAUNCHPAD_NAMESPACE_PATTERN.test(parts[1] ?? "")))
+    )
+      throw new UnsupportedLaunchpadShortcutError(
+        "Launchpad project shortcuts are not supported; a full Git repository path is required. Open the project's Code page and copy a Git repository's HTTPS clone URL, such as https://git.launchpad.net/~owner/project/+git/repo. Use that URL as the target, or lp:~owner/project/+git/repo. Bazaar repositories are not supported.",
+      );
     if (provider.prefix === "github:" && parts.length === 2)
       throw new InvalidArgumentError(
         `Repository URL targets must use a valid GitHub repository name. ${guidance}`,
