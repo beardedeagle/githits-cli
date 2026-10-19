@@ -1283,3 +1283,12 @@ The neutral descriptor-only scenario measures autonomous selection; add
 `--intent-profile githits` for the existing intent scenario. Keep those results
 separate: a successful answer without GitHits calls is not tool-use evidence.
 This targeted probe is outside the fixed named-suite inventory.
+
+### Launchpad navigation probe
+
+`probes/launchpad-navigation.md` covers owner/project and distribution-source
+Launchpad Git navigation at fixed commits. Run with `--server local
+--guidance-profile descriptors --workload eval/agentic/probes/launchpad-navigation.md`
+and `GITHITS_ENV=dev` for development verification. Inspect raw tool calls,
+reported answer/confidence, metrics and isolation violations; harness success
+alone does not establish tool use or independently graded answer quality.

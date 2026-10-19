@@ -27,6 +27,7 @@ export type MappedErrorCode =
   | "TERMS_ACCEPTANCE_REQUIRED"
   | "NETWORK"
   | "INVALID_ARGUMENT"
+  | "RAW_DIFF_UNAVAILABLE"
   | "BACKEND_ERROR"
   | "TIMEOUT"
   | "RATE_LIMITED"

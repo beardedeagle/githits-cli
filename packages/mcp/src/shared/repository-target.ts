@@ -7,6 +7,9 @@ const REPO_PATTERN = /^[A-Za-z0-9._-]+$/;
 interface ProviderGrammar {
   readonly prefix: string;
   readonly host: string;
+  readonly prefixAliases?: readonly string[];
+  readonly hostAliases?: readonly string[];
+  readonly allowGit?: boolean;
   readonly name: string;
   readonly path: string;
   readonly allowHttp: boolean;
@@ -52,6 +55,47 @@ function validGitlabPath(parts: string[]): boolean {
   );
 }
 
+/** Launchpad accepts complete owner-qualified Git paths, never mutable defaults. */
+function validLaunchpadPath(parts: string[]): boolean {
+  const owner = parts[0];
+  if (!owner?.startsWith("~")) return false;
+  let namespace: string[];
+  if (parts.length === 3 && parts[1] === "+git") {
+    namespace = [owner.slice(1)];
+  } else if (parts.length === 4 && parts[2] === "+git") {
+    namespace = [owner.slice(1), parts[1]!];
+  } else if (
+    parts.length === 6 &&
+    parts[2] === "+source" &&
+    parts[4] === "+git"
+  ) {
+    namespace = [owner.slice(1), parts[1]!, parts[3]!];
+  } else return false;
+  const repo = parts.at(-1)!;
+  return (
+    namespace.every((part) => /^[A-Za-z0-9][A-Za-z0-9+._-]*$/.test(part)) &&
+    /^[A-Za-z0-9][A-Za-z0-9+._@-]*$/.test(repo) &&
+    !repo.endsWith(".git")
+  );
+}
+
+/** Decode only Launchpad identity components, after the raw ref split. */
+function repositoryPathParts(
+  path: string,
+  provider: ProviderGrammar,
+): string[] {
+  const parts = path.split("/");
+  if (provider.prefix !== "launchpad:") return parts;
+  try {
+    // Component validators reject decoded separators, controls and double encoding.
+    return parts.map((part) => decodeURIComponent(part));
+  } catch {
+    throw new InvalidArgumentError(
+      "Repository paths must use valid percent-encoded components.",
+    );
+  }
+}
+
 /** Single authority for direct repository hosts, aliases, and path grammar. */
 const PROVIDERS: readonly ProviderGrammar[] = Object.freeze([
   Object.freeze({
@@ -81,9 +125,21 @@ const PROVIDERS: readonly ProviderGrammar[] = Object.freeze([
     hostShorthand: false,
     validatePath: validGitlabPath,
   }),
+  Object.freeze({
+    prefix: "launchpad:",
+    prefixAliases: ["lp:"],
+    host: "git.launchpad.net",
+    hostAliases: ["code.launchpad.net"],
+    name: "Launchpad",
+    path: "~owner/[project/]+git/repo or ~owner/distro/+source/source/+git/repo",
+    allowHttp: false,
+    allowGit: true,
+    hostShorthand: false,
+    validatePath: validLaunchpadPath,
+  }),
 ]);
 const REPOSITORY_TARGET_ERROR =
-  "Repository target must be github:owner/repo, codeberg:owner/repo, or gitlab:group[/subgroup...]/project, or an approved full HTTPS URL, with optional @gitRef suffix.";
+  "Repository target must be github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/[project/]+git/repo (lp: also accepted), or an approved full HTTPS URL, with optional @gitRef suffix.";
 
 /** Marker for callers that migrate only the retired repository ref spelling. */
 export class LegacyRepositoryRefError extends InvalidArgumentError {}
@@ -97,8 +153,17 @@ export function normaliseRepositoryTargetSpec(
   if (lower.startsWith("http://") || lower.startsWith("https://"))
     return trimmed;
   for (const provider of PROVIDERS) {
-    if (lower.startsWith(provider.prefix))
-      return `https://${provider.host}/${trimmed.slice(provider.prefix.length)}`;
+    const prefix = [provider.prefix, ...(provider.prefixAliases ?? [])].find(
+      (entry) => lower.startsWith(entry),
+    );
+    if (prefix)
+      return `https://${provider.host}/${trimmed.slice(prefix.length)}`;
+    // Preserve the other providers' existing transport classification.
+    if (provider.allowGit && lower.startsWith(`git://${provider.host}`)) {
+      const authority = /^git:\/\/([^/]+)\//i.exec(trimmed)?.[1];
+      if (authority?.split(":")[0]?.toLowerCase() === provider.host)
+        return trimmed;
+    }
     if (provider.hostShorthand && lower.startsWith(`${provider.host}/`))
       return `https://${trimmed}`;
   }
@@ -111,11 +176,19 @@ export function isRepositoryTargetSpec(spec: string): boolean {
 
 /** Split the suffix before URL parsing to preserve refs and reject path coercion. */
 export function parseRepositoryTargetSpec(spec: string): CodeNavigationTarget {
+  return parseRepositoryTarget(spec, "target");
+}
+
+/** Structured output URLs contain identity only; their literal @ is not a ref. */
+function parseRepositoryTarget(
+  spec: string,
+  mode: "target" | "url",
+): CodeNavigationTarget {
   const normalised = normaliseRepositoryTargetSpec(spec);
   if (!normalised) throw new InvalidArgumentError(REPOSITORY_TARGET_ERROR);
-  const match = /^(https?):\/\/([^/]+)\/(.*)$/i.exec(normalised);
+  const match = /^(https?|git):\/\/([^/]+)\/(.*)$/i.exec(normalised);
   if (!match) throw new InvalidArgumentError(REPOSITORY_TARGET_ERROR);
-  const scheme = match[1]!;
+  const scheme = match[1]!.toLowerCase();
   const authority = match[2]!;
   const rawPath = match[3]!;
   if (authority.includes("@"))
@@ -125,19 +198,34 @@ export function parseRepositoryTargetSpec(spec: string): CodeNavigationTarget {
   if (/[\\?#\s]/.test(authority))
     throw new InvalidArgumentError(REPOSITORY_TARGET_ERROR);
   // Parse only the authority: URL handles default ports without rewriting paths.
-  let host: string;
+  let url: URL;
   try {
-    host = new URL(`${scheme}://${authority}`).host;
+    url = new URL(`${scheme}://${authority}`);
   } catch {
     throw new InvalidArgumentError(REPOSITORY_TARGET_ERROR);
   }
-  const provider = PROVIDERS.find((entry) => entry.host === host);
-  if (!provider)
+  const host = url.hostname.toLowerCase();
+  const provider = PROVIDERS.find(
+    (entry) => entry.host === host || entry.hostAliases?.includes(host),
+  );
+  if (
+    !provider ||
+    (url.port &&
+      !(scheme === "git" && provider.allowGit && url.port === "9418"))
+  )
     throw new InvalidArgumentError(
-      "Repository URL targets must use github.com, codeberg.org, or gitlab.com; unsupported/self-hosted hosts and nondefault ports are not accepted.",
+      "Repository URL targets must use github.com, codeberg.org, gitlab.com, or git.launchpad.net (code.launchpad.net roots also accepted); unsupported/self-hosted hosts and nondefault ports are not accepted.",
     );
   const guidance = `Use ${provider.prefix}${provider.path} with optional @gitRef, or https://${provider.host}/${provider.path}.`;
-  if (scheme.toLowerCase() === "http" && !provider.allowHttp)
+  if (provider.prefix === "launchpad:" && authority.endsWith(":"))
+    throw new InvalidArgumentError(
+      `Repository ports must be nonempty. ${guidance}`,
+    );
+  if (scheme === "git" && (!provider.allowGit || host !== provider.host))
+    throw new InvalidArgumentError(
+      `Git transport is supported only on git.launchpad.net. ${guidance}`,
+    );
+  if (scheme === "http" && !provider.allowHttp)
     throw new InvalidArgumentError(
       `${provider.name} repository URLs require HTTPS. ${guidance}`,
     );
@@ -153,7 +241,7 @@ export function parseRepositoryTargetSpec(spec: string): CodeNavigationTarget {
       `Repository URL targets must use a valid GitHub owner name. ${guidance}`,
     );
   const hash = rawPath.indexOf("#");
-  const at = rawPath.indexOf("@");
+  const at = mode === "target" ? rawPath.indexOf("@") : -1;
   if (hash !== -1) {
     const nextHash = rawPath.indexOf("#", hash + 1);
     const legacyPath = rawPath.slice(0, hash).replace(/\/$/, "");
@@ -161,7 +249,8 @@ export function parseRepositoryTargetSpec(spec: string): CodeNavigationTarget {
       hash < rawPath.length - 1 &&
       nextHash === -1 &&
       (at === -1 || hash < at) &&
-      provider.validatePath(legacyPath.split("/"))
+      mode === "target" &&
+      provider.validatePath(repositoryPathParts(legacyPath, provider))
     ) {
       const legacy = spec.trim();
       const migrated = `${legacy.slice(0, legacy.indexOf("#"))}@${legacy.slice(
@@ -184,7 +273,7 @@ export function parseRepositoryTargetSpec(spec: string): CodeNavigationTarget {
     throw new InvalidArgumentError(
       `Repository refs must be nonempty. ${guidance}`,
     );
-  const parts = path.split("/");
+  const parts = repositoryPathParts(path, provider);
   if (!provider.validatePath(parts)) {
     if (provider.prefix === "github:" && parts.length === 2)
       throw new InvalidArgumentError(
@@ -194,7 +283,7 @@ export function parseRepositoryTargetSpec(spec: string): CodeNavigationTarget {
       `Repository URL targets must point to ${provider.host}/${provider.path}; pass refs with @gitRef. ${provider.name} web subpaths are not repository targets. ${guidance}`,
     );
   }
-  const repoUrl = `https://${provider.host}/${path}`;
+  const repoUrl = `https://${provider.host}/${parts.join("/")}`;
   return gitRef === undefined ? { repoUrl } : { repoUrl, gitRef };
 }
 
@@ -205,11 +294,11 @@ export function formatRepositoryTarget(
 ): string {
   let compact = repoUrl;
   try {
-    const parsed = parseRepositoryTargetSpec(repoUrl);
+    const parsed = parseRepositoryTarget(repoUrl, "url");
     if (parsed.repoUrl && parsed.gitRef === undefined) {
       const url = new URL(parsed.repoUrl);
       const provider = PROVIDERS.find((entry) => entry.host === url.host)!;
-      compact = `${provider.prefix}${url.pathname.slice(1)}`;
+      compact = `${provider.prefix}${url.pathname.slice(1).replaceAll("@", "%40")}`;
     }
   } catch {
     /* Keep unsupported backend identities lossless. */
@@ -261,7 +350,7 @@ export function formatRepositoryTargetLabel(
   }
   if (!repoUrl) return undefined;
   try {
-    const parsed = parseRepositoryTargetSpec(repoUrl);
+    const parsed = parseRepositoryTarget(repoUrl, "url");
     if (!parsed.repoUrl) return undefined;
     const path = new URL(parsed.repoUrl).pathname.slice(1);
     if (label === path) return formatRepositoryTarget(parsed.repoUrl);
@@ -286,6 +375,6 @@ export function buildInvalidTargetSpecError(
   return new InvalidArgumentError(
     `${prefix}Expected package target <registry>:<name>[@<version>] (supported registries: ${KNOWN_REGISTRIES.join(
       ", ",
-    )}) or repository target github:owner/repo, codeberg:owner/repo, or gitlab:group[/subgroup...]/project with optional @ref (approved full HTTPS URLs also accepted; GitHub additionally supports github.com/owner/repo and HTTP).`,
+    )}) or repository target github:owner/repo, codeberg:owner/repo, gitlab:group[/subgroup...]/project, or launchpad:~owner/[project/]+git/repo (lp: also accepted) with optional @ref (approved full HTTPS URLs also accepted; GitHub additionally supports github.com/owner/repo and HTTP).`,
   );
 }

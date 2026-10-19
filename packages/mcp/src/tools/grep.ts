@@ -41,7 +41,7 @@ const targetSchema = z.object({
   target: z
     .string()
     .describe(
-      "Package `npm:express@5.2.1`, repository `github:expressjs/express@v5.2.1`, or hosted docs `site:expressjs.com/en/5x`.",
+      "Package `npm:express@5.2.1`, repository `github:expressjs/express@v5.2.1` or `launchpad:~owner/+git/repo@ref` (`lp:` also accepted), or hosted docs `site:expressjs.com/en/5x`.",
     ),
   corpus: z
     .enum(["source", "documentation", "all"])

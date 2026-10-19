@@ -205,7 +205,7 @@ describe("mapCodeNavigationError", () => {
     ["REPOSITORY_NOT_FOUND", "NOT_FOUND", false],
     ["TIMEOUT", "TIMEOUT", true],
     ["RATE_LIMITED", "RATE_LIMITED", true],
-    ["RAW_DIFF_UNAVAILABLE", "BACKEND_ERROR", false],
+    ["RAW_DIFF_UNAVAILABLE", "RAW_DIFF_UNAVAILABLE", false],
     [undefined, "BACKEND_ERROR", false],
   ] as const)(
     "maps CodeDiff code %s to %s",

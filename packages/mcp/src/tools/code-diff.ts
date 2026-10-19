@@ -31,7 +31,7 @@ const schema: ZodRawShape = {
   target: z
     .string()
     .describe(
-      "One unversioned compact target string such as `npm:express` or `github:expressjs/express`. Do not embed a version or ref.",
+      "One unversioned compact target string such as `npm:express`, `github:expressjs/express`, or `launchpad:~owner/+git/repo` (`lp:` also accepted). Do not embed a version or ref.",
     ),
   from: z
     .string()
@@ -79,7 +79,7 @@ const schema: ZodRawShape = {
 };
 
 export const DESCRIPTION =
-  'Compare source across exact package versions or public repository refs. Pass an unversioned canonical `target`, with endpoints in `from` and `to`. Package targets still return repository-wide diffs: sibling paths may appear, and a bounded result with no package paths does not prove the package unchanged. The default `name-status` view is bounded inventory; use `stat` for magnitude or `patch` for content. In `text`, patch previews are bounded at 320 UTF-8 bytes; use `format: "json"` for the exact full returned patch, still subject to `max_patch_bytes` and backend content coverage. Incomplete, filtered, byte-escaped, omitted, or unavailable patch evidence is not authoritative or safely applicable. Raw diffs never prove compatibility or upgrade safety. Do not include credentials, personal data, private code, or proprietary content in inputs.';
+  'Compare source across exact package versions or public repository refs. Pass an unversioned canonical `target`, with endpoints in `from` and `to`. Package targets still return repository-wide diffs: sibling paths may appear, and a bounded result with no package paths does not prove the package unchanged. The default `name-status` view is bounded inventory; use `stat` for magnitude or `patch` for content. In `text`, patch previews are bounded at 320 UTF-8 bytes; use `format: "json"` for the exact full returned patch, still subject to `max_patch_bytes` and backend content coverage. Incomplete, filtered, byte-escaped, omitted, or unavailable patch evidence is not authoritative or safely applicable. Launchpad unequal raw diffs return RAW_DIFF_UNAVAILABLE; equal-SHA comparisons return a complete empty inventory. Raw diffs never prove compatibility or upgrade safety. Do not include credentials, personal data, private code, or proprietary content in inputs.';
 
 export function createCodeDiffTool(
   service: CodeDiffService,

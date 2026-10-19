@@ -312,8 +312,11 @@ After \`--\`, one optional <path-glob> applies a repository-relative bounded
 glob. It supports *, ?, and an exact ** path component; it is not a full Git
 pathspec. A backslash escapes one following non-slash character.
 
-Target examples: \`npm:express\` or \`github:expressjs/express\`; keep versions
+Target examples: \`npm:express\`, \`github:expressjs/express\`, or
+\`launchpad:~owner/[project/]+git/repo\` (\`lp:\` also accepted); keep versions
 and refs in <from>..<to>. Empty diffs exit 0; suppressed patch output exits 1.
+Launchpad unequal raw diffs return RAW_DIFF_UNAVAILABLE; equal-SHA comparisons
+return a complete empty inventory. Raw diff does not prove upgrade safety.
 Patch output is applicable unified-diff content and may omit Git metadata such
 as index and mode headers.`;
 

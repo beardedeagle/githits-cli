@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   formatRepositoryTarget,
   formatRepositoryTargetLabel,
+  isRepositoryTargetSpec,
   parseRepositoryTargetSpec,
 } from "./repository-target.js";
 
@@ -58,6 +59,9 @@ const providers = [
   ["github", "github.com", "owner/repo"],
   ["codeberg", "codeberg.org", "zigil/decimal"],
   ["gitlab", "gitlab.com", "group/subgroup/project"],
+  ["launchpad", "git.launchpad.net", "~Owner/+git/Repo"],
+  ["launchpad", "git.launchpad.net", "~Owner/Project/+git/Repo"],
+  ["launchpad", "git.launchpad.net", "~Owner/Distro/+source/Source/+git/Repo"],
 ] as const;
 
 describe("direct repository grammar", () => {
@@ -203,4 +207,114 @@ describe("GitLab reserved web routes", () => {
       repoUrl: `https://gitlab.com/${path}`,
     });
   });
+});
+
+describe("Launchpad repository grammar", () => {
+  it.each(["launchpad:", "LAUNCHPAD:", "lp:", "LP:", "lP:", "Lp:"])(
+    "normalizes %s preserving escaped identity and ref bytes",
+    (prefix) => {
+      expect(
+        parseRepositoryTargetSpec(
+          `${prefix}~Owner/Project/+git/UpperRepo%402@Feature/KeepCase@Nested`,
+        ),
+      ).toEqual({
+        repoUrl: "https://git.launchpad.net/~Owner/Project/+git/UpperRepo@2",
+        gitRef: "Feature/KeepCase@Nested",
+      });
+    },
+  );
+  it.each([
+    "https://git.launchpad.net:443/",
+    "HTTPS://CODE.LAUNCHPAD.NET/",
+    "git://git.launchpad.net/",
+    "GIT://GIT.LAUNCHPAD.NET:9418/",
+  ])("canonicalizes supported transport %s", (base) => {
+    expect(
+      parseRepositoryTargetSpec(
+        `${base}%7EOwner/%50roject/%2Bgit/Repo%402/@feature/a@b`,
+      ),
+    ).toEqual({
+      repoUrl: "https://git.launchpad.net/~Owner/Project/+git/Repo@2",
+      gitRef: "feature/a@b",
+    });
+  });
+  it.each([
+    "lp:",
+    "lp:beautifulsoup",
+    "lp:~Owner/beautifulsoup",
+    "lp:~Owner",
+    "lp:project/+git/repo",
+    "lp:~Owner/+git/",
+    "lp:~Owner/+git/Repo.git",
+    "lp:~Owner/+git/Repo.git/",
+    "lp:~Owner/+git/Repo//",
+    "lp:~Owner/+git/Repo/../Other",
+    "lp:~Owner/+git/Repo%2fOther",
+    "lp:~Owner/+git/Repo%5cOther",
+    "lp:~Owner/+git/Repo%252fOther",
+    "lp:~Owner/+git/Repo%23Other",
+    "lp:~Owner/+git/Repo%3fOther",
+    "lp:~Owner/+git/Repo%",
+    "lp:~Owner/+git/Repo%GG",
+    "lp:~Owner/+git/Repo%00",
+    "lp:~Owner/+git/Repo%09",
+    "lp:~Owner/+git/Repo%7F",
+    "lp:~Owner/+git/Repo%EF%BF%BD",
+    "lp:~Owner/+git/Repo%EF%BB%BF",
+    "git://git@git.launchpad.net/~Owner/+git/Repo",
+    "git://git.launchpad.net:/~Owner/+git/Repo",
+    "lp:~Owner/+git/Repo%20Other",
+    "lp:~Owner/+git/Repo\\Other",
+    "lp:~Owner/+git/Repo?download=1",
+    "lp:~Owner/+git/Repo@",
+    "lp:~Owner/+git/Repo/+log",
+    "lp:~Owner/+Git/Repo",
+    "lp:~Owner/+git/.Repo",
+    "lp:~Owner%40Other/+git/Repo",
+    "lp:~Owner/+git/Repo%FF",
+    "http://git.launchpad.net/~Owner/+git/Repo",
+    "git://code.launchpad.net/~Owner/+git/Repo",
+    "https://git.launchpad.net:9418/~Owner/+git/Repo",
+    "git://git.launchpad.net:443/~Owner/+git/Repo",
+    "https://user@git.launchpad.net/~Owner/+git/Repo",
+    "https://git.launchpad.net:/~Owner/+git/Repo",
+    "ssh://git@git.launchpad.net/~Owner/+git/Repo",
+    "git+https://git.launchpad.net/~Owner/+git/Repo",
+    "https://git.launchpad.net.evil.test/~Owner/+git/Repo",
+  ])("rejects unsupported or unsafe target %s", (target) => {
+    expect(() => parseRepositoryTargetSpec(target)).toThrow();
+  });
+  it("escapes literal repository @ in canonical URL output and backend labels", () => {
+    const repoUrl = "https://git.launchpad.net/~Owner/+git/Repo@2";
+    const target = "launchpad:~Owner/+git/Repo%402@release/a@b";
+    expect(formatRepositoryTarget(repoUrl, "release/a@b")).toBe(target);
+    expect(parseRepositoryTargetSpec(target)).toEqual({
+      repoUrl,
+      gitRef: "release/a@b",
+    });
+    expect(
+      formatRepositoryTargetLabel("~Owner/+git/Repo@2@release/a@b", repoUrl),
+    ).toBe(target);
+    expect(
+      formatRepositoryTargetLabel("lp:~Owner/+git/Repo%402@release/a@b"),
+    ).toBe(target);
+    expect(formatRepositoryTargetLabel("~Owner/+git/Repo@2", repoUrl)).toBe(
+      "launchpad:~Owner/+git/Repo%402",
+    );
+    expect(formatRepositoryTarget(repoUrl)).toBe(
+      "launchpad:~Owner/+git/Repo%402",
+    );
+    expect(parseRepositoryTargetSpec("launchpad:~Owner/+git/Repo%402")).toEqual(
+      { repoUrl },
+    );
+  });
+});
+
+it.each([
+  "git://github.com/owner/repo",
+  "git://codeberg.org/owner/repo",
+  "git://gitlab.com/group/project",
+])("keeps non-Launchpad git transport unrecognized: %s", (spec) => {
+  expect(isRepositoryTargetSpec(spec)).toBe(false);
+  expect(() => parseRepositoryTargetSpec(spec)).toThrow();
 });
