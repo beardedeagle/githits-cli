@@ -446,7 +446,7 @@ describe("grep page and omission outcomes", () => {
       expect(output.split("\n")[0]).toBe(
         nextCursor
           ? "No matches on this page; some requested content is still being prepared."
-          : "No matches available yet; requested content is still being prepared.",
+          : "No matches available yet; some requested content is still being prepared.",
       );
       expect(output).toContain("Preparing:");
       expect(output).toContain("Follow-up:");

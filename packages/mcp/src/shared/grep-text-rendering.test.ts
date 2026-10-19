@@ -422,7 +422,7 @@ describe("grep coverage copy", () => {
         unavailableTargets: [preparing],
       }),
       headline:
-        "No matches available yet; requested content is still being prepared.",
+        "No matches available yet; some requested content is still being prepared.",
     },
     {
       name: "terminal omissions only",
@@ -819,6 +819,60 @@ describe("explicit grep recovery", () => {
           }),
         ),
       ).toBe(text);
+    }
+  });
+
+  it.each([
+    { retryable: false, suggestedSiteTargets: null, remedy: true },
+    {
+      retryable: false,
+      suggestedSiteTargets: ["site:docs.example"],
+      remedy: false,
+    },
+    { retryable: true, suggestedSiteTargets: null, remedy: false },
+  ])(
+    "offers a different target only for a terminal omission without an alternative: %j",
+    ({ retryable, suggestedSiteTargets, remedy }) => {
+      const data = page([], {
+        targets: [],
+        unavailableTargets: [
+          {
+            ...terminal,
+            retryable,
+            suggestedSiteTargets: suggestedSiteTargets?.slice() ?? null,
+          },
+        ],
+      });
+      for (const syntax of ["cli", "mcp"] as const) {
+        const text = formatGrepText(data, { syntax, width: 160 });
+        expect(
+          text.includes(
+            "choose a different package, repository or site target",
+          ),
+        ).toBe(remedy);
+        if (suggestedSiteTargets)
+          expect(text).toContain(
+            "Search hosted documentation instead: site:docs.example",
+          );
+        if (!retryable) expect(text).not.toContain("Follow-up:");
+      }
+    },
+  );
+
+  it("keeps a supplied error code when no public reason was supplied", () => {
+    const data = page([], {
+      targets: [
+        scope({
+          traversal: "FAILED",
+          errorCode: "READ_FAILED",
+          publicMessage: null,
+        }),
+      ],
+    });
+    for (const syntax of ["cli", "mcp"] as const) {
+      const text = formatGrepText(data, { syntax });
+      expect(text).toContain("  Error: READ_FAILED.");
+      expect(text).not.toContain("Reason:");
     }
   });
 

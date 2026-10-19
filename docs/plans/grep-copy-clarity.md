@@ -103,3 +103,21 @@ at 6967/5754 bytes. Required development smoke passes on this revision cycle:
 fixes are covered by the focused tests and build. The development MCP agent run
 passed (6 MCP calls: quick_start, 2 grep, 3 read; zero isolation violations;
 no graded-quality claim). Internal full-delta preflight for round 2 is clean.
+
+## Clarity review round 2 closure
+
+All previous closures verified. Accepted final-check F1: corrected the second,
+stale unvisited-source description in unified-grep.md; scanned the complete
+related guides and grep source-label assertions. F2: ready zero-hit scope plus
+pending preparation now says `some requested content` is being prepared, using
+the existing nothingSearched state. All-pending headline remains direct; cursor
+copy already said `some`. Updated ready-plus-pending response/rendering assertions
+and every preparation-headline description. F3: explicit tests verify different-
+target advice only for terminal no_grep_scopes without a supplied alternative;
+retryable omissions omit it, supplied sites are shown instead. F4: explicit
+both-syntax code-only error test. No new mechanism or API change.
+117 focused tests pass, 979 assertions; build/typecheck and changed-file checks
+pass. Healthy100 fixtures remain byte-identical at 6967/5754 bytes. Live smoke
+and normal-path agent evidence remains applicable to unchanged caller/matching
+behavior; fixtures verify the final wording. External round 3 is the last allowed
+round in this revision cycle.

@@ -103,7 +103,7 @@ export function formatGrepText(
             ? "No matches on this page; some requested content could not be searched."
             : "No matches on this page."
         : preparationOnly
-          ? "No matches available yet; requested content is still being prepared."
+          ? `No matches available yet; ${nothingSearched ? "requested" : "some requested"} content is still being prepared.`
           : nothingSearched
             ? "None of the requested content could be searched."
             : isExhaustive(result)

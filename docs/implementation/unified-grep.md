@@ -16,9 +16,11 @@ githits grep -F -- '--foo' github:example/repository
 
 Pending repository and documentation preparation is described in plain language,
 with advisory total indexing duration when available and a fresh-request retry
-action. Opaque progress IDs stay in JSON. An empty page says "No matches available yet; requested content is still being
-prepared." only when retryable preparation omissions account for every coverage gap; independent
-failures, cursor expiry and skipped evidence retain their warnings. Partial hits
+action. Opaque progress IDs stay in JSON. Empty results say `No matches available
+yet` only when retryable preparation omissions account for every coverage gap.
+The headline says `some requested content` is still being prepared when another
+scope was searched. Independent failures, cursor expiry and skipped evidence
+retain their warnings. Partial hits
 and real continuation cursors remain usable. Retry only preparing or explicitly
 retryable requested targets with the original pattern and matching controls,
 without a cursor; only first-page preparation honors the wait budget. Continuation
@@ -145,8 +147,9 @@ Pending repository/documentation targets appear under `Preparing`, grouped by
 actual work identity with one advisory total estimate and input-specific child
 rows. Other unavailable targets appear under `Not searched`, with their reason and
 suggestions. Grep supplies no commit-date or observed-HEAD proof.
-Sources without matches on an incomplete search are marked `(no matches
-returned)`, including scopes not yet visited because a page limit was reached.
+Sources not yet reached by pagination are marked `(not reached on this page)`.
+Other sources without matches on an incomplete search are marked `(no matches
+returned)`.
 Completed searches use `(no results)`. This
 does not claim that the source has no matches overall. Independent coverage
 failures remain visible. The short repository
@@ -209,7 +212,8 @@ scopes failed or were unavailable before scanning, or no native scopes are
 reported and omissions include anything beyond retryable preparation, text says
 `None of the requested content could be searched.` An empty CURRENT + COMPLETE
 corpus remains an authoritative negative. Preparation-only retryable gaps retain
-`No matches available yet; requested content is still being prepared.`
+`No matches available yet; requested content is still being prepared.` when
+no scope was searched, or `some requested content` when another scope was searched.
 
 Healthy empty continuation pages say `No matches on this page.`; pages with
 gaps say `No matches on this page; some requested content could not be searched.` Attributed
