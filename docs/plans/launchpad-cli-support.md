@@ -167,3 +167,15 @@ canonical Launchpad search after quick_start, then AUTH_REQUIRED; final
 inconclusive/medium, two MCP calls, 52.1 s, no isolation-violation artifact.
 Detailed behavior/verification moved to repository-targets.md; release-only
 CLI skill/reference work recorded in docs/backlog.md. No runtime work deferred.
+
+Implementation review round 1: direction sound. Accepted F1 static capability
+wording -> backend owns availability -> inspected both diff descriptors/help,
+removed static Launchpad availability sentences; retained observed dated docs,
+runtime typed error and generic safety wording. Accepted F2 unreachable guards
+-> shared recognizer already certifies Git host -> inspected recognizer, parser
+port logic and negative/positive transport tests; removed repeated allowGit/host
+checks, retaining explicit port validation. Accepted F3 incomplete provider
+lists -> scanned directly related CLI diff help and implementation docs ->
+updated --repo-url help plus both missed cli-commands.md sentences. Applied
+optional table-order and fragment wording nits. No new mechanism or scope.
+Focused parser/adapter/diff/help tests and checks rerun before round 2.

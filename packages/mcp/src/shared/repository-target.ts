@@ -208,11 +208,7 @@ function parseRepositoryTarget(
   const provider = PROVIDERS.find(
     (entry) => entry.host === host || entry.hostAliases?.includes(host),
   );
-  if (
-    !provider ||
-    (url.port &&
-      !(scheme === "git" && provider.allowGit && url.port === "9418"))
-  )
+  if (!provider || (url.port && !(scheme === "git" && url.port === "9418")))
     throw new InvalidArgumentError(
       "Repository URL targets must use github.com, codeberg.org, gitlab.com, or git.launchpad.net (code.launchpad.net roots also accepted); unsupported/self-hosted hosts and nondefault ports are not accepted.",
     );
@@ -220,10 +216,6 @@ function parseRepositoryTarget(
   if (provider.prefix === "launchpad:" && authority.endsWith(":"))
     throw new InvalidArgumentError(
       `Repository ports must be nonempty. ${guidance}`,
-    );
-  if (scheme === "git" && (!provider.allowGit || host !== provider.host))
-    throw new InvalidArgumentError(
-      `Git transport is supported only on git.launchpad.net. ${guidance}`,
     );
   if (scheme === "http" && !provider.allowHttp)
     throw new InvalidArgumentError(

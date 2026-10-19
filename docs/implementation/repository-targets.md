@@ -10,8 +10,8 @@ select providers or infer them from bare paths.
 | --- | --- | --- | --- |
 | GitHub | `github:owner/repo` | `https://github.com/owner/repo` | `github.com/owner/repo` shorthand and HTTP |
 | Codeberg | `codeberg:owner/repo` | `https://codeberg.org/owner/repo` | Exactly two path components; HTTPS only |
-| Launchpad | `launchpad:~owner/[project/]+git/repo` or `launchpad:~owner/distro/+source/source/+git/repo` | `https://git.launchpad.net/<complete-path>` | Case-insensitive `lp:`; HTTPS `code.launchpad.net` roots; `git://git.launchpad.net` on default/9418 port |
 | GitLab | `gitlab:group[/subgroup...]/project` | `https://gitlab.com/group/subgroup/project` | Nested namespaces; HTTPS only |
+| Launchpad | `launchpad:~owner/[project/]+git/repo` or `launchpad:~owner/distro/+source/source/+git/repo` | `https://git.launchpad.net/<complete-path>` | Case-insensitive `lp:`; HTTPS `code.launchpad.net` roots; `git://git.launchpad.net` on default/9418 port |
 
 Each form accepts an optional `@ref`. The first `@` in the repository path
 separates the repository identity from the ref; `/` and later `@` characters
@@ -71,7 +71,8 @@ the backend continues to own code/docs/page-ID and fragment classification.
 Repository page IDs preserve encoded refs and paths. List `canonicalTarget`
 uses the canonical URL plus full SHA; compact read actions use `launchpad:`.
 
-Unequal raw diffs are unavailable (`RAW_DIFF_UNAVAILABLE`, nonretryable).
+At this verification, unequal raw diffs are unavailable
+(`RAW_DIFF_UNAVAILABLE`, nonretryable); the backend owns availability.
 The shared error mapper preserves that code and the resolved endpoint facts
 on both CLI and MCP rather than collapsing it to `BACKEND_ERROR`.
 Equal-SHA comparisons return a complete empty inventory. Structural comparison
