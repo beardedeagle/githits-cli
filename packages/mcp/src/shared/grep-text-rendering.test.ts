@@ -557,6 +557,11 @@ describe("grep coverage copy", () => {
       expect(text).toContain(
         "Repeat the original grep inputs for these sources:",
       );
+      expect(text).toContain(
+        syntax === "cli"
+          ? "Omit --cursor to start a new search."
+          : "Omit cursor to start a new search.",
+      );
       expect(text).not.toMatch(/--wait|wait_timeout_ms/);
     }
   });
