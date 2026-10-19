@@ -211,32 +211,64 @@ describe("GitLab reserved web routes", () => {
 
 describe("Launchpad repository grammar", () => {
   it.each(["lp:", "lp:~owner", "lp:~owner/+git"])(
-    "keeps the full grammar diagnostic for an incomplete identity %s",
+    "gives concise correction guidance for an incomplete identity %s",
     (target) => {
       expect(() => parseRepositoryTargetSpec(target)).toThrow(
-        "Repository URL targets must point to git.launchpad.net/",
+        "Invalid Launchpad Git target. Use lp:PROJECT or lp:~owner/project/+git/repo, with optional @ref.",
       );
     },
   );
+  for (const path of [
+    "Project",
+    "Distro/+source/Source",
+    "~Owner/Project",
+    "~Owner/Distro/+source/Source",
+  ]) {
+    it.each([
+      "launchpad:",
+      "LAUNCHPAD:",
+      "lp:",
+      "LP:",
+      "lP:",
+      "Lp:",
+      "https://git.launchpad.net/",
+      "HTTPS://CODE.LAUNCHPAD.NET:443/",
+    ])(`admits ${path} default via %s without acquiring identity`, (prefix) => {
+      expect(
+        parseRepositoryTargetSpec(`${prefix}${path}/@Feature/KeepCase@Nested`),
+      ).toEqual({
+        repoUrl: `https://git.launchpad.net/${path}`,
+        gitRef: "Feature/KeepCase@Nested",
+      });
+      expect(() => parseRepositoryTargetSpec(`${prefix}${path}#main`)).toThrow(
+        `Use "${prefix}${path}@main"`,
+      );
+      expect(formatRepositoryTarget(`https://git.launchpad.net/${path}`)).toBe(
+        `https://git.launchpad.net/${path}`,
+      );
+    });
+  }
+  it("decodes default namespace components only once", () => {
+    expect(
+      parseRepositoryTargetSpec(
+        "LP:%7EOwner/%44istro/%2Bsource/Source.git@HEAD",
+      ),
+    ).toEqual({
+      repoUrl: "https://git.launchpad.net/~Owner/Distro/+source/Source.git",
+      gitRef: "HEAD",
+    });
+  });
   it.each([
-    "lp:beautifulsoup",
-    "LP:beautifulsoup@main",
-    "launchpad:~leonardr/beautifulsoup",
-    "https://git.launchpad.net/beautifulsoup",
-    "https://code.launchpad.net/beautifulsoup",
-    "git://git.launchpad.net/beautifulsoup",
-    "https://git.launchpad.net/~leonardr/beautifulsoup",
-    "https://code.launchpad.net/~leonardr/beautifulsoup",
-  ])("explains how to replace the unsupported shortcut %s", (target) => {
-    expect(() => parseRepositoryTargetSpec(target)).toThrow(
-      "Launchpad shortcuts are not supported yet.",
-    );
-    expect(() => parseRepositoryTargetSpec(target)).toThrow(
-      "Use a complete Git target",
-    );
-    expect(() => parseRepositoryTargetSpec(target)).toThrow(
-      "lp:~owner/project/+git/repo",
-    );
+    "lp:Project@main",
+    "https://code.launchpad.net/Project@main",
+    "lp:Project#main",
+  ])("keeps short correlation label %s unformatted", (label) => {
+    const url = "https://git.launchpad.net/~Owner/Project/+git/Repo";
+    expect(formatRepositoryTargetLabel(label, url)).toBeUndefined();
+    expect(formatRepositoryTargetLabel(label)).toBeUndefined();
+    expect(
+      formatRepositoryTargetLabel(label, "https://git.launchpad.net/Project"),
+    ).toBeUndefined();
   });
   it.each(["launchpad:", "LAUNCHPAD:", "lp:", "LP:", "lP:", "Lp:"])(
     "normalizes %s preserving escaped identity and ref bytes",
@@ -268,8 +300,6 @@ describe("Launchpad repository grammar", () => {
   });
   it.each([
     "lp:",
-    "lp:beautifulsoup",
-    "lp:~Owner/beautifulsoup",
     "lp:~Owner",
     "lp:project/+git/repo",
     "lp:~Owner/+git/",
@@ -309,6 +339,19 @@ describe("Launchpad repository grammar", () => {
     "ssh://git@git.launchpad.net/~Owner/+git/Repo",
     "git+https://git.launchpad.net/~Owner/+git/Repo",
     "https://git.launchpad.net.evil.test/~Owner/+git/Repo",
+    "git://git.launchpad.net/Project",
+    "git://git.launchpad.net/~Owner/Project",
+    "git://git.launchpad.net:9418/Distro/+source/Source",
+    "lp:Project/extra",
+    "lp:~Owner/Project/extra",
+    "lp:Distro/+Source/Source",
+    "lp:~Owner/Distro/+source",
+    "lp:Project%2FOther",
+    "lp:Project%252FOther",
+    "lp:%2E%2E",
+    "lp:~Owner%40Other/Project",
+    "lp:.Project",
+    "lp:Project@",
   ])("rejects unsupported or unsafe target %s", (target) => {
     expect(() => parseRepositoryTargetSpec(target)).toThrow();
   });

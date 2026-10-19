@@ -99,6 +99,36 @@ describe("native version/ref recovery", () => {
       }),
     ).toBe(message);
   });
+  it("preserves canonical missing-ref facts without guessing a short operand identity", () => {
+    const failure: MappedError = {
+      code: "REF_NOT_FOUND",
+      message: "Verify the tag or branch.",
+      retryable: false,
+      details: {
+        repoUrl:
+          "https://git.launchpad.net/~leonardr/beautifulsoup/+git/beautifulsoup",
+        requestedRef: "4.15.O",
+        availableRefs: [{ ref: "HEAD" }],
+        suggestedRefs: [],
+      },
+    };
+    for (const context of [
+      {
+        syntax: "cli" as const,
+        argv: ["list", "lp:beautifulsoup@4.15.O", "--json"],
+      },
+      {
+        syntax: "mcp" as const,
+        tool: "list",
+        args: { target: "lp:beautifulsoup@4.15.O" },
+      },
+    ]) {
+      const result = withVersionRefRecovery(failure, context);
+      expect(result.details).toEqual(failure.details);
+      expect(result.details?.action).toBeUndefined();
+      expect(result.message).toBe(failure.message);
+    }
+  });
   it.each(["-s", "-iFsv"])(
     "recognizes grep %s without consuming the pattern",
     (flag) => {

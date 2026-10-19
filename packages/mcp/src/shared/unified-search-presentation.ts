@@ -3,6 +3,7 @@ import { discoveryIndexingWaitMs } from "./discovery-indexing-wait.js";
 import { isKnownRegistry, parsePackageSpec } from "./package-spec.js";
 import {
   formatRepositoryTarget,
+  isCanonicalRepositoryUrl,
   parseRepositoryTargetSpec,
 } from "./repository-target.js";
 import {
@@ -1894,7 +1895,8 @@ function composeRepositoryTarget(
 ): string | undefined {
   try {
     const parsed = parseRepositoryTargetSpec(identity);
-    if (!parsed.repoUrl) return undefined;
+    if (!parsed.repoUrl || !isCanonicalRepositoryUrl(parsed.repoUrl))
+      return undefined;
     return formatRepositoryTarget(parsed.repoUrl, ref);
   } catch {
     return undefined;

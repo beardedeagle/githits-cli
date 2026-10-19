@@ -766,11 +766,11 @@ describe("unified list CLI", () => {
   });
 
   it.each([false, true])(
-    "explains Launchpad shortcuts in CLI json=%s",
+    "preserves backend shortcut failures in CLI json=%s",
     async (json) => {
       const list = mock(async (_params: ListParams) => {
         throw new ListGraphQLError(
-          "Only supported public repository targets are accepted",
+          "Launchpad default has no public Git repository",
           "VALIDATION_ERROR",
         );
       });
@@ -791,10 +791,9 @@ describe("unified list CLI", () => {
         ).rejects.toThrow("process.exit");
         const output = String(error.mock.calls[0]?.[0]);
         const message = json ? JSON.parse(output).error : output;
-        expect(message).toContain("Launchpad shortcuts are not supported");
-        expect(message).toContain("complete Git target");
-        expect(message).toContain("lp:~owner/project/+git/repo");
-        expect(message).not.toContain("Correct the request and try again");
+        expect(message).toContain(
+          "Launchpad default has no public Git repository",
+        );
         expect(list).toHaveBeenCalledTimes(1);
         expect(list.mock.calls[0]?.[0].target).toBe("lp:beautifulsoup");
         if (json) expect(JSON.parse(output).code).toBe("INVALID_ARGUMENT");

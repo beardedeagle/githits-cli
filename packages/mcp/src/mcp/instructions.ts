@@ -73,11 +73,12 @@ unverified paths.
   including in monorepos.
 - Repositories: \`github:owner/repo@ref\`, \`codeberg:\`, \`gitlab:\`, \`launchpad:\`, or a
   supported full URL, for whole repositories or sibling packages. Never infer
-  a provider. Launchpad requires a complete owner-qualified path:
-  \`launchpad:~owner/+git/repo\`, \`launchpad:~owner/project/+git/repo\`, or
-  \`launchpad:~owner/distro/+source/source/+git/repo\`. Case-insensitive
-  \`lp:\` is an alias for these complete paths. \`lp:PROJECT\` and short
-  \`code.launchpad.net\`/\`git.launchpad.net\` URLs are not supported yet.
+  a provider. Launchpad accepts \`lp:project\`, \`lp:distro/+source/source\`,
+  \`lp:~owner/project\`, \`lp:~owner/distro/+source/source\`, and complete
+  \`launchpad:~owner/[project/]+git/repo\` or
+  \`launchpad:~owner/distro/+source/source/+git/repo\` paths. Case-insensitive
+  \`lp:\` aliases \`launchpad:\`. HTTPS \`code.launchpad.net\`/\`git.launchpad.net\`
+  URLs accept the same paths; follow returned owner-qualified targets for replay.
 - Docs sites: \`site:host[/path]\`. Research takes the project's package or
   repository instead; it covers code and docs.
 - Omit the suffix for the latest package version or default branch. A ref may

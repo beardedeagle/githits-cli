@@ -123,8 +123,9 @@ function collectIntentHint(value: string, previous: string[] = []): string[] {
 
 const DESCRIPTION = `Resolve a human-provided name to ranked package, public repository, or standalone documentation-site targets.
 
-Pass canonical registry:name, github:owner/repo, codeberg:owner/repo, gitlab:group/subgroup/project, launchpad:~owner/+git/repo (lp: alias for complete paths), or site:<host[/path]> targets
+Pass canonical registry:name, github:owner/repo, codeberg:owner/repo, gitlab:group/subgroup/project, launchpad:~owner/+git/repo, or site:<host[/path]> targets
 directly to the next GitHits command; resolve rejects them locally.
+Mutable Launchpad defaults such as lp:PROJECT can resolve to their current Git owner.
 
 The optional --query and --intent-hint values are sent to the service as ranking
 context. They rank retrieved candidates and do not expand candidate retrieval.

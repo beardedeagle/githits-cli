@@ -18,7 +18,7 @@ import {
  * Package targets use the shared package spec grammar, e.g.
  * `npm:react@18.2.0` or `npm:react` for the latest release. Repository
  * targets use explicit github:, codeberg:, gitlab:, launchpad: or lp: prefixes,
- * or supported URLs. Launchpad requires a complete path: ~owner/+git/repo,
+ * or supported URLs. Launchpad accepts HTTPS defaults or complete paths: ~owner/+git/repo,
  * ~owner/project/+git/repo, or ~owner/distro/+source/source/+git/repo.
  * GitHub also supports github.com/owner/repo and HTTP compatibility.
  * An optional @gitRef suffix preserves / and later @ characters inside refs.

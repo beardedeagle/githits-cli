@@ -254,7 +254,11 @@ describe("resolve_target parity", () => {
     );
   });
 
-  it.each(["npm:react", "github:facebook/react"])(
+  it.each([
+    "npm:react",
+    "github:facebook/react",
+    "lp:~Owner/Project/+git/Repo",
+  ])(
     "PARITY-ERROR-ENVELOPE: canonical target %s is rejected before service calls",
     async (name) => {
       const cliResolveTarget = mock((_params: ResolveTargetParams) =>
@@ -292,8 +296,16 @@ describe("resolve_target parity", () => {
     },
   );
 
-  it.each(["@scope/package", "react-native", "owner/repository"])(
-    "PARITY-EXPLICIT-CALLS: human name %s reaches both services",
+  it.each([
+    "@scope/package",
+    "react-native",
+    "owner/repository",
+    "lp:Project",
+    "LP:Distro/+source/Source",
+    "https://code.launchpad.net/~Owner/Project",
+    "https://git.launchpad.net/~Owner/Distro/+source/Source",
+  ])(
+    "PARITY-EXPLICIT-CALLS: unresolved name or default %s reaches both services",
     async (name) => {
       const cliResolveTarget = mock((_params: ResolveTargetParams) =>
         Promise.resolve(defaultResolveTargetResult),

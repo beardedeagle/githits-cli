@@ -11,6 +11,7 @@ import {
   InvalidPackageSpecError,
 } from "./package-spec.js";
 import {
+  isCanonicalRepositoryUrl,
   isRepositoryTargetSpec,
   LegacyRepositoryRefError,
   parseRepositoryTargetSpec,
@@ -74,7 +75,8 @@ export function buildResolveTargetParams(
 function rejectCanonicalTarget(name: string): void {
   if (isRepositoryTargetSpec(name)) {
     try {
-      parseRepositoryTargetSpec(name);
+      const parsed = parseRepositoryTargetSpec(name);
+      if (parsed.repoUrl && !isCanonicalRepositoryUrl(parsed.repoUrl)) return;
     } catch (error) {
       if (error instanceof LegacyRepositoryRefError) throw error;
       if (error instanceof InvalidArgumentError) return;
