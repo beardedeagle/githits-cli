@@ -23,8 +23,8 @@ the backlog; public skill examples remain release-bound.
 - Accept UNKNOWN at both request/service boundaries, including the transitive
   fetch. Direct pagination, exact root identity and proof validation stay intact.
 - Select each of four totals once using existing selected-count aliases.
-  Select status for UNKNOWN/ALL, reasons for UNKNOWN/ALL or detail output, and advisory-wide details only for
-  verbose/JSON. Missing new fields remain absent; future enum strings survive.
+  Select status for UNKNOWN/ALL, reasons for UNKNOWN/ALL or detail output, and
+  advisory-wide details only for verbose/JSON. Missing new fields remain absent; future enum strings survive.
 - Keep occurrenceCount/packageCount scoped. Add complete count partitions to
   audit summary and package JSON. Zero counts remain numeric, matching direct
   reports; zero-unknown text remains unchanged. Human reasons and native hints
