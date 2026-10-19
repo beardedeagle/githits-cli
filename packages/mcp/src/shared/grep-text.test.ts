@@ -274,7 +274,7 @@ describe("grep text formatting", () => {
       expect(text).not.toContain("Run grep again");
       expect(text).not.toContain("Use the cursor below");
       expect(lines.at(-1)).toBe(
-        `  Omit ${syntax === "cli" ? "--cursor" : "cursor"}; add ${syntax === "cli" ? "--wait 100000" : "wait_timeout_ms=100000"} to wait up to 100s for preparation.`,
+        `  Omit ${syntax === "cli" ? "--cursor" : "cursor"}; set ${syntax === "cli" ? "--wait 100000" : "wait_timeout_ms=100000"} to wait up to 100s for preparation.`,
       );
       const cursor = syntax === "cli" ? "  --cursor " : "  cursor=";
       expect(
@@ -327,7 +327,7 @@ describe("grep text formatting", () => {
     for (const syntax of ["cli", "mcp"] as const) {
       const text = formatGrepText(result, { syntax, width: 80 });
       expect(text).toContain(
-        "Sources:\n  - github:expressjs/express@dbac741a\n  - site:expressjs.com (no matches returned, hosted documentation)",
+        "Sources:\n  - github:expressjs/express@dbac741a\n  - site:expressjs.com (not reached on this page, hosted documentation)",
       );
       expect(text).not.toContain("Hosted docs npm:");
       expect(text).not.toContain("not visited");
@@ -471,7 +471,7 @@ describe("grep text formatting", () => {
     for (const syntax of ["cli", "mcp"] as const) {
       const text = formatGrepText(result, { syntax, width: 80 });
       expect(text).toContain(
-        `  - site:${"a".repeat(64)}.test\n    (no matches returned, hosted documentation)`,
+        `  - site:${"a".repeat(64)}.test\n    (not reached on this page, hosted documentation)`,
       );
       expect(text).toContain(
         `  - ${target} (indexing, estimated total: 33-85s, time spent indexing:\n    90s)`,

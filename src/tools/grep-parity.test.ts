@@ -63,10 +63,10 @@ describe("unified grep CLI/MCP parity", () => {
         "Repeat the same pattern and options for:\n    npm:pending",
       );
       expect(cli).toContain(
-        "Omit --cursor; add --wait 30000 to wait up to 30s for preparation.",
+        "Omit --cursor; set --wait 30000 to wait up to 30s for preparation.",
       );
       expect(mcpText).toContain(
-        "Omit cursor; add wait_timeout_ms=30000 to wait up to 30s for preparation.",
+        "Omit cursor; set wait_timeout_ms=30000 to wait up to 30s for preparation.",
       );
       expect(
         cli

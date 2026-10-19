@@ -182,7 +182,7 @@ export function formatGrepText(
   for (const scope of result.targets) renderCoverage(scope, prose);
 
   if (result.traversal === "CURSOR_EXPIRED")
-    prose("Cursor expired; any matches shown here are retained results.");
+    prose("Cursor expired; the search could not continue.");
   else if (
     result.traversal !== "COMPLETE" &&
     (!result.nextCursor || result.traversal !== "RESUMABLE_LIMIT") &&
@@ -315,7 +315,7 @@ export function formatGrepText(
             : `--wait ${wait}`;
         followUp.push(
           ...proseLines(
-            `Omit ${cursorOption}; add ${waitOption} to wait up to ${wait / 1000}s for preparation.`,
+            `Omit ${cursorOption}; set ${waitOption} to wait up to ${wait / 1000}s for preparation.`,
           ),
         );
       } else {
@@ -371,7 +371,7 @@ function renderCoverage(
       scope.filesScanned !== scope.filesInScope
     )
       details.push(
-        `Searched ${scope.filesScanned} of ${scope.filesInScope} files.`,
+        `Searched ${scope.filesScanned} of ${scope.filesInScope} file${scope.filesInScope === 1 ? "" : "s"}.`,
       );
   }
   if (scope.binaryFilesSkipped)
@@ -496,6 +496,11 @@ function formatSources(
       (scope.traversal === "FAILED" ||
         !["CURRENT", "STALE", "UNSPECIFIED"].includes(scope.readiness));
     if (unsearched) qualifiers.push("not searched");
+    if (
+      scope.readiness === "UNSPECIFIED" &&
+      scope.traversal === "RESUMABLE_LIMIT"
+    )
+      qualifiers.push("not reached on this page");
     identity = JSON.stringify([
       identity,
       scope.readiness,
@@ -543,7 +548,9 @@ function formatSources(
           ? [`requested: ${[...source.requested].join(", ")}`]
           : []),
         ...(!source.matched &&
-        !source.facts.qualifiers?.includes("not searched")
+        !source.facts.qualifiers?.some((qualifier) =>
+          ["not searched", "not reached on this page"].includes(qualifier),
+        )
           ? [exhaustive ? "no results" : "no matches returned"]
           : []),
         ...(source.hostedDocumentation ? ["hosted documentation"] : []),

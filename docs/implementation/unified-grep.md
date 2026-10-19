@@ -198,8 +198,8 @@ The scope stays in `targets`, retains its input attribution, and reports
 `RESUMABLE_LIMIT` traversal. Continue with `nextCursor` and identical ordered
 operands/controls to inspect it. Readiness has not yet been observed; this
 status does not indicate target failure or unavailable content. Text lists
-the source with `(no matches returned)` instead of a separate unvisited-scope
-message. JSON preserves the backend enum and full status.
+the source with `(not reached on this page)`; the shared continuation action
+provides the cursor. JSON preserves the backend enum and full status.
 
 Stale/failed scopes, skips, issues, omitted issue counts, safety normalization
 and unavailable targets stay visible on zero-hit pages. `No matches found.`

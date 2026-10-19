@@ -93,7 +93,7 @@ describe("unified grep result and text", () => {
     });
     expect(projectGrepResult(page)).toEqual(page);
     const output = formatGrepText(page);
-    expect(output).toContain("  - site:docs.test (no matches returned)");
+    expect(output).toContain("  - site:docs.test (not reached on this page)");
     expect(output).not.toContain("not visited in this page");
     expect(output).not.toContain("inputs 0, 1");
     expect(output).not.toContain("UNSPECIFIED / RESUMABLE_LIMIT");

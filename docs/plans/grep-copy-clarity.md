@@ -50,8 +50,7 @@ Render the pending, terminal, native failure, mixed zero-hit and partial-hit
 fixtures before/after; measure text bytes, not inferred token savings. Existing
 mixed-100/repository-100 successful fixtures must remain byte-identical.
 Run build, typecheck, changed-file checks and required development CLI/MCP smoke.
-The prior normal-path agent eval remains applicable (no descriptor/matching
-change); fixtures prove the revised error copy. Review full revised PR delta
+Run the targeted normal-path agent eval; fixtures prove the revised error copy. Review full revised PR delta
 with internal preflight and the retained Claude reviewer, then commit/push/update
 the existing draft PR. No merge/release/deploy.
 
@@ -71,5 +70,36 @@ Rendered request-aware examples: pending248B, terminal191B, native434B,
 mixed472B, partial hits611B. These are larger than the previous vague copy;
 the added text names affected inputs, exact controls and the bounded wait.
 This is not a claim of runtime performance or measured token savings.
-Required development smoke and targeted normal-path agent eval are running.
+The targeted normal-path agent eval passed; required development smoke results
+are recorded below.
 No backend failure states were fabricated as live repros; fixtures supply them.
+
+## Clarity review round 1 closure
+
+Direction/ownership sound; reviewer accepted the complete pending/native/mixed
+examples. C1 accepted: `UNSPECIFIED + RESUMABLE_LIMIT` denotes an unvisited source,
+so source rows now say `not reached on this page`, suppressing an empty-match
+qualifier. Checked both callers, grouping/identity, pending and ordinary cursor
+fixtures, width/ANSI rendering and all grep implementation guides. The single
+More results footer still owns the exact cursor action.
+C2 accepted: removed unexplained `retained results` jargon; expiry now says
+`Cursor expired; the search could not continue.` Existing hits and the sole
+restart action remain covered. C3 accepted: `set` replaces `add` for both wait
+syntaxes so an existing wait is replaced; scanned formatter, parity and docs.
+D1 accepted: indexing-estimates.md now documents current source labels,
+Not searched, selective retries and bounded waits. Nit accepted: singular file
+counts in searched coverage rows, with explicit singular/plural assertions.
+
+Conditional empty attribution rejected on 2026-10-19 after read-only producer
+verification: original request indices are non-empty, in bounds and preserved
+through scope deduplication/projection. The empty/out-of-range fixture violates
+that contract; no speculative fallback or guard added. Detailed private source
+evidence is in the local review brief. No unresolved decision or scope change.
+
+Round-2 evidence: 113 focused tests pass, 963 assertions; build, typecheck and
+five-file Biome/diff checks pass. Healthy benchmark outputs remain byte-identical
+at 6967/5754 bytes. Required development smoke passes on this revision cycle:
+168 CLI steps (711s), 86 MCP steps (185s); the subsequent small wording/grammar
+fixes are covered by the focused tests and build. The development MCP agent run
+passed (6 MCP calls: quick_start, 2 grep, 3 read; zero isolation violations;
+no graded-quality claim). Internal full-delta preflight for round 2 is clean.

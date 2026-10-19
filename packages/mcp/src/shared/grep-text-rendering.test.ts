@@ -283,6 +283,28 @@ describe("grep evidence rendering", () => {
     expect(text).not.toContain("retryable false");
   });
 
+  it.each([
+    [1, "Searched 0 of 1 file."],
+    [2, "Searched 0 of 2 files."],
+  ] as const)(
+    "uses the scope file count's plural for %i files",
+    (filesInScope, expected) => {
+      const text = formatGrepText(
+        page([], {
+          targets: [
+            scope({
+              readiness: "NOT_AVAILABLE",
+              traversal: "FAILED",
+              filesScanned: 0,
+              filesInScope,
+            }),
+          ],
+        }),
+      );
+      expect(text).toContain(expected);
+    },
+  );
+
   it("places exact dim continuation instructions after evidence for CLI and MCP", () => {
     const cursor = "opaque cursor";
     const data = page([hit()], {
@@ -569,8 +591,8 @@ describe("grep coverage copy", () => {
       );
       expect(text).toContain(
         syntax === "cli"
-          ? "add --wait 30000 to wait up to 30s for preparation."
-          : "add wait_timeout_ms=30000 to wait up to 30s for preparation.",
+          ? "set --wait 30000 to wait up to 30s for preparation."
+          : "set wait_timeout_ms=30000 to wait up to 30s for preparation.",
       );
       expect(text).toContain(
         syntax === "cli" ? "--cursor 'exact cursor'" : 'cursor="exact cursor"',
@@ -628,7 +650,7 @@ describe("grep recovery precedence", () => {
       for (const syntax of ["cli", "mcp"] as const) {
         const text = formatGrepText(data, { syntax, width: 160 });
         expect(text).toContain(
-          "Cursor expired; any matches shown here are retained results.",
+          "Cursor expired; the search could not continue.",
         );
         expect(text).toContain("[1] github:o/r@sha a.ts\n3: router");
         if (unavailableTargets.length) expect(text).toContain("Preparing:");
@@ -751,8 +773,8 @@ describe("explicit grep recovery", () => {
       expect(recovery).not.toMatch(/terminal|backend-alias|resolved|retryable/);
       expect(recovery).toContain(
         syntax === "cli"
-          ? "Omit --cursor; add --wait 30000 to wait up to 30s for preparation."
-          : "Omit cursor; add wait_timeout_ms=30000 to wait up to 30s for preparation.",
+          ? "Omit --cursor; set --wait 30000 to wait up to 30s for preparation."
+          : "Omit cursor; set wait_timeout_ms=30000 to wait up to 30s for preparation.",
       );
     }
   });
