@@ -89,7 +89,7 @@ export function createResearchTool(
           args.format,
         );
       }
-      const progress = await context?.progress?.begin();
+      const progress = await context?.progress?.begin("Researching…");
       try {
         const requestOptions =
           context?.signal || progress

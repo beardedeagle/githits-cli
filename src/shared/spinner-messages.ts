@@ -3,17 +3,10 @@
  * a command waits on the GitHits backend, so long requests feel alive.
  */
 export const SPINNER_MESSAGES = {
-  research: [
-    "Investigating indexed sources...",
-    "Tracing the relevant implementation...",
-    "Grounding the answer...",
-  ],
-  example: [
-    "Searching real implementations...",
-    "Exploring open-source code...",
-    "Finding production patterns...",
-    "Grounding results...",
-  ],
+  // Research and examples show live backend progress; these labels only cover
+  // the moments before the first update or when progress is unavailable.
+  research: ["Researching..."],
+  example: ["Finding examples..."],
   search: [
     "Exploring repositories...",
     "Tracing symbols...",

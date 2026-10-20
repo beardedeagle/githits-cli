@@ -4,6 +4,10 @@ import type {
   ServerNotification,
   ServerRequest,
 } from "@modelcontextprotocol/sdk/types.js";
+import {
+  beginAnimatedProgress,
+  type McpProgressAnimationOptions,
+} from "../progress/progress-animator.js";
 import type { McpProgressHook } from "../progress/relay-receiver.js";
 import {
   type CompleteToolAnnotations,
@@ -82,6 +86,11 @@ export interface CreateMcpServerOptions<TExtra = unknown> {
   traceTool?: McpToolExecutionHook;
   /** Optional progress source; used only when the client sends a progress token. */
   progress?: McpProgressHook;
+  /**
+   * Animates progress messages locally with the GitHits narrowing mark.
+   * Defaults to on (500 ms frames) when `progress` is set; `false` disables.
+   */
+  progressAnimation?: McpProgressAnimationOptions | boolean;
 }
 
 export interface McpToolDescriptor<TSchema extends ZodRawShape = ZodRawShape> {
@@ -201,6 +210,7 @@ export function registerMcpTools<TExtra = unknown>(
     services: McpToolServicesProvider<TExtra>;
     traceTool?: McpToolExecutionHook;
     progress?: McpProgressHook;
+    progressAnimation?: McpProgressAnimationOptions | boolean;
   },
 ): void {
   registerMcpToolsWithFactories(server, STABLE_MCP_TOOL_FACTORIES, {
@@ -221,9 +231,14 @@ export function registerMcpToolsWithFactories<
     services: McpToolServicesProviderFor<TServices, TExtra>;
     traceTool?: McpToolExecutionHook;
     progress?: McpProgressHook;
+    progressAnimation?: McpProgressAnimationOptions | boolean;
     descriptorServices: TServices;
   },
 ): void {
+  const animation = resolveAnimation(
+    options.progressAnimation,
+    options.progress,
+  );
   for (const createTool of toolFactories) {
     const descriptor = addMcpSessionPrerequisite(
       createTool(options.descriptorServices),
@@ -236,7 +251,7 @@ export function registerMcpToolsWithFactories<
         annotations: descriptor.annotations,
       },
       async (args, extra) => {
-        const progress = bindProgress(options.progress, extra);
+        const progress = bindProgress(options.progress, animation, extra);
         const context: ToolExecutionContext = {
           authAction: options.authAction,
           termsRemediation: options.termsRemediation,
@@ -293,6 +308,7 @@ export interface CreateMcpServerWithFactoriesOptions<
   instructions?: string;
   traceTool?: McpToolExecutionHook;
   progress?: McpProgressHook;
+  progressAnimation?: McpProgressAnimationOptions | boolean;
 }
 
 export function createMcpServerWithFactories<
@@ -312,6 +328,7 @@ export function createMcpServerWithFactories<
     services: options.services,
     traceTool: options.traceTool,
     progress: options.progress,
+    progressAnimation: options.progressAnimation,
     descriptorServices: options.descriptorServices,
   });
 
@@ -323,28 +340,46 @@ type ProgressRequestExtra = Pick<
   "_meta" | "sendNotification"
 >;
 
+/** Animation is opt-out with a progress hook and opt-in without one. */
+function resolveAnimation(
+  option: McpProgressAnimationOptions | boolean | undefined,
+  hook: McpProgressHook | undefined,
+): McpProgressAnimationOptions | false {
+  if (option === false) return false;
+  if (option === true) return {};
+  if (option) return option;
+  return hook ? {} : false;
+}
+
 /**
- * Binds the host's progress source to one MCP request. Progress is offered
- * only when the client supplied a token; `0` is a valid token. Notifications
- * are best effort and stop when the tool call ends.
+ * Binds progress to one MCP request. Progress is offered only when the client
+ * supplied a token; `0` is a valid token. Live updates come from the hook and
+ * animation frames are generated locally; all notifications are best effort
+ * and stop when the tool call ends.
  */
 function bindProgress(
   hook: McpProgressHook | undefined,
+  animation: McpProgressAnimationOptions | false,
   extra: ProgressRequestExtra | undefined,
 ): ToolProgress | undefined {
   const progressToken = extra?._meta?.progressToken;
-  if (!hook || progressToken === undefined || !extra?.sendNotification) {
+  if (
+    (!hook && !animation) ||
+    progressToken === undefined ||
+    !extra?.sendNotification
+  ) {
     return undefined;
   }
   const { sendNotification } = extra;
+  const emit = (progress: number, message: string) => {
+    void sendNotification({
+      method: "notifications/progress",
+      params: { progressToken, progress, message },
+    }).catch(() => {});
+  };
   return {
-    begin: () =>
-      hook.begin(({ progress, message }) => {
-        void sendNotification({
-          method: "notifications/progress",
-          params: { progressToken, progress, message },
-        }).catch(() => {});
-      }),
+    begin: (initialMessage = "Working…") =>
+      beginAnimatedProgress(hook, emit, initialMessage, animation),
   };
 }
 

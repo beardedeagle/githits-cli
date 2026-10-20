@@ -7,6 +7,8 @@ export interface McpProgressUpdate {
   progress: number;
   /** Fixed, server-allowlisted status text. */
   message: string;
+  /** Coarse backend stage, such as `searching` or `reading`, when provided. */
+  stage?: string;
 }
 
 /** One correlated backend call; `end()` stops delivery before the result returns. */
@@ -55,13 +57,9 @@ export interface RelayReceiverOptions {
   createSocket?: (url: string) => RelaySocket;
   /** Extra headers for relay setup requests, such as client attribution. */
   clientHeaders?: () => Record<string, string>;
-  /** Longest a call waits for an existing relay's socket before proceeding. */
+  /** @deprecated Ignored: calls never wait for the relay socket. */
   connectWaitMs?: number;
-  /**
-   * Longest a call waits while the first relay is minted and its socket opens.
-   * Minting takes about a second, so a shorter wait would skip progress for the
-   * first call of every process.
-   */
+  /** @deprecated Ignored: calls never wait for the relay socket. */
   firstConnectWaitMs?: number;
   /** Close an unused socket after this long. */
   idleCloseMs?: number;
@@ -74,7 +72,6 @@ export interface RelayReceiverOptions {
 }
 
 interface RelayAccess {
-  relayId: string;
   url: string;
   /** Epoch milliseconds. */
   expiresAt: number;
@@ -104,14 +101,18 @@ const MAX_MESSAGE_LENGTH = 200;
  * Receives backend operation progress over one shared WebSocket and routes it
  * to the MCP call that supplied each operation ID.
  *
- * Every failure degrades to "no progress": relay setup errors back off, socket
- * drops reconnect in the background, and late or unknown events are dropped.
+ * Calls never wait for the relay. The relay ID is chosen locally, so a call's
+ * progress headers are known immediately; minting the receive URL and opening
+ * the socket run in the background, and updates are delivered once the socket
+ * joins. Updates published before that are missed, which only affects the
+ * first call of a process. Every failure degrades to "no progress": relay setup
+ * errors back off, socket drops reconnect in the background, and late or
+ * unknown events are dropped.
  */
 export class RelayReceiver implements McpProgressHook {
   private readonly fetchFn: typeof fetch;
   private readonly createSocket: (url: string) => RelaySocket;
-  private readonly connectWaitMs: number;
-  private readonly firstConnectWaitMs: number;
+  private readonly relayId: string;
   private readonly idleCloseMs: number;
   private readonly reconnectBaseMs: number;
   private readonly minRenewDelayMs: number;
@@ -133,13 +134,14 @@ export class RelayReceiver implements McpProgressHook {
     this.createSocket =
       options.createSocket ??
       ((url) => new WebSocket(url) as unknown as RelaySocket);
-    this.connectWaitMs = options.connectWaitMs ?? 1_000;
-    this.firstConnectWaitMs = options.firstConnectWaitMs ?? 3_000;
     this.idleCloseMs = options.idleCloseMs ?? 5 * 60_000;
     this.reconnectBaseMs = options.reconnectBaseMs ?? RECONNECT_BASE_MS;
     this.minRenewDelayMs = options.minRenewDelayMs ?? MIN_RENEW_DELAY_MS;
     this.now = options.now ?? Date.now;
     this.createId = options.createId ?? (() => globalThis.crypto.randomUUID());
+    // Relay groups are namespaced per caller or service by the backend, so the
+    // client may choose the ID and renew it into a receive URL at any time.
+    this.relayId = this.createId().toLowerCase();
   }
 
   async begin(
@@ -147,28 +149,15 @@ export class RelayReceiver implements McpProgressHook {
   ): Promise<McpProgressOperation | undefined> {
     if (this.closed || this.now() < this.unavailableUntil) return undefined;
     this.clearTimer("idleTimer");
-    const wait = this.relay ? this.connectWaitMs : this.firstConnectWaitMs;
-    const ready = this.ensureConnected();
-    let waitTimer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([
-      ready,
-      new Promise<void>((resolve) => {
-        waitTimer = setTimeout(resolve, wait);
-      }),
-    ]);
-    clearTimeout(waitTimer);
-    const relay = this.relay;
-    if (!relay || this.closed) {
-      this.scheduleIdleClose();
-      return undefined;
-    }
+    // Connect in the background; never delay the call for progress.
+    void this.ensureConnected();
     const operationId = this.createId().toLowerCase();
     this.routes.set(operationId, { notify, lastSequence: 0 });
     let ended = false;
     return {
       headers: {
         "X-GitHits-Progress-Id": operationId,
-        "X-GitHits-Relay-Id": relay.relayId,
+        "X-GitHits-Relay-Id": this.relayId,
         ...this.serviceHeaders(),
       },
       rejected: () => {
@@ -207,7 +196,7 @@ export class RelayReceiver implements McpProgressHook {
   private async connect(): Promise<void> {
     let relay: RelayAccess;
     try {
-      relay = await this.setup(this.relay?.relayId);
+      relay = await this.setup();
     } catch (error) {
       this.unavailableUntil =
         this.now() +
@@ -282,25 +271,29 @@ export class RelayReceiver implements McpProgressHook {
     if (!route || event.sequence <= route.lastSequence) return;
     route.lastSequence = event.sequence;
     try {
-      route.notify({ progress: event.sequence, message: event.message });
+      route.notify({
+        progress: event.sequence,
+        message: event.message,
+        ...(event.stage ? { stage: event.stage } : {}),
+      });
     } catch {
       // A failed notification must never affect the tool call.
     }
   }
 
-  private async setup(relayId: string | undefined): Promise<RelayAccess> {
-    const path = relayId ? "/progress/relays/renew" : "/progress/relays";
+  /** Mints a receive URL for this receiver's locally chosen relay ID. */
+  private async setup(): Promise<RelayAccess> {
     const headers: Record<string, string> = {
       ...this.options.clientHeaders?.(),
       ...(await this.authHeaders()),
       "Content-Type": "application/json",
     };
     const response = await this.fetchFn(
-      `${this.options.apiUrl.replace(/\/+$/, "")}${path}`,
+      `${this.options.apiUrl.replace(/\/+$/, "")}/progress/relays/renew`,
       {
         method: "POST",
         headers,
-        body: relayId ? JSON.stringify({ relay_id: relayId }) : undefined,
+        body: JSON.stringify({ relay_id: this.relayId }),
         signal: AbortSignal.timeout(SETUP_TIMEOUT_MS),
       },
     );
@@ -308,7 +301,7 @@ export class RelayReceiver implements McpProgressHook {
       await response.body?.cancel().catch(() => {});
       throw new RelayUnavailableError(backoffFor(response));
     }
-    const access = parseRelayAccess(await response.json());
+    const access = parseRelayAccess(await response.json(), this.relayId);
     if (!access) throw new RelayUnavailableError(UNAVAILABLE_BACKOFF_MS);
     return access;
   }
@@ -423,12 +416,16 @@ function backoffFor(response: Response): number {
   return UNAVAILABLE_BACKOFF_MS;
 }
 
-function parseRelayAccess(value: unknown): RelayAccess | undefined {
+function parseRelayAccess(
+  value: unknown,
+  relayId: string,
+): RelayAccess | undefined {
   if (!value || typeof value !== "object") return undefined;
   const body = value as Record<string, unknown>;
   const { relay_id, connection_url, expires_at } = body;
   if (
     typeof relay_id !== "string" ||
+    relay_id.toLowerCase() !== relayId ||
     typeof connection_url !== "string" ||
     !connection_url.startsWith("wss://") ||
     typeof expires_at !== "number"
@@ -436,7 +433,6 @@ function parseRelayAccess(value: unknown): RelayAccess | undefined {
     return undefined;
   }
   return {
-    relayId: relay_id.toLowerCase(),
     url: connection_url,
     expiresAt: expires_at * 1_000,
   };
@@ -446,6 +442,7 @@ interface RelayEvent {
   operationId: string;
   sequence: number;
   message: string;
+  stage?: string;
 }
 
 function parseEvent(data: unknown): RelayEvent | undefined {
@@ -472,10 +469,15 @@ function parseEvent(data: unknown): RelayEvent | undefined {
   ) {
     return undefined;
   }
+  const stage =
+    typeof event.stage === "string" && /^[a-z_]{1,32}$/.test(event.stage)
+      ? event.stage
+      : undefined;
   return {
     operationId: event.operation_id.toLowerCase(),
     sequence: event.sequence,
     message: event.message.slice(0, MAX_MESSAGE_LENGTH),
+    ...(stage ? { stage } : {}),
   };
 }
 

@@ -95,7 +95,7 @@ export function createGetExampleTool(
             licenseMode: args.license_mode,
             includeExplanation: false,
           };
-          const progress = await context?.progress?.begin();
+          const progress = await context?.progress?.begin("Finding examples…");
           let markdown: string;
           try {
             markdown =

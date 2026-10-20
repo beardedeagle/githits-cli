@@ -6,7 +6,8 @@ import {
   type RelaySocket,
 } from "./relay-receiver.js";
 
-const RELAY_ID = "1b2c3d4e-5f60-4718-8a9b-0c1d2e3f4a5b";
+// The harness's first generated ID becomes the locally chosen relay ID.
+const RELAY_ID = "00000000-0000-4000-8000-000000000000";
 
 class FakeSocket implements RelaySocket {
   onopen: (() => void) | null = null;
@@ -34,11 +35,14 @@ class FakeSocket implements RelaySocket {
   }
 }
 
+/** A relay mint response; by default it echoes the requested relay ID. */
+type SetupResponse = Response | ((relayId: string) => Response);
+
 interface Harness {
   receiver: RelayReceiver;
   sockets: FakeSocket[];
   setupCalls: { path: string; headers: Headers; body: string }[];
-  responses: Response[];
+  responses: SetupResponse[];
   clock: { now: number };
 }
 
@@ -48,20 +52,37 @@ afterEach(() => {
   for (const receiver of receivers.splice(0)) receiver.close();
 });
 
-function access(seconds = 900, url = "wss://relay.test/client"): Response {
-  return Response.json({
-    relay_id: RELAY_ID,
-    expires_at: Math.floor(Date.now() / 1000) + seconds,
-    connection_url: url,
-  });
+function access(seconds = 900, url = "wss://relay.test/client"): SetupResponse {
+  return (relayId) =>
+    Response.json({
+      relay_id: relayId,
+      expires_at: Math.floor(Date.now() / 1000) + seconds,
+      connection_url: url,
+    });
+}
+
+function fakeFetch(
+  responses: SetupResponse[],
+  setupCalls: Harness["setupCalls"] = [],
+): typeof fetch {
+  return (async (url: string | URL | Request, init?: RequestInit) => {
+    const body = String(init?.body ?? "");
+    setupCalls.push({
+      path: new URL(String(url)).pathname,
+      headers: new Headers(init?.headers),
+      body,
+    });
+    const next = responses.shift();
+    if (!next) throw new TypeError("network down");
+    return typeof next === "function" ? next(JSON.parse(body).relay_id) : next;
+  }) as unknown as typeof fetch;
 }
 
 function harness(
   options: {
     auth?: RelayAuth;
-    responses?: Response[];
+    responses?: SetupResponse[];
     autoOpen?: boolean;
-    connectWaitMs?: number;
     idleCloseMs?: number;
     minRenewDelayMs?: number;
   } = {},
@@ -77,24 +98,13 @@ function harness(
       kind: "caller",
       getToken: async () => "gh-proj-token",
     },
-    fetchFn: (async (url: string | URL | Request, init?: RequestInit) => {
-      setupCalls.push({
-        path: new URL(String(url)).pathname,
-        headers: new Headers(init?.headers),
-        body: String(init?.body ?? ""),
-      });
-      const next = responses.shift();
-      if (!next) throw new TypeError("network down");
-      return next;
-    }) as unknown as typeof fetch,
+    fetchFn: fakeFetch(responses, setupCalls),
     createSocket: (url) => {
       const socket = new FakeSocket(url);
       sockets.push(socket);
       if (options.autoOpen !== false) queueMicrotask(() => socket.open());
       return socket;
     },
-    connectWaitMs: options.connectWaitMs ?? 50,
-    firstConnectWaitMs: options.connectWaitMs ?? 50,
     idleCloseMs: options.idleCloseMs ?? 60_000,
     reconnectBaseMs: 5,
     minRenewDelayMs: options.minRenewDelayMs ?? 60_000,
@@ -114,25 +124,67 @@ function collector(): {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/** Lets background minting and the socket open complete. */
+const settle = () => sleep(10);
 
 describe("RelayReceiver", () => {
-  it("mints with the caller token and routes events to the matching call", async () => {
+  it("returns correlation headers immediately and connects in the background", async () => {
     const { receiver, sockets, setupCalls } = harness();
-    const first = collector();
-    const second = collector();
-    const a = await receiver.begin(first.notify);
-    const b = await receiver.begin(second.notify);
-    expect(a?.headers).toEqual({
-      "X-GitHits-Progress-Id": "00000000-0000-4000-8000-000000000000",
+    const operation = await receiver.begin(() => {});
+    expect(operation?.headers).toEqual({
+      "X-GitHits-Progress-Id": "00000000-0000-4000-8000-000000000001",
       "X-GitHits-Relay-Id": RELAY_ID,
     });
+    await settle();
     expect(setupCalls).toHaveLength(1);
-    expect(setupCalls[0]?.path).toBe("/progress/relays");
+    expect(setupCalls[0]?.path).toBe("/progress/relays/renew");
+    expect(JSON.parse(setupCalls[0]?.body ?? "{}")).toEqual({
+      relay_id: RELAY_ID,
+    });
     expect(setupCalls[0]?.headers.get("Authorization")).toBe(
       "Bearer gh-proj-token",
     );
     expect(sockets).toHaveLength(1);
+  });
 
+  it("never delays a call while the relay is minted", async () => {
+    let releaseMint!: () => void;
+    const mintBlocked = new Promise<void>((resolve) => {
+      releaseMint = resolve;
+    });
+    const receiver = new RelayReceiver({
+      apiUrl: "https://api.githits.test",
+      auth: { kind: "caller", getToken: async () => "token" },
+      fetchFn: (async (_url: string, init?: RequestInit) => {
+        await mintBlocked;
+        return Response.json({
+          relay_id: JSON.parse(String(init?.body)).relay_id,
+          expires_at: Math.floor(Date.now() / 1000) + 900,
+          connection_url: "wss://relay.test/client",
+        });
+      }) as unknown as typeof fetch,
+      createSocket: (url) => {
+        const socket = new FakeSocket(url);
+        queueMicrotask(() => socket.open());
+        return socket;
+      },
+    });
+    receivers.push(receiver);
+    const started = Date.now();
+    const operation = await receiver.begin(() => {});
+    expect(Date.now() - started).toBeLessThan(50);
+    expect(operation?.headers["X-GitHits-Relay-Id"]).toBeTruthy();
+    releaseMint();
+  });
+
+  it("routes events to the matching call once the socket joins", async () => {
+    const { receiver, sockets } = harness();
+    const first = collector();
+    const second = collector();
+    const a = await receiver.begin(first.notify);
+    const b = await receiver.begin(second.notify);
+    await settle();
+    expect(sockets).toHaveLength(1);
     const socket = sockets[0] as FakeSocket;
     socket.emit({
       operation_id: a?.headers["X-GitHits-Progress-Id"],
@@ -157,6 +209,7 @@ describe("RelayReceiver", () => {
     const { receiver, sockets } = harness();
     const { notify, updates } = collector();
     const operation = await receiver.begin(notify);
+    await settle();
     const socket = sockets[0] as FakeSocket;
     const operation_id = operation?.headers["X-GitHits-Progress-Id"];
     socket.emit({ operation_id, sequence: 3, message: "Three" });
@@ -181,6 +234,7 @@ describe("RelayReceiver", () => {
     const { receiver, sockets } = harness();
     const { notify, updates } = collector();
     const operation = await receiver.begin(notify);
+    await settle();
     const payload = JSON.stringify({
       version: 1,
       operation_id: operation?.headers["X-GitHits-Progress-Id"],
@@ -200,6 +254,7 @@ describe("RelayReceiver", () => {
       },
     });
     const operation = await receiver.begin(() => {});
+    await settle();
     expect(setupCalls[0]?.headers.get("X-GitHits-Relay-Service")).toBe(
       "example-service",
     );
@@ -217,64 +272,78 @@ describe("RelayReceiver", () => {
       new Response(null, { status: 429, headers: { "Retry-After": "7" } }),
       7_000,
     ],
+    [
+      "mismatched relay",
+      Response.json({
+        relay_id: "11111111-1111-4111-8111-111111111111",
+        expires_at: Math.floor(Date.now() / 1000) + 900,
+        connection_url: "wss://relay.test/client",
+      }),
+      5 * 60_000,
+    ],
   ])(
-    "backs off after a %s mint without retrying per call",
+    "omits progress after a %s mint until the backoff ends",
     async (_name, failure, backoff) => {
       const { receiver, setupCalls, responses, clock } = harness({
         responses: [failure],
       });
-      expect(await receiver.begin(() => {})).toBeUndefined();
+      // The first call already carries headers; the failure is learned later.
+      expect(await receiver.begin(() => {})).toBeDefined();
+      await settle();
       expect(await receiver.begin(() => {})).toBeUndefined();
       expect(setupCalls).toHaveLength(1);
       responses.push(access());
       clock.now += backoff + 1;
       expect(await receiver.begin(() => {})).toBeDefined();
+      await settle();
       expect(setupCalls).toHaveLength(2);
     },
   );
 
-  it("returns no progress when the caller has no token", async () => {
+  it("backs off without minting when the caller has no token", async () => {
     const { receiver, setupCalls } = harness({
       auth: { kind: "caller", getToken: async () => undefined },
     });
-    expect(await receiver.begin(() => {})).toBeUndefined();
+    await receiver.begin(() => {});
+    await settle();
     expect(setupCalls).toHaveLength(0);
+    expect(await receiver.begin(() => {})).toBeUndefined();
   });
 
-  it("proceeds after the connect wait while the socket is still opening", async () => {
-    const { receiver, sockets } = harness({
-      autoOpen: false,
-      connectWaitMs: 20,
+  it("delivers events once a slow socket finally opens", async () => {
+    const { receiver, sockets } = harness({ autoOpen: false });
+    const { notify, updates } = collector();
+    const operation = await receiver.begin(notify);
+    await settle();
+    const socket = sockets[0] as FakeSocket;
+    socket.open();
+    socket.emit({
+      operation_id: operation?.headers["X-GitHits-Progress-Id"],
+      sequence: 4,
+      message: "Late but delivered",
     });
-    const started = Date.now();
-    const operation = await receiver.begin(() => {});
-    expect(Date.now() - started).toBeGreaterThanOrEqual(15);
-    expect(operation?.headers["X-GitHits-Relay-Id"]).toBe(RELAY_ID);
-    expect(sockets).toHaveLength(1);
+    expect(updates).toEqual([{ progress: 4, message: "Late but delivered" }]);
   });
 
   it("backs off when the socket cannot open", async () => {
     const { receiver, sockets, setupCalls } = harness({ autoOpen: false });
-    const pending = receiver.begin(() => {});
-    await sleep(0);
+    await receiver.begin(() => {});
+    await settle();
     sockets[0]?.drop();
-    await pending;
     expect(await receiver.begin(() => {})).toBeUndefined();
     expect(setupCalls).toHaveLength(1);
   });
 
-  it("reconnects through renew with the same relay after a drop mid-call", async () => {
+  it("reconnects with the same relay after a drop mid-call", async () => {
     const { receiver, sockets, setupCalls, responses } = harness();
     const { notify, updates } = collector();
     const operation = await receiver.begin(notify);
+    await settle();
     const operation_id = operation?.headers["X-GitHits-Progress-Id"];
     responses.push(access(900, "wss://relay.test/renewed"));
     sockets[0]?.drop();
     await sleep(40);
-    expect(setupCalls.map((call) => call.path)).toEqual([
-      "/progress/relays",
-      "/progress/relays/renew",
-    ]);
+    expect(setupCalls).toHaveLength(2);
     expect(JSON.parse(setupCalls[1]?.body ?? "{}")).toEqual({
       relay_id: RELAY_ID,
     });
@@ -293,7 +362,7 @@ describe("RelayReceiver", () => {
     const operation_id = operation?.headers["X-GitHits-Progress-Id"];
     responses.push(access(900, "wss://relay.test/renewed"));
     await sleep(60);
-    expect(setupCalls[1]?.path).toBe("/progress/relays/renew");
+    expect(setupCalls).toHaveLength(2);
     expect(sockets).toHaveLength(2);
     expect(sockets[0]?.closed).toBe(true);
     sockets[1]?.emit({ operation_id, sequence: 1, message: "After renewal" });
@@ -306,9 +375,7 @@ describe("RelayReceiver", () => {
     const receiver = new RelayReceiver({
       apiUrl: "https://api.githits.test",
       auth: { kind: "caller", getToken: async () => "token" },
-      fetchFn: (async () =>
-        responses.shift() ??
-        new Response(null, { status: 503 })) as unknown as typeof fetch,
+      fetchFn: fakeFetch(responses),
       createSocket: (url) => {
         const socket = new FakeSocket(url);
         sockets.push(socket);
@@ -317,7 +384,6 @@ describe("RelayReceiver", () => {
         );
         return socket;
       },
-      connectWaitMs: 50,
       minRenewDelayMs: 10,
       reconnectBaseMs: 60_000,
     });
@@ -350,20 +416,21 @@ describe("RelayReceiver", () => {
       idleCloseMs: 10,
     });
     const operation = await receiver.begin(() => {});
+    await settle();
     operation?.end();
     await sleep(30);
     expect(sockets[0]?.closed).toBe(true);
     responses.push(access());
     expect(await receiver.begin(() => {})).toBeDefined();
-    expect(setupCalls.map((call) => call.path)).toEqual([
-      "/progress/relays",
-      "/progress/relays/renew",
-    ]);
+    await settle();
+    expect(setupCalls).toHaveLength(2);
+    expect(sockets).toHaveLength(2);
   });
 
   it("close() shuts the socket and disables progress", async () => {
     const { receiver, sockets } = harness();
     await receiver.begin(() => {});
+    await settle();
     receiver.close();
     expect(sockets[0]?.closed).toBe(true);
     expect(await receiver.begin(() => {})).toBeUndefined();
@@ -376,6 +443,7 @@ describe("RelayReceiver", () => {
         throw new Error("client gone");
       }),
     );
+    await settle();
     expect(() =>
       sockets[0]?.emit({
         operation_id: operation?.headers["X-GitHits-Progress-Id"],
@@ -384,26 +452,30 @@ describe("RelayReceiver", () => {
       }),
     ).not.toThrow();
   });
-  it("waits longer for the first relay than for later calls", async () => {
-    const sockets: FakeSocket[] = [];
-    const receiver = new RelayReceiver({
-      apiUrl: "https://api.githits.test",
-      auth: { kind: "caller", getToken: async () => "token" },
-      fetchFn: (async () => {
-        await sleep(40);
-        return access();
-      }) as unknown as typeof fetch,
-      createSocket: (url) => {
-        const socket = new FakeSocket(url);
-        sockets.push(socket);
-        queueMicrotask(() => socket.open());
-        return socket;
-      },
-      connectWaitMs: 5,
-      firstConnectWaitMs: 500,
+});
+
+describe("RelayReceiver stages", () => {
+  it("passes a safe backend stage through to updates", async () => {
+    const { receiver, sockets } = harness();
+    const { notify, updates } = collector();
+    const operation = await receiver.begin(notify);
+    await settle();
+    const operation_id = operation?.headers["X-GitHits-Progress-Id"];
+    sockets[0]?.emit({
+      operation_id,
+      sequence: 1,
+      message: "Reading sources.",
+      stage: "reading",
     });
-    receivers.push(receiver);
-    const operation = await receiver.begin(() => {});
-    expect(operation?.headers["X-GitHits-Relay-Id"]).toBe(RELAY_ID);
+    sockets[0]?.emit({
+      operation_id,
+      sequence: 2,
+      message: "Odd.",
+      stage: "Not A Stage!",
+    });
+    expect(updates).toEqual([
+      { progress: 1, message: "Reading sources.", stage: "reading" },
+      { progress: 2, message: "Odd." },
+    ]);
   });
 });

@@ -24,6 +24,16 @@ export {
   registerMcpTools,
 } from "./mcp/server.js";
 export type {
+  NarrowingCell,
+  NarrowingFrameOptions,
+} from "./progress/narrowing.js";
+export {
+  focusForStage,
+  narrowingFrame,
+  narrowingText,
+} from "./progress/narrowing.js";
+export type { McpProgressAnimationOptions } from "./progress/progress-animator.js";
+export type {
   McpProgressHook,
   McpProgressOperation,
   McpProgressUpdate,
