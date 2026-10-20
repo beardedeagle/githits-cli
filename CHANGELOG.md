@@ -5,6 +5,36 @@ changes use independent files under [`changes/`](changes/README.md) and are
 consolidated here only during release preparation. Dated, versioned sections
 are historical records and change only to correct blatant factual errors.
 
+## [githits 0.34.0] - 2026-10-20
+
+Pre-1.0 minor release that shows live progress for long-running `research` and
+`get_example` calls in MCP hosts that display progress. Existing commands,
+configuration and MCP setup keep working.
+
+### Added
+
+- **Live progress for `research` and `get_example`** - When an MCP host requests progress, the local MCP server now forwards GitHits status updates as `notifications/progress` while these long-running tools work; hosts that display them (such as Claude Code) show the current stage under the running call. Progress is best effort and authorized by the caller's own token: if it is unavailable, calls run exactly as before and the final result is unchanged.
+
+### Fixed
+
+- **No refresh attempt for project API keys** - Authentication failures with a `gh-proj-` project API key no longer trigger a credential refresh, matching personal `ghi-` API tokens; only signed-in sessions refresh.
+
+## [@githits/mcp 0.34.0] - 2026-10-20
+
+Pre-1.0 minor release that adds optional live progress for `research` and
+`get_example`. Existing hosts and service implementations keep working
+unchanged; progress is used only when a host passes the new `progress` option
+and the client sends a progress token. Hosted MCP clients receive these changes
+after adoption and deployment of the released MCP package.
+
+### Added
+
+- **Live progress for `research` and `get_example`** - An optional `progress` server option forwards GitHits status updates as `notifications/progress` while these tools work, only when the client sends a progress token. The new credential-free `RelayReceiver` receives operation progress over one shared WebSocket, authorized by the caller's own token or by a service credential supplied at runtime. Progress is best effort: if it is unavailable or rejected, calls run unchanged and the final result is authoritative. The package now depends on `ws`.
+
+### Fixed
+
+- **No refresh attempt for project API keys** - Authentication failures with a `gh-proj-` project API key no longer trigger a credential refresh in the bundled services, matching personal `ghi-` API tokens; only signed-in sessions refresh.
+
 ## [githits 0.33.0] - 2026-10-20
 
 Pre-1.0 minor release that adds Launchpad Git targets, package registry
