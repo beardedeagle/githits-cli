@@ -182,7 +182,7 @@ updated results matter. Use visible hits for lookup now. COMPLETED, DEFERRED,
 TIMEOUT, and FAILED are terminal; unrecognized statuses are not polled. Preserve
 any disclosed evidence and follow the rendered new-search action. Missing or
 ambiguous sites instead provide terminal recovery guidance without a searchRef.
-Use \`githits example\` for canonical cross-project examples; \`--source symbol\`
+Use \`githits example\` for code examples from projects across open source; \`--source symbol\`
 here returns symbol-shaped hits.
 
 Hosted/crawled [docs page] HTTP(S) targets address mutable current content.

@@ -204,7 +204,7 @@ githits search "composeArgs" --in npm:lodash --name composeArgs --json
 
 Unified search spans indexed dependency and repository code, docs, and explicit symbols. The positional query is the backend discovery syntax, not a raw pass-through to a per-source search engine. It supports implicit `AND`, uppercase `OR`, parentheses, unary `-`, quoted phrases, semantic qualifiers (`kind:`, `category:`, `path:`, `lang:`, `name:`, `intent:`), and routing qualifiers (`registry:`, `package:`, `version:`, `repo:`). Structured flags are compiled together with the query using `AND` semantics before the request reaches the backend.
 
-**Decision guide.** Use `githits example` for canonical cross-project examples. Use `githits search` for indexed dependency/repository search. Use `githits search --source symbol` when you want symbol-shaped unified search.
+**Decision guide.** Use `githits example` for code examples from projects across open source. Use `githits search` for indexed dependency/repository search. Use `githits search --source symbol` when you want symbol-shaped unified search.
 
 **Targets.** `--in <target>` is repeatable and required. Mix target kinds in
 one request; exact duplicates are removed while preserving order.

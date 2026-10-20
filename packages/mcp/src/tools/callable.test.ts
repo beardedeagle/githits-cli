@@ -34,7 +34,7 @@ describe("toCallableTool", () => {
       type: "string",
       minLength: 1,
       description:
-        "Natural-language example-search query for canonical code examples.",
+        "Natural-language query describing the code example you need.",
     });
     expect(schema.properties?.language).toMatchObject({
       type: "string",

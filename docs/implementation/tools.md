@@ -134,8 +134,8 @@ Use the tools in these roles:
   explicit `site:` target when hosted documentation needs browsing.
   The routing guide selects among these tools; selected descriptions and schemas
   retain callable follow-up mapping.
-  `get_example` is for canonical
-  cross-project examples and unknown-target/global patterns; for a known
+  `get_example` is for code examples
+  from projects across open source and unknown-target/global patterns; for a known
   package or repository, use `search`, `list`, `read`, or `grep` according to
   the task.
 - **Conditional search continuation:** Use visible hits for lookup now. Call
@@ -168,7 +168,7 @@ callable.
 | Tool | Parameters | Description |
 |---|---|---|
 | `quick_start` | none | Required first call for a plain GitHits MCP session. Loads shared safety, routing, target, output, and evidence rules. Skip only when the loaded `githits-mcp` skill already supplies the guide; descriptor reminders do not enforce loading. |
-| `get_example` | `query`, `language?`, `license_mode?`, `format?` | Find canonical cross-project examples when no single target is the answer. Also use when target-scoped search came up short; verify version-sensitive patterns against source/docs. Markdown includes source provenance, generated references and optional `solution_id`; the language field owns correction guidance. |
+| `get_example` | `query`, `language?`, `license_mode?`, `format?` | Find code examples from projects across open source. Use when no single target is the answer. Also use when target-scoped search came up short; verify version-sensitive patterns against source/docs. Markdown includes source provenance, generated references and optional `solution_id`; the language field owns correction guidance. |
 | `search` | `query`, `target?` (compact string), `targets?` (compact strings), `source?`, `public_only?`, `allow_partial_results?`, `limit?`, `offset?`, `wait_timeout_ms?`, `format?` | Discover relevant docs, code, and symbols in a known public target. Pass `query` and either `target` or `targets`, not both. Constraints belong in `query`; inspect qualifier/source warnings. Continue only with an explicit `searchRef` and `search_status` action. |
 | `search_status` | `search_ref`, `wait_timeout_ms?`, `format?` | Continue an explicit search reference for progress and results. Pass the returned `searchRef` as `search_ref` only with an explicit continuation action. Partial hits require the original opt-in; terminal or unrecognized statuses are not polled. |
 | `list` | `target`, `paths?`, `recursive?`, `file_types?`, `languages?`, `intents?`, `limit?`, `after?`, `wait_timeout_ms?`, `format?` | List files or documentation pages in one package, repository, or explicit site inventory. Target-relative literal paths and globs form a union for every target. Selected directories show immediate children unless `recursive` expands them; glob depth is independent. Default text is one path per line with direct read and continuation guidance. JSON preserves exact actions and metadata for programmatic consumers. |

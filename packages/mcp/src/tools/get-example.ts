@@ -46,9 +46,7 @@ const schema: ZodRawShape = {
   query: z
     .string()
     .min(1)
-    .describe(
-      "Natural-language example-search query for canonical code examples.",
-    ),
+    .describe("Natural-language query describing the code example you need."),
   language: z
     .string()
     .min(1)
@@ -70,7 +68,7 @@ const schema: ZodRawShape = {
     ),
 };
 
-const DESCRIPTION = `Find canonical cross-project examples when no single target is the answer. Use for broad usage patterns, unfamiliar errors, multi-library combinations, or when target-scoped search came up short. Verify version-sensitive examples against the target's docs or source.
+const DESCRIPTION = `Find code examples from projects across open source. Use when no single target is the answer: usage patterns, unfamiliar errors, multi-library combinations, or when target-scoped search came up short. Examples come from many unrelated projects; check version-sensitive code against the target's docs or source.
 
 Default output is markdown with source repository provenance and generated references, plus a trailing \`solution_id: ...\` when available. JSON returns \`{result, solution_id?}\`.
 
