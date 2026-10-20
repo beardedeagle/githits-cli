@@ -17,6 +17,10 @@ import {
   SERVER_AUTHENTICATION_REJECTED_MESSAGE,
 } from "./githits-service-errors.js";
 import {
+  type ProgressRequest,
+  readProgressRejection,
+} from "./progress-request.js";
+import {
   type ServiceDiagnostics,
   withServiceDiagnostics,
 } from "./runtime-diagnostics.js";
@@ -107,6 +111,8 @@ export interface SearchParams {
 /** Optional browser-standard controls for a GitHits service request. */
 export interface GitHitsServiceRequestOptions {
   signal?: AbortSignal;
+  /** Optional best-effort progress correlation; never changes the result. */
+  progress?: ProgressRequest;
 }
 
 export interface GitHitsServiceRuntimeOptions {
@@ -148,23 +154,32 @@ export class GitHitsServiceImpl implements GitHitsService {
       this.runtime.diagnostics,
       "githits.search.request",
       async () => {
-        const { response, body } = await this.request(
-          "/search",
-          {
-            method: "POST",
-            headers: this.headers(),
-            body: JSON.stringify({
-              query: params.query,
-              source_format: params.sourceFormat,
-              language: params.language,
-              license_mode: params.licenseMode ?? "strict",
-              include_explanation: params.includeExplanation ?? false,
-            }),
-            ...(options?.signal ? { signal: options.signal } : {}),
-          },
-          this.runtime.exampleRequestTimeoutMs ??
-            DEFAULT_EXAMPLE_REQUEST_TIMEOUT_MS,
-        );
+        const send = (progress?: ProgressRequest) =>
+          this.request(
+            "/search",
+            {
+              method: "POST",
+              headers: this.headers(progress?.headers),
+              body: JSON.stringify({
+                query: params.query,
+                source_format: params.sourceFormat,
+                language: params.language,
+                license_mode: params.licenseMode ?? "strict",
+                include_explanation: params.includeExplanation ?? false,
+              }),
+              ...(options?.signal ? { signal: options.signal } : {}),
+            },
+            this.runtime.exampleRequestTimeoutMs ??
+              DEFAULT_EXAMPLE_REQUEST_TIMEOUT_MS,
+          );
+        let { response, body } = await send(options?.progress);
+        const progressRejection =
+          options?.progress && readProgressRejection(response);
+        if (progressRejection) {
+          // Rejected before admission: nothing ran, so resend without progress.
+          options.progress?.rejected(progressRejection);
+          ({ response, body } = await send());
+        }
 
         if (!response.ok) {
           throw this.createError(response, body);
@@ -175,9 +190,12 @@ export class GitHitsServiceImpl implements GitHitsService {
     );
   }
 
-  private headers(): Record<string, string> {
+  private headers(
+    extra?: Readonly<Record<string, string>>,
+  ): Record<string, string> {
     return {
       ...this.runtime.clientHeaders?.(),
+      ...extra,
       Authorization: `Bearer ${this.token}`,
       "Content-Type": "application/json",
       "User-Agent": this.runtime.userAgent ?? "githits-cli",

@@ -1,3 +1,4 @@
+import type { ProgressRequest } from "@githits/core-internal";
 import type { z } from "zod";
 
 /** Annotation fields required by OpenAI's MCP marketplace validation. */
@@ -38,11 +39,24 @@ export interface ToolTermsRemediation {
   action: string;
 }
 
+/** One correlated backend call; `end()` must run before the tool returns. */
+export interface ToolProgressOperation extends ProgressRequest {
+  end(): void;
+}
+
+/** Progress already bound to the current MCP request's progress token. */
+export interface ToolProgress {
+  /** Returns `undefined` when progress is unavailable; run without it then. */
+  begin(): Promise<ToolProgressOperation | undefined>;
+}
+
 /** Host-provided execution state shared by MCP and direct tool callers. */
 export interface ToolExecutionContext {
   authAction?: McpAuthAction;
   termsRemediation?: ToolTermsRemediation;
   signal?: AbortSignal;
+  /** Present only when the host enabled progress and the client asked for it. */
+  progress?: ToolProgress;
 }
 
 /**

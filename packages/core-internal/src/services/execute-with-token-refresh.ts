@@ -39,9 +39,9 @@ export async function executeWithTokenRefresh<T>(
     // A cancelled caller no longer wants the result; surface the caller's
     // reason instead of refreshing credentials for a retry.
     signal?.throwIfAborted();
-    // Opaque ghi-* credentials are re-evaluated server-side and have no local
-    // refresh flow. Do not invoke the provider's refresh hook for them.
-    if (token.startsWith("ghi-") || !options.shouldRefresh(error)) {
+    // Opaque API tokens (personal ghi-*, project gh-proj-*) are re-evaluated
+    // server-side and have no local refresh flow; only Supabase JWTs refresh.
+    if (isOpaqueApiToken(token) || !options.shouldRefresh(error)) {
       throw error;
     }
 
@@ -71,4 +71,8 @@ async function callerFirst<T>(
     signal?.throwIfAborted();
     throw error;
   }
+}
+
+function isOpaqueApiToken(token: string): boolean {
+  return token.startsWith("ghi-") || token.startsWith("gh-proj-");
 }

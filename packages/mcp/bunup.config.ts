@@ -12,7 +12,11 @@ export default defineConfig({
   },
   entry: ["src/index.ts", "src/client.ts", "src/smoke-test.ts", "src/tools.ts"],
   exports: true,
-  external: [/^@modelcontextprotocol\/sdk(?:\/.*)?$/, /^zod(?:\/.*)?$/],
+  external: [
+    /^@modelcontextprotocol\/sdk(?:\/.*)?$/,
+    /^ws(?:\/.*)?$/,
+    /^zod(?:\/.*)?$/,
+  ],
   minifyWhitespace: true,
   packages: "bundle",
   preferredTsconfig: "../../tsconfig.json",

@@ -1,0 +1,485 @@
+import type { ProgressRequest } from "@githits/core-internal";
+import WebSocket from "ws";
+
+/** One MCP progress update derived from a backend progress event. */
+export interface McpProgressUpdate {
+  /** Strictly increasing per operation; suitable for MCP `progress`. */
+  progress: number;
+  /** Fixed, server-allowlisted status text. */
+  message: string;
+}
+
+/** One correlated backend call; `end()` stops delivery before the result returns. */
+export interface McpProgressOperation extends ProgressRequest {
+  end(): void;
+}
+
+/**
+ * Optional, credential-free progress source for long-running tools.
+ *
+ * `begin` returns `undefined` whenever progress is unavailable; tools then run
+ * exactly as without a hook. The HTTP result is always authoritative.
+ */
+export interface McpProgressHook {
+  begin(
+    notify: (update: McpProgressUpdate) => void,
+  ): Promise<McpProgressOperation | undefined>;
+}
+
+/**
+ * How the receiver authenticates relay setup.
+ *
+ * - `caller`: the caller's own GitHits token (local MCP); progress reaches only
+ *   that caller's receiver.
+ * - `service`: a trusted service credential for a server that multiplexes
+ *   many callers over one socket. The credential is supplied at runtime and
+ *   never ships in this package.
+ */
+export type RelayAuth =
+  | { kind: "caller"; getToken: () => Promise<string | undefined> }
+  | { kind: "service"; serviceId: string; key: string };
+
+/** The subset of a WebSocket the receiver uses; `ws` and WHATWG sockets fit. */
+export interface RelaySocket {
+  onopen: (() => void) | null;
+  onmessage: ((event: { data: unknown }) => void) | null;
+  onclose: (() => void) | null;
+  onerror: (() => void) | null;
+  close(): void;
+}
+
+export interface RelayReceiverOptions {
+  apiUrl: string;
+  auth: RelayAuth;
+  fetchFn?: typeof fetch;
+  createSocket?: (url: string) => RelaySocket;
+  /** Extra headers for relay setup requests, such as client attribution. */
+  clientHeaders?: () => Record<string, string>;
+  /** Longest a call waits for an existing relay's socket before proceeding. */
+  connectWaitMs?: number;
+  /**
+   * Longest a call waits while the first relay is minted and its socket opens.
+   * Minting takes about a second, so a shorter wait would skip progress for the
+   * first call of every process.
+   */
+  firstConnectWaitMs?: number;
+  /** Close an unused socket after this long. */
+  idleCloseMs?: number;
+  /** First reconnect delay; doubles per attempt up to 30 s. */
+  reconnectBaseMs?: number;
+  /** Earliest renewal after a mint, even for short-lived receive URLs. */
+  minRenewDelayMs?: number;
+  now?: () => number;
+  createId?: () => string;
+}
+
+interface RelayAccess {
+  relayId: string;
+  url: string;
+  /** Epoch milliseconds. */
+  expiresAt: number;
+}
+
+interface Route {
+  notify: (update: McpProgressUpdate) => void;
+  lastSequence: number;
+}
+
+class RelayUnavailableError extends Error {
+  constructor(readonly backoffMs: number) {
+    super("Progress relay unavailable");
+  }
+}
+
+const SETUP_TIMEOUT_MS = 5_000;
+const RENEW_BEFORE_EXPIRY_MS = 60_000;
+const MIN_RENEW_DELAY_MS = 10_000;
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
+const NETWORK_BACKOFF_MS = 30_000;
+const UNAVAILABLE_BACKOFF_MS = 5 * 60_000;
+const MAX_MESSAGE_LENGTH = 200;
+
+/**
+ * Receives backend operation progress over one shared WebSocket and routes it
+ * to the MCP call that supplied each operation ID.
+ *
+ * Every failure degrades to "no progress": relay setup errors back off, socket
+ * drops reconnect in the background, and late or unknown events are dropped.
+ */
+export class RelayReceiver implements McpProgressHook {
+  private readonly fetchFn: typeof fetch;
+  private readonly createSocket: (url: string) => RelaySocket;
+  private readonly connectWaitMs: number;
+  private readonly firstConnectWaitMs: number;
+  private readonly idleCloseMs: number;
+  private readonly reconnectBaseMs: number;
+  private readonly minRenewDelayMs: number;
+  private readonly now: () => number;
+  private readonly createId: () => string;
+  private readonly routes = new Map<string, Route>();
+  private relay: RelayAccess | undefined;
+  private socket: RelaySocket | undefined;
+  private connecting: Promise<void> | undefined;
+  private unavailableUntil = 0;
+  private reconnectAttempts = 0;
+  private renewTimer: ReturnType<typeof setTimeout> | undefined;
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+  private closed = false;
+
+  constructor(private readonly options: RelayReceiverOptions) {
+    this.fetchFn = options.fetchFn ?? globalThis.fetch;
+    this.createSocket =
+      options.createSocket ??
+      ((url) => new WebSocket(url) as unknown as RelaySocket);
+    this.connectWaitMs = options.connectWaitMs ?? 1_000;
+    this.firstConnectWaitMs = options.firstConnectWaitMs ?? 3_000;
+    this.idleCloseMs = options.idleCloseMs ?? 5 * 60_000;
+    this.reconnectBaseMs = options.reconnectBaseMs ?? RECONNECT_BASE_MS;
+    this.minRenewDelayMs = options.minRenewDelayMs ?? MIN_RENEW_DELAY_MS;
+    this.now = options.now ?? Date.now;
+    this.createId = options.createId ?? (() => globalThis.crypto.randomUUID());
+  }
+
+  async begin(
+    notify: (update: McpProgressUpdate) => void,
+  ): Promise<McpProgressOperation | undefined> {
+    if (this.closed || this.now() < this.unavailableUntil) return undefined;
+    this.clearTimer("idleTimer");
+    const wait = this.relay ? this.connectWaitMs : this.firstConnectWaitMs;
+    const ready = this.ensureConnected();
+    let waitTimer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      ready,
+      new Promise<void>((resolve) => {
+        waitTimer = setTimeout(resolve, wait);
+      }),
+    ]);
+    clearTimeout(waitTimer);
+    const relay = this.relay;
+    if (!relay || this.closed) {
+      this.scheduleIdleClose();
+      return undefined;
+    }
+    const operationId = this.createId().toLowerCase();
+    this.routes.set(operationId, { notify, lastSequence: 0 });
+    let ended = false;
+    return {
+      headers: {
+        "X-GitHits-Progress-Id": operationId,
+        "X-GitHits-Relay-Id": relay.relayId,
+        ...this.serviceHeaders(),
+      },
+      rejected: () => {
+        // Rejections happen before execution; stop offering progress for a while.
+        this.unavailableUntil = this.now() + UNAVAILABLE_BACKOFF_MS;
+      },
+      end: () => {
+        if (ended) return;
+        ended = true;
+        this.routes.delete(operationId);
+        this.scheduleIdleClose();
+      },
+    };
+  }
+
+  /** Stops all timers and closes the socket; later calls get no progress. */
+  close(): void {
+    this.closed = true;
+    this.routes.clear();
+    this.clearTimer("renewTimer");
+    this.clearTimer("reconnectTimer");
+    this.clearTimer("idleTimer");
+    this.closeSocket();
+  }
+
+  private ensureConnected(): Promise<void> {
+    if (this.socket && this.relay && this.now() < this.relay.expiresAt) {
+      return Promise.resolve();
+    }
+    this.connecting ??= this.connect().finally(() => {
+      this.connecting = undefined;
+    });
+    return this.connecting;
+  }
+
+  private async connect(): Promise<void> {
+    let relay: RelayAccess;
+    try {
+      relay = await this.setup(this.relay?.relayId);
+    } catch (error) {
+      this.unavailableUntil =
+        this.now() +
+        (error instanceof RelayUnavailableError
+          ? error.backoffMs
+          : NETWORK_BACKOFF_MS);
+      return;
+    }
+    if (this.closed) return;
+    this.relay = relay;
+    this.scheduleRenewal(relay);
+    await this.openSocket(relay.url);
+  }
+
+  /** Resolves once the socket opens or fails; an open socket replaces the old one. */
+  private openSocket(url: string): Promise<void> {
+    return new Promise((resolve) => {
+      let socket: RelaySocket;
+      try {
+        socket = this.createSocket(url);
+      } catch {
+        this.socketFailed();
+        resolve();
+        return;
+      }
+      let opened = false;
+      // Deliver from the replacement immediately; duplicates are dropped by sequence.
+      socket.onmessage = (event) => this.deliver(event.data);
+      socket.onerror = () => {};
+      socket.onopen = () => {
+        opened = true;
+        this.reconnectAttempts = 0;
+        // Swap only after the new socket opens so renewal never leaves a gap
+        // and a failed replacement never orphans the working socket.
+        const previous = this.socket;
+        this.socket = socket;
+        if (previous) this.detach(previous);
+        if (this.closed) this.closeSocket();
+        resolve();
+      };
+      socket.onclose = () => {
+        if (!opened) {
+          this.detach(socket);
+          if (!this.socket) this.socketFailed();
+          resolve();
+          return;
+        }
+        if (this.socket !== socket) return;
+        this.socket = undefined;
+        if (!this.closed && this.routes.size > 0) this.scheduleReconnect();
+      };
+    });
+  }
+
+  /** A socket that cannot open (e.g. a proxy blocking WebSockets) backs off. */
+  private socketFailed(): void {
+    const delay = Math.min(
+      RECONNECT_MAX_MS,
+      this.reconnectBaseMs * 2 ** this.reconnectAttempts,
+    );
+    this.unavailableUntil = Math.max(this.unavailableUntil, this.now() + delay);
+    if (this.routes.size > 0) this.scheduleReconnect();
+    else this.reconnectAttempts += 1;
+  }
+
+  private deliver(data: unknown): void {
+    const event = parseEvent(data);
+    if (!event) return;
+    const route = this.routes.get(event.operationId);
+    // Overlapping sockets during renewal can duplicate events; MCP progress
+    // must strictly increase, so drop anything not newer than the last one.
+    if (!route || event.sequence <= route.lastSequence) return;
+    route.lastSequence = event.sequence;
+    try {
+      route.notify({ progress: event.sequence, message: event.message });
+    } catch {
+      // A failed notification must never affect the tool call.
+    }
+  }
+
+  private async setup(relayId: string | undefined): Promise<RelayAccess> {
+    const path = relayId ? "/progress/relays/renew" : "/progress/relays";
+    const headers: Record<string, string> = {
+      ...this.options.clientHeaders?.(),
+      ...(await this.authHeaders()),
+      "Content-Type": "application/json",
+    };
+    const response = await this.fetchFn(
+      `${this.options.apiUrl.replace(/\/+$/, "")}${path}`,
+      {
+        method: "POST",
+        headers,
+        body: relayId ? JSON.stringify({ relay_id: relayId }) : undefined,
+        signal: AbortSignal.timeout(SETUP_TIMEOUT_MS),
+      },
+    );
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
+      throw new RelayUnavailableError(backoffFor(response));
+    }
+    const access = parseRelayAccess(await response.json());
+    if (!access) throw new RelayUnavailableError(UNAVAILABLE_BACKOFF_MS);
+    return access;
+  }
+
+  private async authHeaders(): Promise<Record<string, string>> {
+    const { auth } = this.options;
+    if (auth.kind === "service") return this.serviceHeaders();
+    const token = await auth.getToken();
+    if (!token) throw new RelayUnavailableError(UNAVAILABLE_BACKOFF_MS);
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  private serviceHeaders(): Record<string, string> {
+    const { auth } = this.options;
+    return auth.kind === "service"
+      ? {
+          "X-GitHits-Relay-Service": auth.serviceId,
+          "X-GitHits-Relay-Key": auth.key,
+        }
+      : {};
+  }
+
+  private scheduleRenewal(relay: RelayAccess): void {
+    this.clearTimer("renewTimer");
+    const delay = Math.max(
+      this.minRenewDelayMs,
+      relay.expiresAt - RENEW_BEFORE_EXPIRY_MS - this.now(),
+    );
+    this.renewTimer = setTimeout(() => {
+      this.renewTimer = undefined;
+      if (this.routes.size === 0) {
+        // Nothing to deliver: let the next call reconnect on demand.
+        this.closeSocket();
+        return;
+      }
+      void this.ensureFresh();
+    }, delay);
+    unrefTimer(this.renewTimer);
+  }
+
+  /** Mint a fresh receive URL for the same relay while the old socket stays up. */
+  private ensureFresh(): Promise<void> {
+    this.connecting ??= this.connect().finally(() => {
+      this.connecting = undefined;
+    });
+    return this.connecting;
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer || this.closed) return;
+    const delay = Math.min(
+      RECONNECT_MAX_MS,
+      this.reconnectBaseMs * 2 ** this.reconnectAttempts,
+    );
+    this.reconnectAttempts += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (this.closed || this.routes.size === 0) return;
+      // Reconnects ignore the begin() backoff: in-flight calls still want events.
+      void this.ensureFresh().then(() => {
+        if (!this.socket && this.routes.size > 0) this.scheduleReconnect();
+      });
+    }, delay);
+    unrefTimer(this.reconnectTimer);
+  }
+
+  private scheduleIdleClose(): void {
+    if (this.routes.size > 0 || this.closed) return;
+    this.clearTimer("idleTimer");
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = undefined;
+      if (this.routes.size === 0) {
+        this.clearTimer("renewTimer");
+        this.closeSocket();
+      }
+    }, this.idleCloseMs);
+    unrefTimer(this.idleTimer);
+  }
+
+  private closeSocket(): void {
+    const socket = this.socket;
+    this.socket = undefined;
+    if (socket) this.detach(socket);
+  }
+
+  private detach(socket: RelaySocket): void {
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onclose = null;
+    socket.onerror = () => {};
+    try {
+      socket.close();
+    } catch {
+      // Already closed.
+    }
+  }
+
+  private clearTimer(
+    name: "renewTimer" | "reconnectTimer" | "idleTimer",
+  ): void {
+    const timer = this[name];
+    if (timer) clearTimeout(timer);
+    this[name] = undefined;
+  }
+}
+
+function backoffFor(response: Response): number {
+  if (response.status === 429) {
+    const seconds = Number(response.headers.get("Retry-After"));
+    if (Number.isFinite(seconds) && seconds > 0) return seconds * 1_000;
+  }
+  return UNAVAILABLE_BACKOFF_MS;
+}
+
+function parseRelayAccess(value: unknown): RelayAccess | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const body = value as Record<string, unknown>;
+  const { relay_id, connection_url, expires_at } = body;
+  if (
+    typeof relay_id !== "string" ||
+    typeof connection_url !== "string" ||
+    !connection_url.startsWith("wss://") ||
+    typeof expires_at !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    relayId: relay_id.toLowerCase(),
+    url: connection_url,
+    expiresAt: expires_at * 1_000,
+  };
+}
+
+interface RelayEvent {
+  operationId: string;
+  sequence: number;
+  message: string;
+}
+
+function parseEvent(data: unknown): RelayEvent | undefined {
+  let text: string;
+  if (typeof data === "string") text = data;
+  else if (data instanceof ArrayBuffer || data instanceof Uint8Array)
+    text = new TextDecoder().decode(data);
+  else return undefined;
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (!value || typeof value !== "object") return undefined;
+  const event = value as Record<string, unknown>;
+  if (
+    event.version !== 1 ||
+    typeof event.operation_id !== "string" ||
+    typeof event.message !== "string" ||
+    typeof event.sequence !== "number" ||
+    !Number.isInteger(event.sequence) ||
+    event.sequence < 1
+  ) {
+    return undefined;
+  }
+  return {
+    operationId: event.operation_id.toLowerCase(),
+    sequence: event.sequence,
+    message: event.message.slice(0, MAX_MESSAGE_LENGTH),
+  };
+}
+
+function unrefTimer(timer: ReturnType<typeof setTimeout>): void {
+  // Background maintenance must not keep a CLI process alive.
+  (timer as { unref?: () => void }).unref?.();
+}
