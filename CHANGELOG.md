@@ -5,6 +5,39 @@ changes use independent files under [`changes/`](changes/README.md) and are
 consolidated here only during release preparation. Dated, versioned sections
 are historical records and change only to correct blatant factual errors.
 
+## [githits 0.35.0] - 2026-10-20
+
+Pre-1.0 minor release that shows the real GitHits stage in `githits research`
+and `githits example` with an animated progress mark, and never delays a
+command for progress. Existing commands, configuration and MCP setup keep
+working.
+
+### Added
+
+- **Live progress in `githits research` and `githits example`, with an animated mark** - Both commands now show the real GitHits stage instead of rotating placeholder labels, next to a braille "narrowing" mark that converges on its target as the work progresses. They open on the first stage ("Resolving <target>...", "Searching source code and docs...") until live updates arrive. The local MCP server animates the same mark in its progress messages for hosts that display them (such as Claude Code). Frames are generated locally, so no extra network traffic is involved.
+
+### Changed
+
+- **Progress never delays a command** - The progress connection is set up in the background and only in an interactive terminal, so commands and tool calls start immediately. Updates published before the connection is ready are skipped.
+- **Accurate example descriptions** - `githits example` routing guidance, the MCP quick-start routing table and the `githits-mcp` and `githits-code` skills now describe examples as drawn from projects across open source instead of "canonical" examples. Behavior is unchanged.
+
+## [@githits/mcp 0.35.0] - 2026-10-20
+
+Pre-1.0 minor release that animates progress messages with the GitHits
+narrowing mark and makes `RelayReceiver` non-blocking. Existing hosts and
+service implementations keep working unchanged; animation is on by default
+only when a `progress` hook is set. Hosted MCP clients receive these changes
+after adoption and deployment of the released MCP package.
+
+### Added
+
+- **Animated progress messages** - With a `progress` hook, `research` and `get_example` progress messages are animated locally with the GitHits narrowing mark (500 ms frames, fractional progress values so they keep increasing) from the start of the call until it returns, opening on the first stage until live updates arrive. The new `progressAnimation` option tunes or disables it. `narrowingFrame`, `narrowingText` and `focusForStage` are exported, and progress updates now carry the coarse backend stage.
+
+### Changed
+
+- **Non-blocking `RelayReceiver`** - The receiver chooses its relay ID locally and connects in the background, so calls never wait for the progress connection; `warm()` starts connecting ahead of the first call. Updates published before the connection is ready are skipped. The `connectWaitMs` and `firstConnectWaitMs` options are deprecated and ignored.
+- **Accurate `get_example` description** - The tool description, its query argument and the quick-start routing table describe examples as drawn from projects across open source instead of "canonical" examples. Tool behavior is unchanged.
+
 ## [githits 0.34.0] - 2026-10-20
 
 Pre-1.0 minor release that shows live progress for long-running `research` and
