@@ -3,8 +3,8 @@ name: githits-code
 description: >-
   Use whenever invoking the GitHits CLI for open-source code, documentation,
   or example evidence, including code search/grep, file navigation, source
-  verification, docs lookup, source-cited research answers, or canonical
-  cross-project examples. For GitHits
+  verification, docs lookup, source-cited research answers, or code
+  examples from repositories across GitHub. For GitHits
   CLI package, dependency, security, release, or upgrade evidence, use
   githits-package.
 compatibility: Requires shell access, internet access, and either a githits binary on PATH or npx.
@@ -23,7 +23,7 @@ Use GitHits for evidence from real open-source code instead of guessing from mod
 ## Decision Flow
 
 - Need a canonical target for an OSS dependency name: use `githits resolve "<name>"`; skip resolution for known canonical targets. Reuse only an unambiguous EXACT/HIGH best with CLEAR or NOT_APPLICABLE malicious-content status. Other or missing statuses are non-actionable; narrow or explicitly choose an actionable candidate for MEDIUM/LOW or ambiguity. Never auto-select, and do not treat CLEAR as vulnerability-free. A selected `site:` is docs-only.
-- Need a canonical cross-project example or pattern: `githits example "<focused question>"`; include source repositories/citations from GitHits' generated references/provenance section. If GitHits cannot match `--lang`, retry with a suggested language from the error, or omit `--lang`.
+- Need an example of how other projects do something: `githits example "<focused question>"`. Examples come from repositories across GitHub, so include the source repositories/citations from GitHits' generated references/provenance section. If GitHits cannot match `--lang`, retry with a suggested language from the error, or omit `--lang`.
 - Need a source-cited answer to one question about a public package or repository: use `githits research [target] "<question>"`. Omit the target to let GitHits infer it; for listed candidates, retry with the one matching the question's project as the target. Ask the question directly; the verified answer always includes its sources, so do not request citations or an overview. Cite those sources and read one only when the answer lacks a needed detail. Reuse a returned thread ID with `--thread <id>` for follow-ups and name a new project, version, or topic in the question to change scope. Never send credentials, personal data, private or proprietary content, local paths, or private targets. Research takes a package or repository target, not a `site:` docs target; it covers code and docs.
 - Need package metadata, vulnerability/advisory status, dependency graphs, or release notes: stop and use the `githits-package` skill instead.
 - Exploring a topic in a known dependency or public repository: use `githits search` scoped by `--in`.

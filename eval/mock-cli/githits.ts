@@ -97,8 +97,7 @@ function fixtureSupportOutput(
       return "readme\tdocs/README.md\tWidget Kit documentation page. Use `githits read readme`.";
     }
   }
-  if (tool === "get_example")
-    return "No canonical examples in this eval fixture.";
+  if (tool === "get_example") return "No examples in this eval fixture.";
   if (tool === "search_status")
     return "Search completed. No additional eval fixture hits.";
   return `[eval-mock] this cell expected the agent to call \`${expectedTool}\`, not \`${tool}\`. No data returned.`;

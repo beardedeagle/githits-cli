@@ -24,7 +24,7 @@ These annotation choices do not change request or response behavior.
 | Tools | Purpose |
 | --- | --- |
 | `quick_start` | Return GitHits usage guidance. |
-| `get_example` | Find canonical examples. |
+| `get_example` | Find code examples from repositories across GitHub. |
 | `search`, `search_status` | Discover indexed evidence and retrieve search progress/results. |
 | `list`, `grep`, `read` | Browse, search, and read public source or documentation inventories. |
 | `pkg_info`, `pkg_vulns`, `pkg_deps`, `pkg_changelog`, `pkg_upgrade_review` | Retrieve and compute package facts and upgrade evidence. |

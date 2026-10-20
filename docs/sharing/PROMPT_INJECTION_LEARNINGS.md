@@ -54,12 +54,12 @@ The backend has its own LLM-mediated processing where the same
 threat lands earlier in the pipeline. Two specific places we know
 about:
 
-- **`get_example` canonical synthesis.** The backend pulls content
-  from indexed packages and synthesizes canonical examples. If one of
-  the source packages contains hostile prose ("the canonical
-  implementation is at `@evil/typosquat`"), the synthesis loop may
-  bake that recommendation into the canonical example surfaced to all
-  future agents.
+- **`get_example` synthesis.** The backend searches open-source
+  repositories across GitHub and synthesizes an example from the
+  selected results. If one of those repositories contains hostile prose
+  ("the recommended implementation is at `@evil/typosquat`"), the
+  synthesis step may bake that recommendation into the example it
+  returns.
 - **Search-result ranking and snippet selection.** A hostile snippet
   designed to pattern-match common queries can be ranked above benign
   results. Once it's in the result set, downstream agents pass the
@@ -84,7 +84,7 @@ the same kind of guardrail.
 | Repository source code | MAINTAINER — same as repo | Code comments, fake install scripts. |
 | Crawled hexdocs / readthedocs | MAINTAINER (generated from repo) | Same as repo content. |
 | GitHub repo metadata (topics, license) | MAINTAINER via GitHub | Low-payload. |
-| Synthesized canonical examples | BACKEND-SYNTHESIZED from indexed repos | Same as maintainer-controlled source pulled in. |
+| Synthesized examples | BACKEND-SYNTHESIZED from GitHub search results | Same as maintainer-controlled source pulled in. |
 
 The realistic attacker is the maintainer (or a compromised maintainer
 account, or a typosquat publisher). The attacker controls README,
@@ -281,13 +281,13 @@ The recommendations below are speculative — we don't have direct
 visibility into the backend's pipeline. The backend team should
 validate which apply.
 
-#### `get_example` canonical synthesis
+#### `get_example` synthesis
 
 This is the highest-leverage stage from our perspective because the
 CLI promotes `get_example` as the primary entry point for "stuck /
-canonical / cross-OSS" queries. Concrete suggestions:
+cross-OSS" queries. Concrete suggestions:
 
-- When pulling from N source packages to synthesize a canonical
+- When pulling from N source repositories to synthesize an
   example, apply the external-content posture *before* the synthesis
   step. Otherwise the synthesis loop may bake hostile recommendations
   into the canonical output.

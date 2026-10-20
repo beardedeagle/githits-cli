@@ -27,7 +27,7 @@ Match the question, then discover that tool and read its schema before calling.
 | Find release notes and changelog history for a package | `pkg_changelog` |
 | Compare raw source across package versions or repository refs | `code_diff` |
 | Compare current and target dependency versions for an upgrade | `pkg_upgrade_review` |
-| Find canonical implementation examples across projects | `get_example` |
+| Find code examples from repositories across GitHub | `get_example` |
 | Answer a question about an OSS package or repository with sources | `research` |
 | Check progress of an earlier search reference | `search_status` |
 

@@ -109,7 +109,7 @@ const DESCRIPTION_ROUTING: Record<
     ],
   },
   get_example: {
-    prefix: /^Find canonical cross-project examples/,
+    prefix: /^Find code examples from open-source repositories across GitHub\./,
     body: [
       "target-scoped search came up short",
       "source repository provenance",
