@@ -68,6 +68,23 @@ describe("beginSpinnerProgress", () => {
     expect(stages).toEqual(["searching"]);
   });
 
+  it("ignores the backend's generic start stage", async () => {
+    const progressHook = hook();
+    const view = spinner();
+    await beginSpinnerProgress(view, progressHook);
+    progressHook.notify?.({
+      progress: 1,
+      message: "Starting…",
+      stage: "started",
+    });
+    progressHook.notify?.({
+      progress: 2,
+      message: "Ranking 3 results…",
+      stage: "ranking",
+    });
+    expect(view.labels).toEqual(["Ranking 3 results..."]);
+  });
+
   it("skips progress for inactive spinners and missing hooks", async () => {
     const progressHook = hook();
     const begin = mock(progressHook.begin);
