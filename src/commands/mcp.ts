@@ -5,6 +5,7 @@ import {
   highlight,
   type LocalExperimentalMcpPolicy,
   type LocalMcpToolServices,
+  RelayReceiver,
   shouldUseColors,
   type ToolTermsRemediation,
 } from "@githits/mcp/internal";
@@ -38,6 +39,8 @@ export interface StartMcpServerOptions {
   onServerCreated?: (server: LocalMcpServer) => void;
   experimentalPolicy?: LocalExperimentalMcpPolicy;
   termsRemediation?: ToolTermsRemediation;
+  /** Best-effort progress for long tools; closed when the transport closes. */
+  progress?: RelayReceiver;
 }
 
 export interface CreateMcpCommandStartupOptions {
@@ -61,8 +64,11 @@ export async function startMcpServer(
     metadata: LOCAL_MCP_SERVER_METADATA,
     policy: options.experimentalPolicy ?? DISABLED_LOCAL_MCP_POLICY,
     termsRemediation: options.termsRemediation ?? LOCAL_TERMS_REMEDIATION,
+    progress: options.progress,
   });
   const transport = new StdioServerTransport();
+  // An open progress socket must not keep the process alive after the client leaves.
+  server.server.onclose = () => options.progress?.close();
 
   options.onServerCreated?.(server);
 
@@ -97,6 +103,7 @@ function readMcpClientVersion(
 
 export interface McpCommandStartup {
   services: LocalMcpToolServices;
+  progress?: RelayReceiver;
   experimentalPolicy: LocalExperimentalMcpPolicy;
   onServerCreated: (server: LocalMcpServer) => void;
 }
@@ -144,8 +151,15 @@ export async function createMcpCommandStartup(
   } catch {
     warn("GitHits MCP skill maintenance failed; continuing startup.");
   }
+  // Caller relay: authorized by the user's own token, which is resolved lazily
+  // on the first tool call that asks for progress, never at startup.
+  const progress = new RelayReceiver({
+    apiUrl: services.apiUrl,
+    auth: { kind: "caller", getToken: () => services.tokenProvider.getToken() },
+  });
   return {
     services,
+    progress,
     experimentalPolicy,
     onServerCreated: (created: LocalMcpServer) => {
       server = created;
@@ -220,6 +234,7 @@ Authenticated tool calls require a valid GitHits token.`,
       await startServer(startup.services, {
         experimentalPolicy: startup.experimentalPolicy,
         onServerCreated: startup.onServerCreated,
+        progress: startup.progress,
       });
     });
 
@@ -240,6 +255,7 @@ in MCP configuration files. Use 'githits mcp' for interactive setup.`,
       await startServer(startup.services, {
         experimentalPolicy: startup.experimentalPolicy,
         onServerCreated: startup.onServerCreated,
+        progress: startup.progress,
       });
     });
 }

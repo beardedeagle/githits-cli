@@ -1,3 +1,4 @@
+import type { ProgressRequest } from "@githits/core-internal";
 import { z } from "zod";
 import { extractSolutionId } from "../shared/extract-solution-id.js";
 import { GET_EXAMPLE_GUARDRAIL } from "./guardrails.js";
@@ -29,6 +30,8 @@ export interface GetExampleSearchParams {
 /** Browser-standard request controls for example search. */
 export interface GetExampleRequestOptions {
   signal?: AbortSignal;
+  /** Optional best-effort progress correlation; never changes the result. */
+  progress?: ProgressRequest;
 }
 
 /** Minimal injected service contract used by the example tool. */
@@ -92,9 +95,19 @@ export function createGetExampleTool(
             licenseMode: args.license_mode,
             includeExplanation: false,
           };
-          const markdown = context?.signal
-            ? await service.search(searchParams, { signal: context.signal })
-            : await service.search(searchParams);
+          const progress = await context?.progress?.begin();
+          let markdown: string;
+          try {
+            markdown =
+              context?.signal || progress
+                ? await service.search(searchParams, {
+                    ...(context?.signal ? { signal: context.signal } : {}),
+                    ...(progress ? { progress } : {}),
+                  })
+                : await service.search(searchParams);
+          } finally {
+            progress?.end();
+          }
           const solutionId = extractSolutionId(markdown);
           const payload = solutionId
             ? { result: markdown, solution_id: solutionId }

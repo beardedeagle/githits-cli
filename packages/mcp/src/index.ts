@@ -23,4 +23,13 @@ export {
   getMcpToolDescriptors,
   registerMcpTools,
 } from "./mcp/server.js";
+export type {
+  McpProgressHook,
+  McpProgressOperation,
+  McpProgressUpdate,
+  RelayAuth,
+  RelayReceiverOptions,
+  RelaySocket,
+} from "./progress/relay-receiver.js";
+export { RelayReceiver } from "./progress/relay-receiver.js";
 export type { McpToolServices } from "./tools/tool-services.js";

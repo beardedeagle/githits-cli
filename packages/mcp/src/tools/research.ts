@@ -89,10 +89,15 @@ export function createResearchTool(
           args.format,
         );
       }
+      const progress = await context?.progress?.begin();
       try {
-        const requestOptions = context?.signal
-          ? { signal: context.signal }
-          : undefined;
+        const requestOptions =
+          context?.signal || progress
+            ? {
+                ...(context?.signal ? { signal: context.signal } : {}),
+                ...(progress ? { progress } : {}),
+              }
+            : undefined;
         const response =
           args.source_format === "url"
             ? await service.ask(
@@ -145,6 +150,8 @@ export function createResearchTool(
             ...(failure.threadId ? { thread_id: failure.threadId } : {}),
           }),
         );
+      } finally {
+        progress?.end();
       }
     },
   };

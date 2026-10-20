@@ -1,4 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
+import type {
+  ServerNotification,
+  ServerRequest,
+} from "@modelcontextprotocol/sdk/types.js";
+import type { McpProgressHook } from "../progress/relay-receiver.js";
 import {
   type CompleteToolAnnotations,
   createCodeDiffTool,
@@ -25,6 +31,7 @@ import { type McpAuthAction, withErrorHandling } from "../tools/shared.js";
 import type { McpToolServices } from "../tools/tool-services.js";
 import type {
   ToolExecutionContext,
+  ToolProgress,
   ToolTermsRemediation,
 } from "../tools/types.js";
 import { buildMcpQuickStart } from "./instructions.js";
@@ -73,6 +80,8 @@ export interface CreateMcpServerOptions<TExtra = unknown> {
   /** @deprecated Use `quickStartOptions`. */
   instructionOptions?: Parameters<typeof buildMcpQuickStart>[0];
   traceTool?: McpToolExecutionHook;
+  /** Optional progress source; used only when the client sends a progress token. */
+  progress?: McpProgressHook;
 }
 
 export interface McpToolDescriptor<TSchema extends ZodRawShape = ZodRawShape> {
@@ -191,6 +200,7 @@ export function registerMcpTools<TExtra = unknown>(
     termsRemediation?: ToolTermsRemediation;
     services: McpToolServicesProvider<TExtra>;
     traceTool?: McpToolExecutionHook;
+    progress?: McpProgressHook;
   },
 ): void {
   registerMcpToolsWithFactories(server, STABLE_MCP_TOOL_FACTORIES, {
@@ -210,6 +220,7 @@ export function registerMcpToolsWithFactories<
     termsRemediation?: ToolTermsRemediation;
     services: McpToolServicesProviderFor<TServices, TExtra>;
     traceTool?: McpToolExecutionHook;
+    progress?: McpProgressHook;
     descriptorServices: TServices;
   },
 ): void {
@@ -225,10 +236,12 @@ export function registerMcpToolsWithFactories<
         annotations: descriptor.annotations,
       },
       async (args, extra) => {
+        const progress = bindProgress(options.progress, extra);
         const context: ToolExecutionContext = {
           authAction: options.authAction,
           termsRemediation: options.termsRemediation,
           signal: extra?.signal,
+          ...(progress ? { progress } : {}),
         };
         const runHandler = async () => {
           const services = await withErrorHandling(
@@ -279,6 +292,7 @@ export interface CreateMcpServerWithFactoriesOptions<
   termsRemediation?: ToolTermsRemediation;
   instructions?: string;
   traceTool?: McpToolExecutionHook;
+  progress?: McpProgressHook;
 }
 
 export function createMcpServerWithFactories<
@@ -297,10 +311,41 @@ export function createMcpServerWithFactories<
     termsRemediation: options.termsRemediation,
     services: options.services,
     traceTool: options.traceTool,
+    progress: options.progress,
     descriptorServices: options.descriptorServices,
   });
 
   return server;
+}
+
+type ProgressRequestExtra = Pick<
+  RequestHandlerExtra<ServerRequest, ServerNotification>,
+  "_meta" | "sendNotification"
+>;
+
+/**
+ * Binds the host's progress source to one MCP request. Progress is offered
+ * only when the client supplied a token; `0` is a valid token. Notifications
+ * are best effort and stop when the tool call ends.
+ */
+function bindProgress(
+  hook: McpProgressHook | undefined,
+  extra: ProgressRequestExtra | undefined,
+): ToolProgress | undefined {
+  const progressToken = extra?._meta?.progressToken;
+  if (!hook || progressToken === undefined || !extra?.sendNotification) {
+    return undefined;
+  }
+  const { sendNotification } = extra;
+  return {
+    begin: () =>
+      hook.begin(({ progress, message }) => {
+        void sendNotification({
+          method: "notifications/progress",
+          params: { progressToken, progress, message },
+        }).catch(() => {});
+      }),
+  };
 }
 
 async function resolveMcpToolServices<

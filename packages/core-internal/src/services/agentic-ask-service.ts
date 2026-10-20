@@ -8,6 +8,11 @@ import {
   parseRetryAfterSeconds,
 } from "./githits-service.js";
 import {
+  discardResponseBody,
+  type ProgressRequest,
+  readProgressRejection,
+} from "./progress-request.js";
+import {
   type ServiceDiagnostics,
   withServiceDiagnostics,
 } from "./runtime-diagnostics.js";
@@ -50,6 +55,8 @@ export type AgenticAskRequest = AgenticAskQuestion &
 
 export interface AgenticAskRequestOptions {
   signal?: AbortSignal;
+  /** Optional best-effort progress correlation; never changes the result. */
+  progress?: ProgressRequest;
 }
 
 /** Expected backend envelope; successful JSON is deliberately not runtime-validated. */
@@ -181,7 +188,7 @@ export class AgenticAskServiceImpl implements AgenticAskService {
                   error.code === "AUTH_REQUIRED") ||
                 isTokenRefreshableError(error),
               executeWithToken: (token) =>
-                this.executeAsk(token, request, signal),
+                this.executeAsk(token, request, signal, options.progress),
             }),
           options.signal,
           this.runtime.timeoutMs ?? AGENTIC_ASK_REQUEST_TIMEOUT_MS,
@@ -193,6 +200,7 @@ export class AgenticAskServiceImpl implements AgenticAskService {
     token: string,
     request: AgenticAskRequest,
     signal: AbortSignal,
+    progress?: ProgressRequest,
   ): Promise<AgenticAskResponse> {
     const apiUrl = validateServiceUrl(this.apiUrl, "GITHITS_API_URL");
     let response: Response;
@@ -201,6 +209,7 @@ export class AgenticAskServiceImpl implements AgenticAskService {
         method: "POST",
         headers: {
           ...this.runtime.clientHeaders?.(),
+          ...progress?.headers,
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
           "User-Agent": this.runtime.userAgent ?? "githits-cli",
@@ -220,6 +229,14 @@ export class AgenticAskServiceImpl implements AgenticAskService {
         throw new AgenticAskConnectionError({ cause });
       }
       throw cause;
+    }
+
+    const progressRejection = progress && readProgressRejection(response);
+    if (progressRejection) {
+      // Rejected before admission: nothing ran, so resend without progress.
+      progress.rejected(progressRejection);
+      await discardResponseBody(response);
+      return this.executeAsk(token, request, signal);
     }
 
     const toolCallId = readAgenticAskResponseId(
