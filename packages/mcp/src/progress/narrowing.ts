@@ -91,10 +91,15 @@ export function focusForStage(stage: string | undefined): number {
   switch (stage) {
     case "searching":
       return 0.2;
+    case "searching_related":
+      return 0.35;
     case "reading":
       return 0.45;
     case "ranking":
       return 0.6;
+    case "verifying":
+      return 0.75;
+    case "answering":
     case "generating":
     case "explaining":
       return 0.85;

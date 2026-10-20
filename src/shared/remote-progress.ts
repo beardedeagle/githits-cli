@@ -43,8 +43,13 @@ export async function beginSpinnerProgress(
   }
 }
 
-/** Matches the CLI's spinner style: no trailing period, ending in "...". */
+/**
+ * Matches the CLI's spinner style. Running stages end in "..." (the backend
+ * sends "…"); outcome messages such as "Ready" are shown as they are.
+ */
 export function toSpinnerLabel(message: string): string {
-  const text = message.trim().replace(/(\.{3}|…|\.)$/u, "");
-  return text ? `${text}...` : "Working...";
+  const text = message.trim();
+  if (!text) return "Working...";
+  const running = text.replace(/(\.{3}|…|\.)$/u, "");
+  return running === text ? text : `${running}...`;
 }

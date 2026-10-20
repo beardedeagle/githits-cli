@@ -52,9 +52,11 @@ describe("focusForStage", () => {
     const stages = [
       "started",
       "searching",
+      "searching_related",
       "reading",
       "ranking",
-      "generating",
+      "verifying",
+      "answering",
       "completed",
     ];
     const values = stages.map(focusForStage);

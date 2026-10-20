@@ -39,7 +39,8 @@ describe("toSpinnerLabel", () => {
     ["Searching for sources.", "Searching for sources..."],
     ["Reading sources...", "Reading sources..."],
     ["Reading sources…", "Reading sources..."],
-    ["  Preparing the answer  ", "Preparing the answer..."],
+    ["  Writing the answer…  ", "Writing the answer..."],
+    ["Ready", "Ready"],
     ["", "Working..."],
   ])("formats %p as %p", (message, label) => {
     expect(toSpinnerLabel(message)).toBe(label);
