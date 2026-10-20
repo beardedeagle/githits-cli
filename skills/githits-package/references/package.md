@@ -4,6 +4,13 @@
 
 `githits pkg info <registry:name>` returns latest-version triage: license, description, repository popularity, downloads, publish age, and separate latest-affected and package-wide advisory-history scopes. Use `--verbose` for GitHub language/topics/last-pushed, package-wide advisory history (all versions), published-version count, download freshness, and recent changes. Use `--json` only for code consuming raw fields or required fields absent from text.
 
+When proven, `Package registry` follows the source Git `Repository` row and
+names the artifact repository supplying validated release metadata, with its
+public URL. Only Maven currently populates this generic evidence. It does not
+enumerate every host or establish binary provenance or current availability.
+Info, dependency and vulnerability JSON retain `registryRepository: {id,name,url}`;
+unknown evidence is omitted without inferring a default.
+
 Supported registries include npm, PyPI, Hex, Crates, NuGet, Maven, Packagist, RubyGems, Go, Swift, vcpkg, and Zig.
 `cargo:` is an input alias for `crates:` (public crates.io); canonical registry identities remain `crates`.
 Swift package targets use `swift:github.com/<owner>/<repo>` or `swift:gitlab.com/<group>/<project>`; Zig package targets use `zig:gh/<owner>/<repo>` or `zig:cb/<owner>/<repo>`. Keep these registry-native coordinates for package evidence; direct repository targets inspect the full repository.

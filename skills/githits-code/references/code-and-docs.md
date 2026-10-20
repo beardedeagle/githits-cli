@@ -2,6 +2,36 @@
 
 Package target syntax requires an explicit registry: `registry:name@version`, for example `npm:express@5.2.1`; omit `@version` for the latest release. `cargo:` is accepted as an alias for `crates:`. Package targets scope to the package subpath, including within monorepos. Swift package targets use `swift:github.com/<owner>/<repo>` and Zig package targets use `zig:gh/<owner>/<repo>`. Use public repository targets for full repositories or sibling packages. Repository compact targets use `github:org/repo@ref`, `codeberg:owner/repo@ref`, `gitlab:group/subgroup/project@ref`, `github.com/org/repo@ref`, or `https://github.com/org/repo@ref`; omit `@ref` for the backend default branch. Exact standalone documentation sites use `site:<host[/path]>`. Output uses canonical `provider:path@ref` formatting so refs can contain `@` safely. `code` commands also support `--repo-url <url>` with optional `--git-ref <ref>`.
 
+## Launchpad Git
+
+Use `launchpad:` or case-insensitive `lp:` with these repository paths:
+
+| Repository | Target |
+| --- | --- |
+| Project default | `lp:project` |
+| Distribution-source default | `lp:distro/+source/source` |
+| Owner/project default | `lp:~owner/project` |
+| Owner/distribution-source default | `lp:~owner/distro/+source/source` |
+| Personal | `launchpad:~owner/+git/repo` |
+| Project | `launchpad:~owner/project/+git/repo` |
+| Distribution source | `launchpad:~owner/distro/+source/source/+git/repo` |
+
+Append `@ref` to select a branch, tag or commit. HTTPS URLs on
+`code.launchpad.net` and `git.launchpad.net` accept the same paths. Git transport
+on `git.launchpad.net` accepts complete owner-qualified paths only. Bazaar is
+unsupported. Mutable defaults resolve through the backend; the CLI does not
+look up or guess owners. Reuse returned canonical `launchpad:` identities,
+commit refs, paths and read actions unchanged.
+
+```bash
+githits list lp:beautifulsoup
+githits search func_file_conv --in lp:ubuntu/+source/hello --source code
+```
+
+Raw-diff availability belongs to the backend. Unequal Launchpad comparisons
+currently return nonretryable `RAW_DIFF_UNAVAILABLE`; equal-commit comparisons
+return an empty inventory. Do not infer compatibility from either outcome.
+
 ## Source Diff
 
 `githits code diff <unversioned-target> <from>..<to>` compares exact package

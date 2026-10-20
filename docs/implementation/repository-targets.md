@@ -163,13 +163,14 @@ the compact provider form. Both retain the exact commit.
 ## Packaging and release
 
 The stable MCP guide and its public skill copy stay byte-for-byte aligned.
-Launchpad CLI skill/reference updates follow the release lifecycle in
-[the backlog](../backlog.md#launchpad-cli-skill-updates-at-release).
+The 0.33.0 release includes Launchpad CLI addressing, canonical replay and
+backend-owned raw-diff guidance in `skills/githits-code/SKILL.md` and its
+`references/code-and-docs.md`, completing the release-boundary skill update.
 Generate and check plugin assets from canonical inputs; no manifest content
 change is needed when metadata is unchanged.
 
-The shortcuts fragment records pending minor impact for `githits` and
-`@githits/mcp`, superseding the qualified-only shortcut restriction. Hosted users
+Release 0.33.0 adds Launchpad Git shortcuts to `githits` and `@githits/mcp`,
+superseding the qualified-only shortcut restriction. Hosted users
 receive MCP changes after the package is released, adopted by `remote-mcp`, and
 deployed there.
 
@@ -265,6 +266,18 @@ with nine MCP calls; its neutral answer cited canonical repositories, full SHAs
 and source lines, with reported high confidence. No isolation violation artifact
 was emitted. This is observed tool-use evidence, not an independently graded
 answer-quality score. The earlier qualified-only probe above remains historical.
+
+### Release validation (2026-10-20)
+
+The production CLI skill eval completed with 12 CLI calls and a source-cited
+answer at both requested commits, with reported high confidence. Five calls
+failed with provider-resolution timeouts before searches acquired canonical
+owners and five canonical reads succeeded. No isolation-violation artifact was
+emitted. This is observed tool use, not an independently graded quality score.
+A subsequent built Node CLI comparison passed both short and canonical list
+inputs for each repository. Intermittent resolution timeouts and the remaining
+backend investigation are recorded in
+[the backlog](../backlog.md#investigate-intermittent-production-launchpad-shortcut-timeouts).
 
 ## Review disposition (2026-09-07)
 
