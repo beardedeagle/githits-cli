@@ -67,3 +67,25 @@ see [target resolution](implementation/resolve-target.md) for audit scope.
 Docker MEDIUM SDK resolution without a kind preference is explicitly accepted;
 repository-preferred Docker Engine remains HIGH Moby. No new ranking change or
 coverage requirement is inferred from GA promotion.
+
+## Investigate intermittent production Launchpad shortcut timeouts
+
+During 0.33.0 release validation on 2026-10-20, the production CLI skill eval
+reported repository-provider timeouts while resolving `lp:software-properties`
+at `02bfa5ae3026843835e540bc507a517863e39c64` and
+`lp:ubuntu/+source/hello` at `c80e07d07e4ea27e0847ed731da7138b9e1df5d0`.
+Three list calls and two search calls failed. Other searches acquired canonical
+owners, and five canonical source reads succeeded; the eval completed with a
+cited answer. This is tool-use evidence, not an independently graded quality
+result.
+
+A subsequent bounded comparison through the built Node CLI passed both short
+and canonical list targets: short inputs completed in 1.5 seconds each and
+canonical inputs in 1.2 seconds each. The failure is intermittent; this check
+does not establish its root cause or recovery mechanism. The backend's provider
+resolution path owns shortcut acquisition. Inspect its provider calls and
+request deadlines using the failed eval time window (09:02:57-09:03:43 UTC)
+before changing client behavior. No CLI retry layer or caller constraint was
+introduced. Backend investigation is outside this release-preparation worktree.
+Local evidence is retained under `.agent-eval/release-0.33.0-launchpad-skills`
+and `/tmp/murex-release-launchpad-pairs.json`.

@@ -267,6 +267,18 @@ and source lines, with reported high confidence. No isolation violation artifact
 was emitted. This is observed tool-use evidence, not an independently graded
 answer-quality score. The earlier qualified-only probe above remains historical.
 
+### Release validation (2026-10-20)
+
+The production CLI skill eval completed with 12 CLI calls and a source-cited
+answer at both requested commits, with reported high confidence. Five calls
+failed with provider-resolution timeouts before searches acquired canonical
+owners and five canonical reads succeeded. No isolation-violation artifact was
+emitted. This is observed tool use, not an independently graded quality score.
+A subsequent built Node CLI comparison passed both short and canonical list
+inputs for each repository. Intermittent resolution timeouts and the remaining
+backend investigation are recorded in
+[the backlog](../backlog.md#investigate-intermittent-production-launchpad-shortcut-timeouts).
+
 ## Review disposition (2026-09-07)
 
 One fresh Claude Opus review inspected the full delta and reported no runtime
