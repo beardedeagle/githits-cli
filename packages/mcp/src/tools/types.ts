@@ -46,8 +46,11 @@ export interface ToolProgressOperation extends ProgressRequest {
 
 /** Progress already bound to the current MCP request's progress token. */
 export interface ToolProgress {
-  /** Returns `undefined` when progress is unavailable; run without it then. */
-  begin(): Promise<ToolProgressOperation | undefined>;
+  /**
+   * Starts progress for one backend call, showing `initialMessage` until the
+   * first live update. Returns `undefined` when progress is unavailable.
+   */
+  begin(initialMessage?: string): Promise<ToolProgressOperation | undefined>;
 }
 
 /** Host-provided execution state shared by MCP and direct tool callers. */

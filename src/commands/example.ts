@@ -3,11 +3,16 @@ import {
   AuthRequiredError,
   buildAuthRequiredErrorPayload,
   extractSolutionId,
+  type McpProgressHook,
   mapGitHitsServiceError,
   requireAuth,
 } from "@githits/mcp/internal";
 import { type Command, Option } from "commander";
-import { startSpinner } from "../shared/spinner.js";
+import {
+  beginSpinnerProgress,
+  createCommandProgress,
+} from "../shared/remote-progress.js";
+import { type Spinner, startNarrowingSpinner } from "../shared/spinner.js";
 import { SPINNER_MESSAGES } from "../shared/spinner-messages.js";
 import { sanitizeTerminalMarkdown } from "../shared/terminal-markdown.js";
 import {
@@ -26,6 +31,9 @@ export interface ExampleDependencies {
   githitsService: GitHitsService;
   hasValidToken: boolean;
   mcpUrl: string;
+  /** Live backend progress for the interactive spinner. */
+  progress?: McpProgressHook;
+  createSpinner?: () => Spinner;
 }
 
 export async function exampleAction(
@@ -36,16 +44,24 @@ export async function exampleAction(
   try {
     requireAuth(deps);
 
-    const spinner = startSpinner(SPINNER_MESSAGES.example, !options.json);
-    const result = await deps.githitsService
-      .search({
-        query,
-        sourceFormat: "cli",
-        language: options.lang,
-        licenseMode: options.license,
-        includeExplanation: options.explain,
-      })
-      .finally(() => spinner.stop());
+    const spinner =
+      deps.createSpinner?.() ??
+      startNarrowingSpinner(SPINNER_MESSAGES.example[0], !options.json);
+    const progress = await beginSpinnerProgress(spinner, deps.progress);
+    const params = {
+      query,
+      sourceFormat: "cli" as const,
+      language: options.lang,
+      licenseMode: options.license,
+      includeExplanation: options.explain,
+    };
+    const result = await (progress
+      ? deps.githitsService.search(params, { progress })
+      : deps.githitsService.search(params)
+    ).finally(() => {
+      progress?.end();
+      spinner.stop();
+    });
 
     if (options.json) {
       const solutionId = extractSolutionId(result);
@@ -107,7 +123,13 @@ export function registerExampleCommand(program: Command) {
     .option("--json", "Output as JSON for piping")
     .action(async (query: string, options: ExampleOptions) => {
       const deps = await loadContainer();
-      await exampleAction(query, options, deps);
+      const progress = options.json ? undefined : createCommandProgress(deps);
+      try {
+        await exampleAction(query, options, { ...deps, progress });
+      } finally {
+        // An open progress socket must not keep the process alive.
+        progress?.close();
+      }
     });
 }
 

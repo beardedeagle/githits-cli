@@ -8,6 +8,7 @@ import {
   extractAgenticAskDisplay,
   isRepositoryTargetSpec,
   LegacyRepositoryRefError,
+  type McpProgressHook,
   mapAgenticAskError,
   parseRepositoryTargetSpec,
   RESEARCH_VERIFIED_ANSWER_GUIDANCE,
@@ -16,8 +17,13 @@ import {
 } from "@githits/mcp/internal";
 import { type Command, InvalidArgumentError, Option } from "commander";
 import { createContainer } from "../container.js";
+import {
+  beginSpinnerProgress,
+  createCommandProgress,
+  openingResearchLabel,
+} from "../shared/remote-progress.js";
 import type { Spinner } from "../shared/spinner.js";
-import { startSpinner } from "../shared/spinner.js";
+import { startNarrowingSpinner } from "../shared/spinner.js";
 import { SPINNER_MESSAGES } from "../shared/spinner-messages.js";
 import { sanitizeTerminalMarkdown } from "../shared/terminal-markdown.js";
 import {
@@ -37,6 +43,8 @@ export interface ResearchCommandDependencies {
   mcpUrl: string;
   signal?: AbortSignal;
   createSpinner?: () => Spinner;
+  /** Live backend progress for the interactive spinner. */
+  progress?: McpProgressHook;
 }
 
 export async function researchAction(
@@ -58,9 +66,21 @@ export async function researchAction(
 
   const spinner =
     deps.createSpinner?.() ??
-    startSpinner(SPINNER_MESSAGES.research, !options.json);
+    startNarrowingSpinner(
+      "target" in subject
+        ? openingResearchLabel(subject.target)
+        : SPINNER_MESSAGES.research[0],
+      !options.json,
+    );
+  const progress = await beginSpinnerProgress(spinner, deps.progress);
   try {
-    const requestOptions = deps.signal ? { signal: deps.signal } : undefined;
+    const requestOptions =
+      deps.signal || progress
+        ? {
+            ...(deps.signal ? { signal: deps.signal } : {}),
+            ...(progress ? { progress } : {}),
+          }
+        : undefined;
     const result =
       options.sourceFormat === "url"
         ? await deps.agenticAskService.ask(
@@ -71,6 +91,7 @@ export async function researchAction(
             { ...subject, question },
             requestOptions,
           );
+    progress?.end();
     spinner.stop();
     if (options.json) {
       console.log(JSON.stringify(result));
@@ -78,6 +99,7 @@ export async function researchAction(
       process.stdout.write(formatAgenticAskHumanResponse(result));
     }
   } catch (error) {
+    progress?.end();
     spinner.stop();
     if (isCallerCancellation(error, deps.signal)) throw error;
     const failure = mapAgenticAskError(error);
@@ -261,11 +283,18 @@ export function registerResearchCommand(program: Command): Command {
           options.thread,
         );
         const deps = await createContainer();
-        await researchAction(input.target, input.question, options, {
-          agenticAskService: deps.agenticAskService,
-          hasValidToken: deps.hasValidToken,
-          mcpUrl: deps.mcpUrl,
-        });
+        const progress = options.json ? undefined : createCommandProgress(deps);
+        try {
+          await researchAction(input.target, input.question, options, {
+            agenticAskService: deps.agenticAskService,
+            hasValidToken: deps.hasValidToken,
+            mcpUrl: deps.mcpUrl,
+            progress,
+          });
+        } finally {
+          // An open progress socket must not keep the process alive.
+          progress?.close();
+        }
       },
     );
 }

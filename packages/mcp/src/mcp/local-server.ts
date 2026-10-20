@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpProgressAnimationOptions } from "../progress/progress-animator.js";
 import type { McpProgressHook } from "../progress/relay-receiver.js";
 import type { McpToolServices } from "../tools/tool-services.js";
 import type { ToolTermsRemediation } from "../tools/types.js";
@@ -57,6 +58,8 @@ export interface CreateLocalMcpServerOptions<TExtra = unknown> {
   traceTool?: McpToolExecutionHook;
   /** Optional progress source; used only when the client sends a progress token. */
   progress?: McpProgressHook;
+  /** Local animation of progress messages; defaults to on with `progress`. */
+  progressAnimation?: McpProgressAnimationOptions | boolean;
   /** Experimental definitions; defaults to `LOCAL_EXPERIMENTAL_TOOL_DEFINITIONS`. */
   experimentalTools?: readonly LocalExperimentalToolDefinition[];
 }
@@ -85,5 +88,6 @@ export function createLocalMcpServer<TExtra = unknown>(
     termsRemediation: options.termsRemediation,
     traceTool: options.traceTool,
     progress: options.progress,
+    progressAnimation: options.progressAnimation,
   });
 }

@@ -349,4 +349,52 @@ describe("exampleAction", () => {
       exitSpy.mockRestore();
     });
   }
+
+  it("drives the spinner from backend progress and attaches it to the search", async () => {
+    const events: string[] = [];
+    let notify: ((message: string) => void) | undefined;
+    const search = mock(
+      async (_params: unknown, options?: { progress?: unknown }) => {
+        events.push(options?.progress ? "search with progress" : "search");
+        notify?.("Selecting relevant sources.");
+        return "result";
+      },
+    );
+    const log = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await exampleAction(
+        "example",
+        {},
+        createDeps({
+          githitsService: createMockGitHitsService({ search }),
+          createSpinner: () => ({
+            active: true,
+            stop: () => events.push("spinner stopped"),
+            update: (label) => events.push(`label ${label}`),
+          }),
+          progress: {
+            begin: async (onUpdate) => {
+              notify = (message) => onUpdate({ progress: 3, message });
+              return {
+                headers: {
+                  "X-GitHits-Progress-Id": "op",
+                  "X-GitHits-Relay-Id": "relay",
+                },
+                rejected: () => {},
+                end: () => events.push("progress ended"),
+              };
+            },
+          },
+        }),
+      );
+      expect(events).toEqual([
+        "search with progress",
+        "label Selecting relevant sources...",
+        "progress ended",
+        "spinner stopped",
+      ]);
+    } finally {
+      log.mockRestore();
+    }
+  });
 });

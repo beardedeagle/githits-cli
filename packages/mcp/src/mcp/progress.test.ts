@@ -7,6 +7,7 @@ import {
   CallToolResultSchema,
   ProgressNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import type { McpProgressAnimationOptions } from "../progress/progress-animator.js";
 import type {
   McpProgressHook,
   McpProgressOperation,
@@ -78,10 +79,13 @@ afterEach(async () => {
 async function connect(
   progress: McpProgressHook | undefined,
   toolServices: McpToolServices,
+  // Most tests assert exact live messages, so animation is off unless asked.
+  progressAnimation: McpProgressAnimationOptions | boolean = false,
 ) {
   const server = createMcpServer({
     metadata: { name: "test", version: "0.0.0" },
     services: toolServices,
+    progressAnimation,
     ...(progress ? { progress } : {}),
   });
   servers.push(server);
@@ -213,5 +217,55 @@ describe("MCP progress over a real transport", () => {
     );
     expect(result.isError).toBeFalsy();
     expect(seen).toEqual([undefined]);
+  });
+
+  it("animates progress locally with the narrowing mark", async () => {
+    const hook = fakeHook();
+    const client = await connect(hook, services(hook, []), { intervalMs: 2 });
+    const updates: { progress: number; message: string }[] = [];
+    const result = await client.callTool(
+      { name: "get_example", arguments: { query: "httpx timeout" } },
+      CallToolResultSchema,
+      {
+        onprogress: (update) =>
+          updates.push({
+            progress: update.progress,
+            message: update.message ?? "",
+          }),
+      },
+    );
+    expect(result.isError).toBeFalsy();
+    expect(
+      updates[0]?.message.endsWith(" Searching source code and docs…"),
+    ).toBe(true);
+    expect(
+      updates.some((u) => u.message.endsWith(" Preparing the answer.")),
+    ).toBe(true);
+    expect(updates.every((u) => /^[\u2800-\u28ff]+ /u.test(u.message))).toBe(
+      true,
+    );
+    expect(
+      updates.every(
+        (u, i) => i === 0 || u.progress > (updates[i - 1]?.progress ?? -1),
+      ),
+    ).toBe(true);
+  });
+
+  it("can animate without live progress", async () => {
+    const seen: (ProgressRequest | undefined)[] = [];
+    const client = await connect(undefined, services(fakeHook(), seen), {
+      intervalMs: 2,
+    });
+    const updates: string[] = [];
+    await client.callTool(
+      { name: "research", arguments: { question: "q?", target: "pypi:httpx" } },
+      CallToolResultSchema,
+      { onprogress: (update) => updates.push(update.message ?? "") },
+    );
+    expect(updates.length).toBeGreaterThan(0);
+    expect(updates.every((m) => m.endsWith(" Resolving pypi:httpx…"))).toBe(
+      true,
+    );
+    expect(seen[0]?.headers).toEqual({});
   });
 });
