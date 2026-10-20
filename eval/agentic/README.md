@@ -432,12 +432,12 @@ Canary has `express-router` and
 `package-overview-vulnerabilities`; smoke adds `global-example`,
 `unified-search-investigation`, `docs-search-followup`,
 `package-upgrade-safety`, and the `code-diff` comparison; stable-full contains
-all 41 stable workloads, including the `research` workloads
+all 42 stable workloads, including the `research` workloads
 `question-only-research` and `research-version-followup`.
 `stateful-manual` contains only `githits-onboarding` and is dry-run-only in
 this phase. `experimental` is empty while no local experiment is in dogfood;
-selecting it fails preflight. The manifest therefore classifies 42 workloads:
-41 stable and one stateful. Canary is a
+selecting it fails preflight. The manifest therefore classifies 43 workloads:
+42 stable and one stateful. Canary is a
 subset of smoke, smoke is a subset of stable-full, and stateful or experimental
 workloads never enter those stable suites.
 
@@ -955,6 +955,7 @@ use at least one agent for quick iteration.
 | Unified `search` / `search_status` behavior                        | `unified-search-investigation.md`; use `search-inline-qualifiers.md` for query constraint syntax, `search-source-ergonomics.md` for source-selection arguments or minimal-call guidance, and `opencode-compaction.md` for the remote-MCP routing regression                            |
 | Explicit standalone site targets in unified `search`               | `site-search-explicit.md`                                                                                                                                                                                                                                                             |
 | Package overview or vulnerability UX, `pkg_info`, `pkg_vulns`      | `package-overview-vulnerabilities.md`; use `package-vulnerability-filter.md` for severity/version filtering behavior, `package-vulnerability-history.md` for historical/non-affecting advisory scope behavior, `package-vulnerability-transitive.md` for npm-audit-style resolved dependency evidence, and `package-vulnerability-rubygems.md` for non-npm descriptor routing |
+| Registry repository provenance, `pkg_info` | `registry-repository-provenance.md`; inspect name/URL, release identity and honest unknown evidence |
 | `quick_start` catalog salience in the reported claude.ai layout    | `probes/claude-ai-deferred-catalog.md`; inspect whether `quick_start` is the first GitHits call, exactly once, before package evidence tools                                                                                                                                         |
 | Dependency graph UX, `pkg_deps`                                    | `package-dependencies.md`                                                                                                                                                                                                                                                             |
 | Release notes UX, `pkg_changelog`                                  | `package-changelog.md`; use `package-changelog-range.md` for range/body-preview behavior and `package-changelog-exact.md` for a pinned selected-release call                                                                                                                                                                                           |

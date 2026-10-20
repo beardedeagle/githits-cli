@@ -39,6 +39,7 @@
  */
 
 import type {
+  RegistryRepository,
   TransitiveDependencyVulnerability,
   TransitiveVulnerabilityAuditCounts,
   VulnerabilityDetail,
@@ -154,6 +155,7 @@ export interface LeanVulnerabilityReport {
   registry: string;
   name: string;
   version: string;
+  registryRepository?: RegistryRepository;
   requestedVersion?: string;
   summary: LeanVulnerabilitySummary;
   filter?: PackageVulnerabilitiesFilterEcho;
@@ -199,6 +201,8 @@ export function buildPackageVulnerabilitiesSuccessPayload(
     version: pkg.version,
     summary: buildSummary(total, security, dedupedAdvisories),
   };
+  if (pkg.registryRepository)
+    payload.registryRepository = pkg.registryRepository;
 
   const requestedEcho = deriveRequestedVersion(
     options.requestedVersion,

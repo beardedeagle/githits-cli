@@ -20,6 +20,7 @@ import type {
   ChangelogEntry,
   PackageSecurityOverview,
   PackageSummary,
+  RegistryRepository,
   VulnerabilityOverview,
 } from "@githits/core-internal";
 import { toPkgseerRegistryLowercase } from "@githits/core-internal";
@@ -77,6 +78,7 @@ export interface LeanPackageSummary {
   registry: string;
   name: string;
   version: string;
+  registryRepository?: RegistryRepository;
   versionCount?: number;
   description?: string;
   license?: string;
@@ -110,6 +112,7 @@ export function buildPackageSummarySuccessPayload(
   assignIfDefined(payload, "license", pkg.license);
   assignIfDefined(payload, "homepage", pkg.homepage);
   assignIfDefined(payload, "repository", pkg.repositoryUrl);
+  assignIfDefined(payload, "registryRepository", pkg.registryRepository);
   assignIfDefined(
     payload,
     "publishedAt",
@@ -428,6 +431,12 @@ function buildFieldList(
     if (githubPopularity) {
       fields.push({ label: "GitHub", value: githubPopularity });
     }
+  }
+  if (lean.registryRepository) {
+    fields.push({
+      label: "Package registry",
+      value: `${lean.registryRepository.name} (${colorize(lean.registryRepository.url, "cyan", useColors)})`,
+    });
   }
   if (lean.homepage) {
     fields.push({

@@ -53,6 +53,7 @@ import type {
   DependencyIssuesSummary,
   DependencyReport,
   EnvironmentMarker,
+  RegistryRepository,
 } from "@githits/core-internal";
 import { toPkgseerRegistryLowercase } from "@githits/core-internal";
 import { colorize, dim } from "./colors.js";
@@ -229,6 +230,7 @@ export interface LeanDependencyReport {
   registry: string;
   name: string;
   version: string;
+  registryRepository?: RegistryRepository;
   requestedVersion?: string;
   runtime?: LeanRuntimeBlock;
   groups?: LeanGroupsBlock;
@@ -276,6 +278,8 @@ export function buildPackageDependenciesSuccessPayload(
     name: pkg.name,
     version: pkg.version,
   };
+  if (pkg.registryRepository)
+    payload.registryRepository = pkg.registryRepository;
 
   const requestedEcho = deriveRequestedVersion(
     options.requestedVersion,

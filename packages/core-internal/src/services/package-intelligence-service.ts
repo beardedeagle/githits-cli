@@ -63,6 +63,13 @@ export interface PackageSummaryParams {
   includeVerboseFields?: boolean;
 }
 
+/** Logical artifact repository that supplied validated release metadata. */
+export interface RegistryRepository {
+  id: string;
+  name: string;
+  url: string;
+}
+
 export interface PackageIdentity {
   name: string;
   registry?: string;
@@ -77,6 +84,7 @@ export interface PackageIdentity {
   versionCount?: number;
   downloadsRefreshedAt?: string;
   githubRepository?: GithubRepository;
+  registryRepository?: RegistryRepository;
 }
 
 export interface GithubRepository {
@@ -145,6 +153,7 @@ export interface PackageVersionIdentity {
   publishedAt?: string;
   deprecated?: boolean;
   deprecationReason?: string;
+  registryRepository?: RegistryRepository;
 }
 
 export interface VulnerabilityDetail {
@@ -1132,12 +1141,28 @@ const packageSummaryResponseSchema = z.object({
 const graphQLErrorSchema = z.object({
   message: z.string(),
   extensions: z.record(z.string(), z.unknown()).optional(),
+  path: z.array(z.union([z.string(), z.number().int()])).optional(),
+});
+
+const registryRepositorySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  url: z.string(),
 });
 
 const graphQLResponseSchema = z.object({
   data: z
     .object({
       packageSummary: packageSummaryResponseSchema.nullable().optional(),
+      provenance: z
+        .object({
+          selectedVersion: z.object({
+            resolvedVersion: z.string(),
+            registryRepository: registryRepositorySchema.nullable().optional(),
+          }),
+        })
+        .nullable()
+        .optional(),
     })
     .nullable()
     .optional(),
@@ -1191,6 +1216,12 @@ query PackageSummary(
       body
     }
   }
+  provenance: packageInfo(registry: $registry, name: $name) {
+    selectedVersion {
+      resolvedVersion
+      registryRepository { id name url }
+    }
+  }
 }`;
 
 // --------------------------------------------------------------------
@@ -1204,6 +1235,7 @@ const packageVersionIdentitySchema = z.object({
   publishedAt: z.string().nullable().optional(),
   deprecated: z.boolean().nullable().optional(),
   deprecationReason: z.string().nullable().optional(),
+  registryRepository: registryRepositorySchema.nullable().optional(),
 });
 
 const vulnerabilityDetailSchema = z.object({
@@ -1372,6 +1404,7 @@ query PackageVulnerabilities(
       name
       registry
       version
+      registryRepository { id name url }
     }
     security {
       unknownVulnerabilityCount
@@ -1758,6 +1791,7 @@ query PackageDependencies(
       name
       registry
       version
+      registryRepository { id name url }
     }
     dependencies {
       # Backend-side summary block intentionally not selected — our
@@ -1898,6 +1932,7 @@ query PackageUpgradeDependencyProbe(
       name
       registry
       version
+      registryRepository { id name url }
       publishedAt
       deprecated
       deprecationReason
@@ -3218,18 +3253,44 @@ export class PackageIntelligenceServiceImpl
       );
     }
 
-    if (parsed.data.errors && parsed.data.errors.length > 0) {
-      throw this.createGraphQLError(parsed.data.errors);
-    }
-
     const data = parsed.data.data?.packageSummary;
+    const errors = parsed.data.errors ?? [];
+    const primaryErrors = errors.filter(
+      (error) => error.path?.[0] !== "provenance",
+    );
+    if (primaryErrors.length > 0 || (!data && errors.length > 0)) {
+      throw this.createGraphQLError(
+        primaryErrors.length > 0 ? primaryErrors : errors,
+      );
+    }
+    // Version-detail lookup is optional in the existing overview. A failed
+    // provenance root must not remove that overview or hide authorization errors.
+    for (const error of errors) {
+      const mapped = this.createGraphQLError([error]);
+      if (
+        mapped instanceof AuthenticationError ||
+        mapped instanceof PackageIntelligenceAccessError ||
+        mapped instanceof ClientUpdateRequiredError
+      ) {
+        throw mapped;
+      }
+    }
     if (!data) {
       throw new MalformedPackageIntelligenceResponseError(
         "Empty response from the package-intelligence service.",
       );
     }
 
-    return this.normalise(data);
+    const summary = this.normalise(data);
+    const selected = parsed.data.data?.provenance?.selectedVersion;
+    if (
+      errors.length === 0 &&
+      selected?.resolvedVersion === summary.package.latestVersion
+    ) {
+      summary.package.registryRepository =
+        selected.registryRepository ?? undefined;
+    }
+    return summary;
   }
 
   private createHttpError(response: PkgseerGraphqlResponse): Error {
@@ -3511,6 +3572,7 @@ export class PackageIntelligenceServiceImpl
       publishedAt: data.package?.publishedAt ?? undefined,
       deprecated: data.package?.deprecated ?? undefined,
       deprecationReason: data.package?.deprecationReason ?? undefined,
+      registryRepository: data.package?.registryRepository ?? undefined,
     };
 
     const security: VulnerabilitySecurityDetails | undefined = data.security
@@ -4219,6 +4281,7 @@ export class PackageIntelligenceServiceImpl
       publishedAt: data.package?.publishedAt ?? undefined,
       deprecated: data.package?.deprecated ?? undefined,
       deprecationReason: data.package?.deprecationReason ?? undefined,
+      registryRepository: data.package?.registryRepository ?? undefined,
     };
 
     const bundle = data.dependencies;
@@ -4938,6 +5001,7 @@ function stripNullProperties(value: unknown): unknown {
 }
 
 export interface PackageIntelligenceGraphQLResponseError {
+  path?: Array<string | number>;
   message: string;
   extensions?: Record<string, unknown>;
 }

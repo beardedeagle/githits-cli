@@ -212,6 +212,12 @@
       "suites": ["stable-full"]
     },
     {
+      "id": "registry-repository-provenance",
+      "path": "eval/agentic/workloads/registry-repository-provenance.md",
+      "safety": "stable",
+      "suites": ["stable-full"]
+    },
+    {
       "id": "research-version-followup",
       "path": "eval/agentic/workloads/research-version-followup.md",
       "safety": "stable",
