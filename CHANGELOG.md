@@ -5,6 +5,39 @@ changes use independent files under [`changes/`](changes/README.md) and are
 consolidated here only during release preparation. Dated, versioned sections
 are historical records and change only to correct blatant factual errors.
 
+## [githits 0.33.0] - 2026-10-20
+
+Pre-1.0 minor release that adds Launchpad Git targets, package registry
+repository provenance and clearer grep coverage and recovery. Existing
+commands and configuration keep working.
+
+### Added
+
+- **Registry repository provenance** - Package info adds the metadata-supplying registry repository name and URL under `Package registry`, after `Repository`; info, dependency and vulnerability JSON retain `registryRepository: {id,name,url}` when proven. The `packageInfo.selectedVersion.registryRepository` schema must be deployed to production before release or hosted adoption. Unknown evidence is omitted; existing inspection arguments and latest-only behavior are unchanged.
+
+- **Launchpad Git targets and shortcuts** - Search, read, list, grep and diff accept complete owner-qualified Launchpad Git paths and mutable project, distribution-source and owner-scoped defaults through `launchpad:`, case-insensitive `lp:` and supported HTTPS URLs. The backend resolves shortcut owners; follow-up actions retain canonical repository identities and refs. The CLI code skill and reference include the released addressing and replay rules. Bazaar is unsupported. Unequal raw diffs currently return nonretryable `RAW_DIFF_UNAVAILABLE`; equal-commit comparisons return an empty inventory.
+
+### Fixed
+
+- **Accurate grep coverage and recovery** - Text distinguishes complete empty searches from preparation, unavailable content and partial coverage. Retry guidance names eligible original targets and exact cursor/preparation controls, retains source-specific failure reasons and says whether unchanged retries are supported. Missing failure details and unknown retryability remain explicit.
+
+## [@githits/mcp 0.33.0] - 2026-10-20
+
+Pre-1.0 minor release that adds Launchpad Git targets, package registry
+repository provenance and clearer grep coverage and recovery. Existing hosts
+and service implementations keep working unchanged. Hosted MCP clients receive these changes after adoption and
+deployment of the released MCP package.
+
+### Added
+
+- **Registry repository provenance** - Package info adds the metadata-supplying registry repository name and URL under `Package registry`, after `Repository`; info, dependency and vulnerability JSON retain `registryRepository: {id,name,url}` when proven. The `packageInfo.selectedVersion.registryRepository` schema must be deployed to production before release or hosted adoption. Unknown evidence is omitted; existing inspection arguments and latest-only behavior are unchanged.
+
+- **Launchpad Git targets and shortcuts** - Search, read, list, grep, resolve and diff admission accept complete owner-qualified Launchpad Git paths and mutable project, distribution-source and owner-scoped defaults through `launchpad:`, case-insensitive `lp:` and supported HTTPS URLs. The backend resolves shortcut owners; follow-up actions retain canonical repository identities and refs. `quick_start` includes the addressing guidance. Bazaar is unsupported. Unequal raw diffs currently return nonretryable `RAW_DIFF_UNAVAILABLE`; equal-commit comparisons return an empty inventory.
+
+### Fixed
+
+- **Accurate grep coverage and recovery** - Text distinguishes complete empty searches from preparation, unavailable content and partial coverage. Retry guidance names eligible original targets and exact cursor/preparation controls, retains source-specific failure reasons and says whether unchanged retries are supported. Missing failure details and unknown retryability remain explicit.
+
 ## [githits 0.32.0] - 2026-10-19
 
 Pre-1.0 minor release that accepts `cargo:` as a crates.io registry alias and

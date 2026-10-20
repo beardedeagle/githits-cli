@@ -163,13 +163,14 @@ the compact provider form. Both retain the exact commit.
 ## Packaging and release
 
 The stable MCP guide and its public skill copy stay byte-for-byte aligned.
-Launchpad CLI skill/reference updates follow the release lifecycle in
-[the backlog](../backlog.md#launchpad-cli-skill-updates-at-release).
+The 0.33.0 release includes Launchpad CLI addressing, canonical replay and
+backend-owned raw-diff guidance in `skills/githits-code/SKILL.md` and its
+`references/code-and-docs.md`, completing the release-boundary skill update.
 Generate and check plugin assets from canonical inputs; no manifest content
 change is needed when metadata is unchanged.
 
-The shortcuts fragment records pending minor impact for `githits` and
-`@githits/mcp`, superseding the qualified-only shortcut restriction. Hosted users
+Release 0.33.0 adds Launchpad Git shortcuts to `githits` and `@githits/mcp`,
+superseding the qualified-only shortcut restriction. Hosted users
 receive MCP changes after the package is released, adopted by `remote-mcp`, and
 deployed there.
 

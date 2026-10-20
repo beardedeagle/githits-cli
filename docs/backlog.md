@@ -67,15 +67,3 @@ see [target resolution](implementation/resolve-target.md) for audit scope.
 Docker MEDIUM SDK resolution without a kind preference is explicitly accepted;
 repository-preferred Docker Engine remains HIGH Moby. No new ranking change or
 coverage requirement is inferred from GA promotion.
-
-## Launchpad CLI skill updates at release
-
-When the Launchpad behavior is released or included on its release branch,
-update `skills/githits-code/SKILL.md` and `references/code-and-docs.md` with the
-three complete owner-qualified path forms, four mutable default forms,
-case-insensitive `lp:` input,
-canonical `launchpad:` replay and backend-owned raw-diff availability. The stable MCP
-guide/copy already move with implementation under their bounded parity rule.
-Acceptance: CLI examples match released addressing and raw-diff behavior,
-describe backend-owned shortcut acquisition accurately, and plugin checks pass.
-This timing follows the public Agent Skill lifecycle; no runtime work is deferred.

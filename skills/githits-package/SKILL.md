@@ -22,6 +22,7 @@ Use GitHits package intelligence before making dependency claims from memory.
 - Most package commands use `<registry>:<name>[@<version>]`, for example `npm:lodash@4.17.20` or `pypi:requests`.
 - `cargo:` is accepted as an input alias for `crates:` (public crates.io); output and canonical identities use `crates`.
 - `pkg info` always reports the latest published version and does not accept a version pin.
+- `Package registry` identifies the artifact repository supplying validated release metadata, with a name and URL when proven. It is separate from the source Git `Repository`; missing evidence is omitted. Info, dependency and vulnerability JSON preserve `registryRepository: {id,name,url}`.
 - `pkg changelog` is package-only. Pin `@version` for one release; use `@from..to` or `--from`/`--to` for ranges. Repository and site targets are rejected.
 
 ## Core Commands
