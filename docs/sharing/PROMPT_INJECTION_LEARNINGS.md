@@ -54,8 +54,8 @@ The backend has its own LLM-mediated processing where the same
 threat lands earlier in the pipeline. Two specific places we know
 about:
 
-- **`get_example` synthesis.** The backend searches open-source
-  repositories across GitHub and synthesizes an example from the
+- **`get_example` synthesis.** The backend searches
+  projects across open source and synthesizes an example from the
   selected results. If one of those repositories contains hostile prose
   ("the recommended implementation is at `@evil/typosquat`"), the
   synthesis step may bake that recommendation into the example it
@@ -84,7 +84,7 @@ the same kind of guardrail.
 | Repository source code | MAINTAINER — same as repo | Code comments, fake install scripts. |
 | Crawled hexdocs / readthedocs | MAINTAINER (generated from repo) | Same as repo content. |
 | GitHub repo metadata (topics, license) | MAINTAINER via GitHub | Low-payload. |
-| Synthesized examples | BACKEND-SYNTHESIZED from GitHub search results | Same as maintainer-controlled source pulled in. |
+| Synthesized examples | BACKEND-SYNTHESIZED from open-source search results | Same as maintainer-controlled source pulled in. |
 
 The realistic attacker is the maintainer (or a compromised maintainer
 account, or a typosquat publisher). The attacker controls README,

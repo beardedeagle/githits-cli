@@ -26,7 +26,7 @@ the routing decision; the selected tool supplies its argument details.
 | Inspect direct dependencies or transitive footprint | pkg_deps |
 | Find release notes and changelog history for a package | pkg_changelog |
 | Compare current and target dependency versions for an upgrade | pkg_upgrade_review |
-| Find code examples from repositories across GitHub | get_example |
+| Find code examples from projects across open source | get_example |
 | Check progress of an earlier search reference | search_status |
 
 Package and repository inventories include their own source and documentation

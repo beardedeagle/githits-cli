@@ -187,7 +187,7 @@ describe("buildMcpQuickStart", () => {
     }
 
     expect(descriptions.get("get_example")).toStartWith(
-      "Find code examples from open-source repositories across GitHub.",
+      "Find code examples from projects across open source.",
     );
     expect(descriptions.get("search")).toStartWith(
       "Discover relevant docs, code, and symbols in a known public target",
