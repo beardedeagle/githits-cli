@@ -32,7 +32,10 @@ export {
   narrowingFrame,
   narrowingText,
 } from "./progress/narrowing.js";
-export type { McpProgressAnimationOptions } from "./progress/progress-animator.js";
+export {
+  type McpProgressAnimationOptions,
+  OPENING_STAGE,
+} from "./progress/progress-animator.js";
 export type {
   McpProgressHook,
   McpProgressOperation,

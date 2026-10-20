@@ -17,6 +17,8 @@ export interface AnimatedProgressOperation {
 type Emit = (progress: number, message: string) => void;
 
 const DEFAULT_INTERVAL_MS = 500;
+/** Backend stage covered by the opening message. */
+export const OPENING_STAGE = "started";
 /** Frames per converge-and-hit cycle at the MCP frame rate. */
 const FRAMES_PER_CYCLE = 6;
 
@@ -47,6 +49,9 @@ export async function beginAnimatedProgress(
     `${narrowingText(frame, { period: FRAMES_PER_CYCLE, focus: focusForStage(stage) })} ${message}`;
   const onUpdate = (update: McpProgressUpdate) => {
     if (ended) return;
+    // The opening message already describes the first real step; showing the
+    // backend's generic "started" stage after it would look like a step back.
+    if (update.stage === OPENING_STAGE) return;
     base = update.progress;
     framesSinceUpdate = 0;
     message = update.message;

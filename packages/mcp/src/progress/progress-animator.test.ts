@@ -132,4 +132,25 @@ describe("beginAnimatedProgress", () => {
       await beginAnimatedProgress(undefined, emit, "x", false),
     ).toBeUndefined();
   });
+
+  it("keeps the opening message when the backend reports its generic start", async () => {
+    const hook = liveHook();
+    const { sent, emit } = recorder();
+    const operation = await beginAnimatedProgress(
+      hook,
+      emit,
+      "Searching source code and docs…",
+      false,
+    );
+    hook.push?.({ progress: 1, message: "Starting…", stage: "started" });
+    hook.push?.({
+      progress: 2,
+      message: "Searching source code and docs…",
+      stage: "searching",
+    });
+    operation?.end();
+    expect(sent).toEqual([
+      { progress: 2, message: "Searching source code and docs…" },
+    ]);
+  });
 });

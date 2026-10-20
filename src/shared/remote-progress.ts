@@ -2,6 +2,7 @@ import type { TokenProvider } from "@githits/core-internal";
 import {
   type McpProgressHook,
   type McpProgressOperation,
+  OPENING_STAGE,
   openingResearchMessage,
   RelayReceiver,
 } from "@githits/mcp/internal";
@@ -45,6 +46,8 @@ export async function beginSpinnerProgress(
   if (!hook || !spinner.active) return undefined;
   try {
     return await hook.begin(({ message, stage }) => {
+      // The opening label already covers the backend's generic first stage.
+      if (stage === OPENING_STAGE) return;
       spinner.setStage?.(stage);
       spinner.update?.(toSpinnerLabel(message));
     });
