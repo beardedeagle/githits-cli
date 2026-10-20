@@ -133,6 +133,7 @@ export {
   DESCRIPTION_BASE as READ_DESCRIPTION_BASE,
   readSchema,
 } from "./tools/read.js";
+export { openingResearchMessage } from "./tools/research.js";
 export {
   createResolveTargetTool,
   type ResolveTargetMcpArgs,

@@ -1,6 +1,11 @@
 import { describe, expect, it, mock } from "bun:test";
 import type { McpProgressHook, McpProgressUpdate } from "@githits/mcp/internal";
-import { beginSpinnerProgress, toSpinnerLabel } from "./remote-progress.js";
+import {
+  beginSpinnerProgress,
+  createCommandProgress,
+  openingResearchLabel,
+  toSpinnerLabel,
+} from "./remote-progress.js";
 import type { Spinner } from "./spinner.js";
 
 function spinner(active = true): Spinner & { labels: string[] } {
@@ -81,5 +86,25 @@ describe("beginSpinnerProgress", () => {
       },
     };
     expect(await beginSpinnerProgress(spinner(), failing)).toBeUndefined();
+  });
+});
+
+describe("command progress setup", () => {
+  it("opens research on the target being resolved", () => {
+    expect(openingResearchLabel("pypi:httpx")).toBe("Resolving pypi:httpx...");
+    expect(openingResearchLabel(undefined)).toBe("Researching...");
+    expect(openingResearchLabel("not a target!")).toBe("Researching...");
+  });
+
+  it("creates no receiver outside an interactive terminal", () => {
+    const deps = {
+      apiUrl: "https://api.githits.test",
+      tokenProvider: {
+        getToken: mock(async () => "token"),
+        forceRefresh: async () => undefined,
+      },
+    };
+    expect(createCommandProgress(deps, false)).toBeUndefined();
+    expect(deps.tokenProvider.getToken).not.toHaveBeenCalled();
   });
 });

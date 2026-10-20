@@ -6,7 +6,7 @@ export const SPINNER_MESSAGES = {
   // Research and examples show live backend progress; these labels only cover
   // the moments before the first update or when progress is unavailable.
   research: ["Researching..."],
-  example: ["Finding examples..."],
+  example: ["Searching source code and docs..."],
   search: [
     "Exploring repositories...",
     "Tracing symbols...",

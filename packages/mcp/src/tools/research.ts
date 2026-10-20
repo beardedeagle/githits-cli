@@ -89,7 +89,13 @@ export function createResearchTool(
           args.format,
         );
       }
-      const progress = await context?.progress?.begin("Researching…");
+      // Shown until the first live update, which the first call of a process
+      // can miss while the progress connection is still opening.
+      const progress = await context?.progress?.begin(
+        openingResearchMessage(
+          "target" in subject ? subject.target : undefined,
+        ),
+      );
       try {
         const requestOptions =
           context?.signal || progress
@@ -190,4 +196,11 @@ function resolveResearchSubject(
   return threadId
     ? { threadId }
     : { error: "thread_id must be one valid thread UUID." };
+}
+
+/** Mirrors the backend's first research stage for a plain target. */
+export function openingResearchMessage(target: string | undefined): string {
+  return target && /^[A-Za-z0-9][A-Za-z0-9@/._:+#~-]{0,79}$/.test(target)
+    ? `Resolving ${target}…`
+    : "Researching…";
 }

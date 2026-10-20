@@ -20,6 +20,7 @@ import { createContainer } from "../container.js";
 import {
   beginSpinnerProgress,
   createCommandProgress,
+  openingResearchLabel,
 } from "../shared/remote-progress.js";
 import type { Spinner } from "../shared/spinner.js";
 import { startNarrowingSpinner } from "../shared/spinner.js";
@@ -65,7 +66,12 @@ export async function researchAction(
 
   const spinner =
     deps.createSpinner?.() ??
-    startNarrowingSpinner(SPINNER_MESSAGES.research[0], !options.json);
+    startNarrowingSpinner(
+      "target" in subject
+        ? openingResearchLabel(subject.target)
+        : SPINNER_MESSAGES.research[0],
+      !options.json,
+    );
   const progress = await beginSpinnerProgress(spinner, deps.progress);
   try {
     const requestOptions =

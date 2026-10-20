@@ -235,7 +235,9 @@ describe("MCP progress over a real transport", () => {
       },
     );
     expect(result.isError).toBeFalsy();
-    expect(updates[0]?.message.endsWith(" Finding examples…")).toBe(true);
+    expect(
+      updates[0]?.message.endsWith(" Searching source code and docs…"),
+    ).toBe(true);
     expect(
       updates.some((u) => u.message.endsWith(" Preparing the answer.")),
     ).toBe(true);
@@ -261,7 +263,9 @@ describe("MCP progress over a real transport", () => {
       { onprogress: (update) => updates.push(update.message ?? "") },
     );
     expect(updates.length).toBeGreaterThan(0);
-    expect(updates.every((m) => m.endsWith(" Researching…"))).toBe(true);
+    expect(updates.every((m) => m.endsWith(" Resolving pypi:httpx…"))).toBe(
+      true,
+    );
     expect(seen[0]?.headers).toEqual({});
   });
 });

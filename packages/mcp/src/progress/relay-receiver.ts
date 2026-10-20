@@ -173,6 +173,15 @@ export class RelayReceiver implements McpProgressHook {
     };
   }
 
+  /**
+   * Starts minting and connecting in the background before the first call,
+   * for hosts that know a progress call is about to start. Never waits.
+   */
+  warm(): void {
+    if (this.closed || this.now() < this.unavailableUntil) return;
+    void this.ensureConnected().then(() => this.scheduleIdleClose());
+  }
+
   /** Stops all timers and closes the socket; later calls get no progress. */
   close(): void {
     this.closed = true;

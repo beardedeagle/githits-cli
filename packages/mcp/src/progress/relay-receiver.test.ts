@@ -479,3 +479,30 @@ describe("RelayReceiver stages", () => {
     ]);
   });
 });
+
+describe("RelayReceiver warm-up", () => {
+  it("connects before the first call and reuses the socket", async () => {
+    const { receiver, sockets, setupCalls } = harness();
+    receiver.warm();
+    await settle();
+    expect(setupCalls).toHaveLength(1);
+    expect(sockets).toHaveLength(1);
+    const { notify, updates } = collector();
+    const operation = await receiver.begin(notify);
+    sockets[0]?.emit({
+      operation_id: operation?.headers["X-GitHits-Progress-Id"],
+      sequence: 1,
+      message: "Starting…",
+    });
+    expect(setupCalls).toHaveLength(1);
+    expect(updates).toEqual([{ progress: 1, message: "Starting…" }]);
+  });
+
+  it("does nothing once closed", async () => {
+    const { receiver, setupCalls } = harness();
+    receiver.close();
+    receiver.warm();
+    await settle();
+    expect(setupCalls).toHaveLength(0);
+  });
+});

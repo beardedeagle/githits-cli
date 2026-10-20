@@ -2,22 +2,33 @@ import type { TokenProvider } from "@githits/core-internal";
 import {
   type McpProgressHook,
   type McpProgressOperation,
+  openingResearchMessage,
   RelayReceiver,
 } from "@githits/mcp/internal";
 import type { Spinner } from "./spinner.js";
 
 /**
  * Creates the per-command progress receiver, authorized by the CLI's own
- * token. Nothing connects until a command begins a progress operation.
+ * token, and starts connecting right away so live updates can arrive as early
+ * as possible. Returns `undefined` when output is not an interactive terminal,
+ * where no progress is shown.
  */
-export function createCommandProgress(deps: {
-  apiUrl: string;
-  tokenProvider: TokenProvider;
-}): RelayReceiver {
-  return new RelayReceiver({
+export function createCommandProgress(
+  deps: { apiUrl: string; tokenProvider: TokenProvider },
+  interactive = Boolean(process.stdout.isTTY && process.stderr.isTTY),
+): RelayReceiver | undefined {
+  if (!interactive) return undefined;
+  const receiver = new RelayReceiver({
     apiUrl: deps.apiUrl,
     auth: { kind: "caller", getToken: () => deps.tokenProvider.getToken() },
   });
+  receiver.warm();
+  return receiver;
+}
+
+/** The research spinner's opening label, mirroring the backend's first stage. */
+export function openingResearchLabel(target: string | undefined): string {
+  return toSpinnerLabel(openingResearchMessage(target));
 }
 
 /**
