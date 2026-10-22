@@ -35,7 +35,8 @@ import type {
 } from "./agent-definitions.js";
 import {
   GITHITS_MCP_SKILL_NAME,
-  readSkillSourceContent,
+  getSkillFilePaths,
+  readSkillSourceFiles,
 } from "./guidance-assets.js";
 import { traceProbeEnd, traceProbeStart } from "./init-trace.js";
 import {
@@ -1172,11 +1173,22 @@ async function isSkillAlreadyConfigured(
   fs: FileSystemService,
 ): Promise<boolean> {
   try {
-    const source = await readSkillSourceContent(setup, fs);
-    const target = await fs.readFile(setup.targetPath);
-    return setup.skillName === GITHITS_MCP_SKILL_NAME
-      ? isManagedSkillCurrent(target, source)
-      : source === target;
+    const files = await readSkillSourceFiles(setup, fs);
+    for (const file of files) {
+      const target = await fs.readFile(
+        fs.joinPath(
+          fs.getDirname(setup.targetPath),
+          ...file.relativePath.split("/"),
+        ),
+      );
+      const current =
+        file.relativePath === "SKILL.md" &&
+        setup.skillName === GITHITS_MCP_SKILL_NAME
+          ? isManagedSkillCurrent(target, file.content)
+          : target === file.content;
+      if (!current) return false;
+    }
+    return true;
   } catch {
     return false;
   }
@@ -1822,44 +1834,55 @@ export async function executeSkillSetup(
   fs: FileSystemService,
 ): Promise<SetupResult> {
   try {
-    const sourceContent = await readSkillSourceContent(setup, fs);
-    const managed = setup.skillName === GITHITS_MCP_SKILL_NAME;
-    const installedContent = managed
-      ? renderManagedSkillContent(sourceContent, version)
-      : sourceContent;
-    await fs.ensureDir(fs.getDirname(setup.targetPath));
-
+    const files = await readSkillSourceFiles(setup, fs);
+    const pending: { path: string; content: string }[] = [];
     let fileExisted = true;
-    try {
-      const existingContent = await fs.readFile(setup.targetPath);
-      if (
-        managed
-          ? isManagedSkillCurrent(existingContent, sourceContent)
-          : existingContent === sourceContent
-      ) {
-        return {
-          status: "already_configured",
-          message: `${setup.skillName} skill already installed`,
-          changes: [
-            { kind: "skill", path: setup.targetPath, change: "unchanged" },
-          ],
-        };
+    for (const file of files) {
+      const path = fs.joinPath(
+        fs.getDirname(setup.targetPath),
+        ...file.relativePath.split("/"),
+      );
+      const managed =
+        file.relativePath === "SKILL.md" &&
+        setup.skillName === GITHITS_MCP_SKILL_NAME;
+      let current = false;
+      try {
+        const existing = await fs.readFile(path);
+        current = managed
+          ? isManagedSkillCurrent(existing, file.content)
+          : existing === file.content;
+      } catch (err) {
+        if (
+          !(err instanceof Error) ||
+          !("code" in err) ||
+          err.code !== "ENOENT"
+        ) {
+          throw err;
+        }
+        if (file.relativePath === "SKILL.md") fileExisted = false;
       }
-    } catch (err) {
-      if (
-        !(err instanceof Error) ||
-        !("code" in err) ||
-        err.code !== "ENOENT"
-      ) {
-        return {
-          status: "failed",
-          message: `Cannot read ${setup.targetPath}: ${err instanceof Error ? err.message : String(err)}`,
-        };
+      if (!current) {
+        pending.push({
+          path,
+          content: managed
+            ? renderManagedSkillContent(file.content, version)
+            : file.content,
+        });
       }
-      fileExisted = false;
     }
-
-    await fs.atomicWriteFile(setup.targetPath, installedContent);
+    if (pending.length === 0) {
+      return {
+        status: "already_configured",
+        message: `${setup.skillName} skill already installed`,
+        changes: [
+          { kind: "skill", path: setup.targetPath, change: "unchanged" },
+        ],
+      };
+    }
+    for (const file of pending) {
+      await fs.ensureDir(fs.getDirname(file.path));
+      await fs.atomicWriteFile(file.path, file.content);
+    }
     return {
       status: "success",
       message: "Skill installed successfully",
@@ -2080,13 +2103,27 @@ export async function executeConfigFileUninstall(
   }
 }
 
-/** Remove a GitHits-owned Agent Skill file. */
+/** Remove catalog-owned skill files while preserving unrelated files. */
 export async function executeSkillUninstall(
   setup: SkillSetup,
   fs: FileSystemService,
 ): Promise<UninstallResult> {
   try {
-    if (!(await fs.exists(setup.targetPath))) {
+    let removed = false;
+    const root = fs.getDirname(setup.targetPath);
+    // Remove references before the entrypoint so a failed removal stays visible.
+    for (const relativePath of [
+      ...getSkillFilePaths(setup.skillName),
+    ].reverse()) {
+      const path = fs.joinPath(root, ...relativePath.split("/"));
+      if (!(await fs.exists(path))) continue;
+      await fs.deleteFile(path);
+      if (fs.getDirname(path) !== root) {
+        await fs.deleteDirIfEmpty(fs.getDirname(path));
+      }
+      removed = true;
+    }
+    if (!removed) {
       return {
         status: "not_configured",
         message: `${setup.skillName} skill not installed`,
@@ -2095,8 +2132,7 @@ export async function executeSkillUninstall(
         ],
       };
     }
-    await fs.deleteFile(setup.targetPath);
-    await fs.deleteDirIfEmpty(fs.getDirname(setup.targetPath));
+    await fs.deleteDirIfEmpty(root);
     return {
       status: "removed",
       message: "Skill removed successfully",
@@ -2158,7 +2194,11 @@ export async function executeManagedBlockUninstall(
       };
     }
 
-    await fs.atomicWriteFile(setup.targetPath, result.content);
+    if (result.content.trim().length === 0) {
+      await fs.deleteFile(setup.targetPath);
+    } else {
+      await fs.atomicWriteFile(setup.targetPath, result.content);
+    }
     return {
       status: "removed",
       message: "Guidance removed successfully",

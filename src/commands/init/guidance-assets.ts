@@ -11,18 +11,22 @@ export const GITHITS_SKILL_CATALOG = [
   {
     name: "githits-code",
     relativePath: ["skills", "githits-code", "SKILL.md"],
+    references: ["references/code-and-docs.md"],
   },
   {
     name: GITHITS_MCP_SKILL_NAME,
     relativePath: ["skills", "githits-mcp", "SKILL.md"],
+    references: [],
   },
   {
     name: "githits-onboarding",
     relativePath: ["skills", "githits-onboarding", "SKILL.md"],
+    references: ["references/troubleshooting.md"],
   },
   {
     name: "githits-package",
     relativePath: ["skills", "githits-package", "SKILL.md"],
+    references: ["references/package.md"],
   },
 ] as const;
 
@@ -154,18 +158,40 @@ export const HISTORICAL_GUIDANCE_SKILL_TARGETS: Record<
   },
 };
 
-/** Read the first available packaged skill source without altering its bytes. */
-export async function readSkillSourceContent(
+/** Files owned by direct skill setup, relative to the skill directory. */
+export function getSkillFilePaths(skillName: string): readonly string[] {
+  const skill = GITHITS_SKILL_CATALOG.find((entry) => entry.name === skillName);
+  return ["SKILL.md", ...(skill?.references ?? [])];
+}
+
+/** One packaged skill file, retaining its exact authored text. */
+export interface SkillSourceFile {
+  relativePath: string;
+  content: string;
+}
+
+/** Read a complete skill from the first available source directory. */
+export async function readSkillSourceFiles(
   setup: SkillSetup,
   fs: FileSystemService,
-): Promise<string> {
+): Promise<[SkillSourceFile, ...SkillSourceFile[]]> {
   const paths = Array.from(
     new Set([setup.sourcePath, ...(setup.sourcePathCandidates ?? [])]),
   );
   let lastError: unknown;
   for (const path of paths) {
     try {
-      return await fs.readFile(path);
+      const files: [SkillSourceFile, ...SkillSourceFile[]] = [
+        { relativePath: "SKILL.md", content: await fs.readFile(path) },
+      ];
+      for (const relativePath of getSkillFilePaths(setup.skillName).slice(1)) {
+        const sourcePath = fs.joinPath(
+          fs.getDirname(path),
+          ...relativePath.split("/"),
+        );
+        files.push({ relativePath, content: await fs.readFile(sourcePath) });
+      }
+      return files;
     } catch (err) {
       lastError = err;
     }
@@ -177,4 +203,13 @@ export async function readSkillSourceContent(
   throw new Error(
     `Cannot read ${setup.skillName} skill source${suffix}: ${detail}`,
   );
+}
+
+/** Read the packaged main skill content without altering its bytes. */
+export async function readSkillSourceContent(
+  setup: SkillSetup,
+  fs: FileSystemService,
+): Promise<string> {
+  const files = await readSkillSourceFiles(setup, fs);
+  return files[0].content;
 }
