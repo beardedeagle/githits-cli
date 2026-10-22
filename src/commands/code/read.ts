@@ -18,6 +18,7 @@ import { createContainer } from "../../container.js";
 import { startSpinner } from "../../shared/spinner.js";
 import { SPINNER_MESSAGES } from "../../shared/spinner-messages.js";
 import {
+  buildCliListRecoveryCommand,
   formatFileErrorWithFilesHint,
   handleCodeNavCommandError,
   parseIntCliOption,
@@ -169,7 +170,7 @@ export function buildCliReadFileParams(
     const filePath = input.filePath.trim();
     if (filePath.endsWith("/")) {
       throw new InvalidPackageSpecError(
-        `\`<path>\` must be an exact file path, not a directory prefix. Use \`githits list <target> ${JSON.stringify(filePath)}\` to list files, then pass an emitted path to \`githits read\`.`,
+        `\`<path>\` must be an exact file path, not a directory prefix. Use \`${buildCliListRecoveryCommand(filePath)}\` to list files, then pass an emitted path to \`githits read\`.`,
       );
     }
     const rewritten = error.message

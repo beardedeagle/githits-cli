@@ -356,7 +356,7 @@ describe("top-level read", () => {
       ).rejects.toThrow("exit");
       const payload = JSON.parse(String(error.mock.calls[0]?.[0]));
       expect(payload.details.action).toContain(
-        '`githits list <target> "docs/"`',
+        "`githits list <target> 'docs/'`",
       );
       expect(payload.details.action).toContain("`githits read`");
       expect(payload.details.action).not.toContain("code_files");
@@ -512,7 +512,7 @@ describe("top-level read", () => {
         if (selector === undefined) {
           const payload = JSON.parse(String(log.mock.calls[0]?.[0]));
           expect(payload.action).toContain(
-            '--in "github:githits-com/githits-cli@release/v1"',
+            "--in 'github:githits-com/githits-cli@release/v1'",
           );
           expect(payload.action).not.toContain("#main");
         }
@@ -849,7 +849,7 @@ describe("top-level read", () => {
       );
       const payload = JSON.parse(String(log.mock.calls[0]?.[0]));
       expect(payload.action).toContain(
-        '--in "https://github.com/owner/repo@main"',
+        "--in 'https://github.com/owner/repo@main'",
       );
     } finally {
       log.mockRestore();

@@ -22,6 +22,7 @@ import {
   MAX_WAIT_TIMEOUT_MS,
   type MappedError,
   parseCodeNavigationTargetSpec,
+  shellQuoteExact,
   withIndexingRetryAction,
 } from "@githits/mcp/internal";
 import { mapCodeNavigationErrorForCli } from "../../shared/cli-error-diagnostics.js";
@@ -199,6 +200,13 @@ export function withCliGrepFileRecovery(mapped: MappedError): MappedError {
   return withCliPathRecovery(mapped, mapped.details.filePath, "grep", true);
 }
 
+/** Render a literal list path while leaving the target placeholder for the caller. */
+export function buildCliListRecoveryCommand(prefix: string): string {
+  if (prefix === "") return "githits list <target>";
+  const terminator = prefix.startsWith("-") ? "-- " : "";
+  return `githits list <target> ${terminator}${shellQuoteExact(prefix)}`;
+}
+
 function withCliExactPathAuthorityRecovery(
   mapped: MappedError,
   command: "read" | "grep",
@@ -211,10 +219,7 @@ function withCliExactPathAuthorityRecovery(
   }
 
   const prefix = buildContainingPathPrefix(mapped.details.filePath);
-  const listing =
-    prefix === ""
-      ? "Use `githits list <target>`"
-      : `Use \`githits list <target> ${JSON.stringify(prefix)}\``;
+  const listing = `Use \`${buildCliListRecoveryCommand(prefix)}\``;
   const reason =
     mapped.code === "FILE_PATH_EXCLUDED"
       ? "This path is excluded from the indexed source."
@@ -249,10 +254,7 @@ function withCliPathRecovery(
         ? "`githits read` requires an indexed exact file path. "
         : "With a path, `githits read` reads files, not directories. "
       : "";
-  const listing =
-    prefix === ""
-      ? "Use `githits list <target>`"
-      : `Use \`githits list <target> ${JSON.stringify(prefix)}\``;
+  const listing = `Use \`${buildCliListRecoveryCommand(prefix)}\``;
 
   return {
     ...mapped,

@@ -186,7 +186,7 @@ describe("legacy githits code grep JSON behavior", () => {
     expect(payload.code).toBe("FILE_NOT_FOUND");
     expect(payload.retryable).toBe(false);
     expect(payload.details.filePath).toBe("docs/missing.md");
-    expect(payload.details.action).toContain('`githits list <target> "docs/"`');
+    expect(payload.details.action).toContain("`githits list <target> 'docs/'`");
     expect(payload.details.action).toContain("`--path <path>`");
     expect(payload.details.action).toContain("`githits code grep`");
   });
@@ -250,7 +250,7 @@ describe("legacy githits code grep JSON behavior", () => {
       });
       expect(payload.details.action).toContain(guidance);
       expect(payload.details.action).toContain(
-        '`githits list <target> "bench/data/"`',
+        "`githits list <target> 'bench/data/'`",
       );
       expect(payload.details.action).toContain("`githits code grep`");
     },

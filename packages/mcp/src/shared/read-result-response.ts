@@ -15,6 +15,7 @@ import {
 } from "./read-package-doc-response.js";
 import { renderReadPackageDocText } from "./read-package-doc-text.js";
 import { buildReadContinuationHint } from "./read-target-range.js";
+import { shellQuoteExact } from "./shell-quote.js";
 
 /** Present the backend's typed read outcome at the shared CLI and MCP boundary. */
 export function formatReadResult(
@@ -44,7 +45,7 @@ export function formatReadResult(
     const selector = request.selector ?? codeFragment ?? "";
     const cli = format === "cli-text" || format === "cli-json";
     const searchAction = cli
-      ? `githits search ${JSON.stringify(selector)} --in ${JSON.stringify(followUpTarget)} --source symbol`
+      ? `githits search --in ${shellQuoteExact(followUpTarget)} --source symbol -- ${shellQuoteExact(selector)}`
       : `search({"query":${JSON.stringify(selector)},"target":${JSON.stringify(followUpTarget)},"source":"symbol"})`;
     const action =
       result.status === "SNAPSHOT_UNSUPPORTED"
@@ -69,10 +70,10 @@ export function formatReadResult(
     };
     if (format === "mcp-json" || format === "cli-json")
       return JSON.stringify(payload);
-    const lines = [
-      `${result.status}: ${selector}`,
-      `Repository: ${result.repoUrl}@${result.gitRef}`,
-    ];
+    const lines = [`${result.status}: ${selector}`];
+    if (result.candidates.length || result.suggestions.length)
+      lines.push(`Paths are relative to ${followUpTarget}.`);
+    lines.push(`Repository: ${result.repoUrl}@${result.gitRef}`);
     if (result.message) lines.push(result.message);
     for (const candidate of result.candidates) {
       lines.push(

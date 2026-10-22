@@ -354,7 +354,7 @@ describe("pkgReadAction", () => {
       };
       expect(payload.code).toBe("INVALID_ARGUMENT");
       expect(payload.error).toContain("`<path>` must be an exact file path");
-      expect(payload.error).toContain('`githits list <target> "lib/"`');
+      expect(payload.error).toContain("`githits list <target> 'lib/'`");
       expect(payload.error).toContain("`githits read`");
       expect(payload.error).not.toContain("emitted `path`");
       expect(payload.error).not.toContain("`file_path`");
@@ -391,8 +391,8 @@ describe("pkgReadAction", () => {
         error: string;
       };
       expect(payload.code).toBe("INVALID_ARGUMENT");
-      expect(payload.error).toContain('`githits list <target> "li`b/"`');
-      expect(payload.error).not.toContain('`githits list <target> "lib/"`');
+      expect(payload.error).toContain("`githits list <target> 'li`b/'`");
+      expect(payload.error).not.toContain("`githits list <target> 'lib/'`");
     } finally {
       errorSpy.mockRestore();
       exitSpy.mockRestore();
@@ -557,7 +557,7 @@ describe("pkgReadAction", () => {
         details?: { action?: string };
       };
       expect(payload.details?.action).toContain(
-        '`githits list <target> "docs/"`',
+        "`githits list <target> 'docs/'`",
       );
       expect(payload.details?.action).toContain("`githits read`");
       expect(payload.details?.action).not.toContain("code_files");
@@ -657,7 +657,7 @@ describe("pkgReadAction", () => {
         details?: { action?: string };
       };
       expect(payload.details?.action).toContain(
-        '`githits list <target> "lib/"`',
+        "`githits list <target> 'lib/'`",
       );
       expect(payload.details?.action).not.toContain("./lib/");
       expect(payload.details?.action).not.toContain("lib/internal/");
@@ -703,7 +703,7 @@ describe("pkgReadAction", () => {
       };
       expect(payload.details?.action).toContain("`githits read`");
       expect(payload.details?.action).toContain(
-        '`githits list <target> "lib/"`',
+        "`githits list <target> 'lib/'`",
       );
       expect(payload.details?.action).not.toContain("code_read");
       expect(payload.details?.action).not.toContain("code_files");
