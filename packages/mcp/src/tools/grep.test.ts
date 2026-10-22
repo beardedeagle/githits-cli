@@ -275,9 +275,7 @@ describe("unified MCP grep", () => {
         throw new GrepGraphQLError("not ready", {
           code: "GREP_TARGET_PREPARATION_REQUIRED",
           retryable: true,
-          target_issues: [
-            { input_index: 0, reason: "package_source_unavailable" },
-          ],
+          target_issues: [{ input_index: 0, reason: "repository_indexing" }],
         });
       }),
     );
@@ -292,9 +290,7 @@ describe("unified MCP grep", () => {
       code: "INDEXING",
       retryable: true,
       details: {
-        targetIssues: [
-          { input_index: 0, reason: "package_source_unavailable" },
-        ],
+        targetIssues: [{ input_index: 0, reason: "repository_indexing" }],
         action: expect.stringContaining("wait_timeout_ms"),
       },
     });
@@ -317,4 +313,128 @@ describe("unified MCP grep", () => {
       ),
     ).rejects.toBe(cancellation);
   });
+  it.each([
+    ["repository_indexing", "INDEXING", true, "job"],
+    ["documentation_publishing", "INDEXING", true, "job"],
+    ["repository_not_found", "NOT_FOUND", false, undefined],
+    ["repository_ref_not_found", "REF_NOT_FOUND", false, undefined],
+    ["package_version_not_found", "VERSION_NOT_FOUND", false, undefined],
+    ["repository_ref_ambiguous", "INVALID_ARGUMENT", false, undefined],
+    ["repository_legally_blocked", "UNRESOLVABLE", false, undefined],
+    ["repository_unavailable", "BACKEND_ERROR", true, "job"],
+    ["future_reason", "UNRESOLVABLE", true, undefined],
+    ["future_reason", "INDEXING", true, "job"],
+  ] as const)(
+    "emits %s as %s in MCP JSON",
+    async (reason, code, retryable, progress_ref) => {
+      const issues = [
+        {
+          input_index: 0,
+          target: "npm:x",
+          reason,
+          retryable,
+          ...(progress_ref ? { progress_ref } : {}),
+        },
+      ];
+      const tool = createGrepTool(
+        service(async () => {
+          throw new GrepGraphQLError("Backend diagnostic.", {
+            code: "GREP_TARGET_PREPARATION_REQUIRED",
+            retryable,
+            target_issues: issues,
+          });
+        }),
+      );
+      const result = await tool.handler({
+        targets: [{ target: "npm:x" }],
+        pattern: "router",
+        format: "json",
+      });
+      expect(result.isError).toBe(true);
+      const body = JSON.parse(result.content[0]!.text);
+      expect(body).toMatchObject({
+        error: "Backend diagnostic.",
+        code,
+        retryable,
+        details: {
+          graphqlCode: "GREP_TARGET_PREPARATION_REQUIRED",
+          targetIssues: issues,
+        },
+      });
+      expect((body.details.action ?? "").includes("wait_timeout_ms")).toBe(
+        code === "INDEXING" && retryable,
+      );
+    },
+  );
+
+  it("emits the terminal blocker for mixed progress and missing targets in MCP JSON", async () => {
+    const issues = [
+      { input_index: 0, reason: "repository_indexing", retryable: true },
+      { input_index: 1, reason: "repository_not_found", retryable: false },
+    ];
+    const tool = createGrepTool(
+      service(async () => {
+        throw new GrepGraphQLError("Mixed blockers", {
+          code: "GREP_TARGET_PREPARATION_REQUIRED",
+          retryable: false,
+          target_issues: issues,
+        });
+      }),
+    );
+    const result = await tool.handler({
+      targets: [{ target: "npm:a" }, { target: "npm:b" }],
+      pattern: "router",
+      format: "json",
+    });
+    const body = JSON.parse(result.content[0]!.text);
+    expect(result.isError).toBe(true);
+    expect(body).toMatchObject({
+      code: "NOT_FOUND",
+      retryable: false,
+      details: { targetIssues: issues },
+    });
+    expect(body.details.hint).toContain("repository was not found");
+    expect(body.details.hint).not.toContain("repository_not_found");
+    expect(body.details.action).toBeUndefined();
+  });
+
+  it.each(["package_version_not_found", "repository_ref_not_found"] as const)(
+    "retains additional blockers and path facts for %s in text",
+    async (reason) => {
+      const issues = [
+        {
+          input_index: 0,
+          target: "npm:a",
+          reason,
+          retryable: false,
+          file_path: "lib/a.js",
+        },
+        {
+          input_index: 1,
+          target: "npm:b",
+          reason: "repository_not_found",
+          retryable: false,
+        },
+      ];
+      const tool = createGrepTool(
+        service(async () => {
+          throw new GrepGraphQLError("First target diagnostic.", {
+            code: "GREP_TARGET_PREPARATION_REQUIRED",
+            retryable: false,
+            target_issues: issues,
+          });
+        }),
+      );
+      const result = await tool.handler({
+        targets: [{ target: "npm:a" }, { target: "npm:b" }],
+        pattern: "router",
+      });
+      const text = result.content[0]!.text.replace(/\s+/g, " ");
+      expect(result.isError).toBe(true);
+      expect(text).toContain("First target diagnostic.");
+      expect(text).toContain("npm:a: path lib/a.js");
+      expect(text).toContain("npm:b: repository was not found");
+      expect(text).not.toMatch(/repository_not_found|wait_timeout_ms/);
+    },
+  );
 });

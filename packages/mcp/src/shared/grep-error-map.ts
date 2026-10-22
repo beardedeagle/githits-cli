@@ -82,7 +82,7 @@ export function mapGrepError(error: unknown): MappedError {
     const graphqlCode = typeof ext.code === "string" ? ext.code : undefined;
     const code: MappedErrorCode =
       graphqlCode === "GREP_TARGET_PREPARATION_REQUIRED"
-        ? "INDEXING"
+        ? preparationErrorCode(ext.target_issues, ext.retryable)
         : graphqlCode === "GREP_CURSOR_INVALID" ||
             graphqlCode === "VALIDATION_ERROR" ||
             graphqlCode === "INVALID_ARGUMENT"
@@ -104,21 +104,43 @@ export function mapGrepError(error: unknown): MappedError {
             Object.entries(issue).filter(([key]) => PUBLIC_ISSUE_KEYS.has(key)),
           ),
         );
-      details.hint = details.targetIssues
-        .map((issue) => {
-          const target =
-            typeof issue.target === "string"
-              ? issue.target
-              : typeof issue.input_index === "number"
-                ? `Input ${issue.input_index}`
-                : undefined;
-          const reason =
-            typeof issue.reason === "string"
-              ? grepPreparationReason(issue.reason)
-              : "target is unavailable";
-          return `${target ? `${target}: ` : ""}${reason}${typeof issue.file_path === "string" ? `; path ${issue.file_path}` : ""}`;
-        })
-        .join("\n");
+      const hints = details.targetIssues.flatMap((issue, index) => {
+        const target =
+          typeof issue.target === "string"
+            ? issue.target
+            : typeof issue.input_index === "number"
+              ? `Input ${issue.input_index}`
+              : undefined;
+        const reason =
+          typeof issue.reason === "string"
+            ? grepPreparationReason(issue.reason)
+            : "target is unavailable";
+        // Package-source diagnostics can append raw reason-only boilerplate.
+        const message =
+          typeof issue.message === "string"
+            ? typeof issue.reason === "string" &&
+              issue.message.endsWith(`Reason: ${issue.reason}.`)
+              ? reason
+              : issue.message
+            : undefined;
+        // PreparationCopy.required already describes the first blocker.
+        const diagnostic =
+          graphqlCode === "GREP_TARGET_PREPARATION_REQUIRED" && index === 0
+            ? undefined
+            : message !== undefined
+              ? typeof issue.message === "string" &&
+                error.message.includes(issue.message)
+                ? undefined
+                : message
+              : reason;
+        const path =
+          typeof issue.file_path === "string"
+            ? `path ${issue.file_path}`
+            : undefined;
+        const text = [diagnostic, path].filter(Boolean).join("; ");
+        return text ? [`${target ? `${target}: ` : ""}${text}`] : [];
+      });
+      if (hints.length) details.hint = hints.join("\n");
     }
     if (graphqlCode === "GREP_CURSOR_INVALID")
       details.hint =
@@ -140,6 +162,74 @@ export function mapGrepError(error: unknown): MappedError {
     message: error instanceof Error ? error.message : "Unknown error",
     retryable: false,
   };
+}
+
+/** First non-progress blocker wins; aggregate false can reveal unpublished blockers. */
+function preparationErrorCode(
+  issues: unknown,
+  retryable: unknown,
+): MappedErrorCode {
+  if (!Array.isArray(issues) || issues.length === 0) return "UNRESOLVABLE";
+  for (const issue of issues) {
+    const code = isRecord(issue) ? preparationIssueCode(issue) : "UNRESOLVABLE";
+    if (code !== "INDEXING") return code;
+  }
+  return retryable === false ? "UNRESOLVABLE" : "INDEXING";
+}
+
+function preparationIssueCode(issue: Record<string, unknown>): MappedErrorCode {
+  switch (issue.reason) {
+    case "repository_indexing":
+    case "documentation_publishing":
+      return issue.retryable === false ? "UNRESOLVABLE" : "INDEXING";
+    case "repository_not_found":
+    case "package_not_found":
+    case "package_source_not_found":
+      return "NOT_FOUND";
+    case "repository_ref_not_found":
+    case "ref_not_found":
+      return "REF_NOT_FOUND";
+    case "package_version_not_found":
+    case "package_version_unresolved":
+    case "package_source_ref_not_found":
+      return "VERSION_NOT_FOUND";
+    case "repository_ref_ambiguous":
+    case "site_ambiguous":
+      return "INVALID_ARGUMENT";
+    case "repository_resolution_error":
+    case "repository_unavailable":
+      return "BACKEND_ERROR";
+    case "no_grep_scopes":
+    case "no_site_pages":
+    case "repository_legally_blocked":
+    case "package_source_unsupported":
+    case "package_security_removed":
+    case "package_scope_unavailable":
+    case "package_release_unusable":
+    case "site_not_indexed":
+    case "site_no_docs":
+    case "site_redirected":
+    case "site_failed":
+    case "site_v6_required":
+    case "documentation_site_not_admitted":
+    case "documentation_source_resolution_required":
+    case "documentation_site_no_docs":
+    case "documentation_site_identity_blocked":
+    case "documentation_site_failed":
+    case "documentation_discovery":
+    case "starting_url_pending":
+    case "starting_url_missed_at_cap":
+    case "starting_url_absent_from_current_corpus":
+      return "UNRESOLVABLE";
+    default:
+      return typeof issue.reason === "string" &&
+        issue.reason.trim() &&
+        issue.retryable === true &&
+        typeof issue.progress_ref === "string" &&
+        issue.progress_ref.trim()
+        ? "INDEXING"
+        : "UNRESOLVABLE";
+  }
 }
 
 const PUBLIC_ISSUE_KEYS = new Set([

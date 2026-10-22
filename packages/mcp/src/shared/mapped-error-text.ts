@@ -103,6 +103,12 @@ export function formatMappedErrorText(
       lines.push(
         `Compared commits: ${details.codeDiffResolution.from.commitSha} -> ${details.codeDiffResolution.to.commitSha}`,
       );
+    if (
+      details.hint &&
+      !lines.join("\n").includes(details.hint) &&
+      details.hint !== details.action
+    )
+      lines.push("", details.hint);
     const output = lines.flatMap((line) =>
       wrapTerminalProse(line, options.width ?? 80),
     );
