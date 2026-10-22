@@ -40,7 +40,7 @@ and carrying progress metadata. Unknown reasons qualify only with issue.retryabl
 | package_version_not_found, package_version_unresolved, package_source_ref_not_found | VERSION_NOT_FOUND |
 | repository_ref_ambiguous, site_ambiguous | INVALID_ARGUMENT |
 | repository_resolution_error, repository_unavailable | BACKEND_ERROR |
-| no_grep_scopes, no_site_pages, repository_legally_blocked, package_source_unsupported, package_security_removed, package_scope_unavailable, package_release_unusable, site_not_indexed, site_no_docs, site_redirected, site_failed, documentation_site_not_admitted, documentation_source_resolution_required, documentation_site_no_docs, documentation_site_identity_blocked, documentation_site_failed, site_v6_required, documentation_discovery, starting_url_pending, starting_url_missed_at_cap, starting_url_absent_from_current_corpus | UNRESOLVABLE |
+| no_grep_scopes, no_site_pages, repository_legally_blocked, package_source_unsupported, package_security_removed, package_scope_unavailable, package_release_unusable, site_not_indexed, site_no_docs, site_redirected, site_failed, documentation_site_not_admitted, documentation_source_resolution_required, documentation_site_no_docs, documentation_site_identity_blocked, documentation_site_failed, documentation_unavailable, site_v6_required, documentation_discovery, starting_url_pending, starting_url_missed_at_cap, starting_url_absent_from_current_corpus | UNRESOLVABLE |
 
 Dedicated version/ref recovery envelopes retain their existing mapping before
 this classifier. Human hint rows use known-reason translations or issue messages,
@@ -118,7 +118,7 @@ items or refactors identified; reassess if evidence changes scope or ownership.
 
 ## Validation and consumer audit
 
-- Focused mapper/formatter/CLI/MCP tests: 128 pass, zero fail (681 assertions).
+- Focused mapper/formatter/CLI/MCP tests: 131 pass, zero fail (693 assertions).
 - Related version/ref recovery/terminal tests: 70 pass, zero fail.
 - `bun run typecheck`, `bun run build`, changed-file Biome and diff whitespace pass.
 - Dev `bun run smoke:cli` and `bun run smoke:mcp` pass with
@@ -155,3 +155,13 @@ Final plan round (third) dispositions: accepted A (targeted Codex eval completed
 existing authenticated eval home, without credential inspection/injection);
 accepted B (durable two-reason rationale now in unified-grep.md). Plan round limit
 reached; no further plan review. Code has its own final review after validation.
+
+Code review round 1 closure: accepted missing documentation_unavailable copy.
+Root cause: shared formatter's neutral unknown fallback lost the documentation
+scope for this known success omission. Bounded sibling scan: all issue(reason)
+atoms in backend preparation.ex vs classification/translation/doc tables, mapper
+fixtures, grep success formatter tests; dynamic publisher failures remain neutral
+with their structured reasons preserved. Added explicit UNRESOLVABLE classification,
+readable documentation copy, docs row, both-syntax success tests retaining source
+hits, and an unknown site-reason no-raw-code assertion. No other missing issue
+atoms found. No architecture or scope change.

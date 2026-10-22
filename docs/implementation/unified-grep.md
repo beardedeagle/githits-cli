@@ -267,7 +267,7 @@ states do not widen this preparation-error contract.
 | `repository_legally_blocked` | `UNRESOLVABLE` |
 | `package_source_unsupported`, `package_security_removed`, `package_scope_unavailable`, `package_release_unusable` | `UNRESOLVABLE` |
 | `no_grep_scopes`, `no_site_pages`, `site_not_indexed`, `site_no_docs`, `site_redirected`, `site_failed`, `site_v6_required` | `UNRESOLVABLE` |
-| `documentation_site_not_admitted`, `documentation_source_resolution_required`, `documentation_site_no_docs`, `documentation_site_identity_blocked`, `documentation_site_failed`, `documentation_discovery` | `UNRESOLVABLE` |
+| `documentation_site_not_admitted`, `documentation_source_resolution_required`, `documentation_site_no_docs`, `documentation_site_identity_blocked`, `documentation_site_failed`, `documentation_unavailable`, `documentation_discovery` | `UNRESOLVABLE` |
 | `starting_url_pending`, `starting_url_missed_at_cap`, `starting_url_absent_from_current_corpus` | `UNRESOLVABLE` |
 | Unknown future reason | `INDEXING` only with per-issue `retryable: true` and a nonblank string `progress_ref`; otherwise `UNRESOLVABLE` |
 

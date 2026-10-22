@@ -217,6 +217,7 @@ function preparationIssueCode(issue: Record<string, unknown>): MappedErrorCode {
     case "documentation_site_identity_blocked":
     case "documentation_site_failed":
     case "documentation_discovery":
+    case "documentation_unavailable":
     case "starting_url_pending":
     case "starting_url_missed_at_cap":
     case "starting_url_absent_from_current_corpus":

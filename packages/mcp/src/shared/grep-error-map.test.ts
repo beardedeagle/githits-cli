@@ -82,6 +82,7 @@ describe("unified grep errors", () => {
       "documentation_site_failed",
       "site_v6_required",
       "documentation_discovery",
+      "documentation_unavailable",
       "starting_url_pending",
       "starting_url_missed_at_cap",
       "starting_url_absent_from_current_corpus",

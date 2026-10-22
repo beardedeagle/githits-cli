@@ -65,6 +65,8 @@ export function grepPreparationReason(reason: string): string {
       return "documentation site preparation failed";
     case "documentation_discovery":
       return "documentation sources are being discovered";
+    case "documentation_unavailable":
+      return "documentation is unavailable";
     case "starting_url_pending":
       return "requested documentation URL is being prepared";
     case "starting_url_missed_at_cap":

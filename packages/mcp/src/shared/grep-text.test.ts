@@ -729,12 +729,50 @@ describe("grep text formatting", () => {
     };
     const text = formatGrepText(result, { width: 200 });
     expect(text).toContain("Preparing:\n  - github:owner/cold (indexing)");
-    expect(text).toContain("Not searched:\n  - site:missing.example");
+    expect(text).toContain(
+      "Not searched:\n  - site:missing.example: target is unavailable",
+    );
+    expect(text).not.toContain("site_not_found");
     expect(text).toContain(
       "Search hosted documentation instead: site:docs.example",
     );
     expect(text).not.toContain("estimated total:");
   });
+  it.each(["cli", "mcp"] as const)(
+    "identifies missing documentation while retaining searched source in %s text",
+    (syntax) => {
+      const original = parseGrepResult(mixed100);
+      const source = original.targets.find(
+        (entry) => entry.kind === "REPOSITORY",
+      )!;
+      const hits = original.hits.filter(
+        (hit) => hit.targetIndex === source.targetIndex,
+      );
+      const result: GrepResult = {
+        ...original,
+        targets: [source],
+        hits,
+        totalMatches: hits.length,
+        nextCursor: null,
+        unavailableTargets: [
+          {
+            inputIndex: 0,
+            target: source.target,
+            reason: "documentation_unavailable",
+            retryable: true,
+            progressRef: null,
+            suggestedSiteTargets: null,
+          },
+        ],
+      };
+      const text = formatGrepText(result, { syntax, width: 200 });
+      expect(text).toContain("documentation is unavailable");
+      expect(text).toContain("History.md");
+      expect(text).not.toMatch(
+        /target is unavailable|documentation_unavailable/,
+      );
+    },
+  );
   it("shared source rows preserve distinct readiness and remove only duplicated served SHA", () => {
     const original = parseGrepResult(mixed100);
     const scope = original.targets.find(
