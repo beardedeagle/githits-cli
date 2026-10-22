@@ -134,8 +134,14 @@ items or refactors identified; reassess if evidence changes scope or ownership.
   both issues retained and one readable extra-target hint. Nonzero exits expected.
 - Targeted `bun run agent:e2e` with a neutral missing-repo workload and intent
   profile attempted: isolated Claude reports Not logged in before any tool calls.
-  tool-calls empty; final/isolation artifacts absent, metrics unknown. No usefulness
-  claim or auth workaround. This environment limitation needs no repo backlog.
+  tool-calls empty; final/isolation artifacts absent, metrics unknown. Retried with
+  the documented existing Codex eval home (no credential reads/injection): harness
+  success, one quick_start and one grep call, no retry loop. Final answer reports
+  Repository not found and advises correcting target; final.status failure is
+  expected for an impossible target, confidence high. No isolation violations
+  artifact. Metrics: 27.5 seconds, 2 logical calls, 24845 uncached input tokens,
+  59136 cached input tokens, 543 output tokens; cost estimate $0.00334736. No
+  usefulness grade is claimed.
 - Remote MCP currently imports @githits/mcp ^0.35.0 (no longer a CLI delegate).
   No grep-specific INDEXING dependency. Hosted rollout needs normal package release,
   dependency update and deployment, outside this PR's authorized delivery.
@@ -144,3 +150,8 @@ items or refactors identified; reassess if evidence changes scope or ownership.
 - Public skills inspected: no stale grep preparation error-code guidance to update;
   no skill/manifests changes. Patch fragment for both artifacts; no minor bump.
 - No major deferrals, new infrastructure, or refactoring opportunities identified.
+
+Final plan round (third) dispositions: accepted A (targeted Codex eval completed using
+existing authenticated eval home, without credential inspection/injection);
+accepted B (durable two-reason rationale now in unified-grep.md). Plan round limit
+reached; no further plan review. Code has its own final review after validation.

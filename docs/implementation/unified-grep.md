@@ -250,7 +250,11 @@ For `GREP_TARGET_PREPARATION_REQUIRED`, CLI and MCP classify the per-target
 `lib/pkg_seer/public_error/grep/preparation_copy.ex`, `lib/pkg_seer/grep/preparation.ex`,
 `lib/pkg_seer/grep.ex`, and the documentation inventory. Documentation omissions
 normally arrive in successful grep results; their known reasons are also handled
-if a preparation error carries them.
+if a preparation error carries them. The known `INDEXING` whitelist deliberately
+contains only repository indexing and documentation publishing: although the
+backend also marks `documentation_discovery`, `site_v6_required`, and
+`starting_url_pending` as pending in successful omission records, those success
+states do not widen this preparation-error contract.
 
 | Reason | Mapped code |
 | --- | --- |
