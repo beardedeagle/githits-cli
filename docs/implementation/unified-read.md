@@ -13,6 +13,24 @@ public MCP server.
 
 ## Locators and ownership
 
+Package paths start at the package root; repository paths start at the repository
+root. A read action's target and path form one address. In particular, a package
+search or grep can emit a repository-addressed read action with a repository-root
+path. Reuse both values together rather than moving that path onto the original
+package target. Backend `PathContract` and resolved package scope own coordinate
+conversion; client `ReadTarget` parsing and rendering preserve the selected pair.
+Symbol-resolution text explicitly identifies the target that its candidate and
+suggestion paths are relative to, separately from repository provenance.
+
+CLI recovery commands use the shared `shellQuoteExact` helper for paths,
+selectors, and targets. JSON quoting is reserved for MCP arguments and JSON
+payloads: double quotes in a shell command would still expand substitutions in
+a filename. CLI list recovery shares `buildCliListRecoveryCommand`; it terminates
+options for dash-leading paths. Symbol-search recovery terminates options before
+the selector.
+Literal filename whitespace and numeric-colon suffix limitations are recorded
+in the [open backlog](../plans/open-backlog.md#literal-path-round-trips--2026-10-22).
+
 `packages/mcp/src/shared/read-request.ts` owns transport-neutral locator and range
 validation and recognizes the explicit lowercase `site:` target whose path
 selects hosted documentation. Other nonempty paths scope code to one exact

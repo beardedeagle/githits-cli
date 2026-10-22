@@ -70,10 +70,11 @@ unverified paths.
 - Packages: \`<registry>:<name>@version\` such as \`npm:express\` or
   \`pypi:requests@2.32.3\` (never the literal \`registry:\`); Swift
   \`swift:github.com/<owner>/<repo>\`, Zig \`zig:gh/<owner>/<repo>\`. A package target covers its package subpath,
-  including in monorepos.
+  including in monorepos. Paths and path filters are relative to that package root.
 - Repositories: \`github:owner/repo@ref\`, \`codeberg:\`, \`gitlab:\`, \`launchpad:\`, or a
   supported full URL, for whole repositories or sibling packages. Never infer
-  a provider. Launchpad accepts \`lp:project\`, \`lp:distro/+source/source\`,
+  a provider. Paths and path filters are relative to the repository root.
+  Launchpad accepts \`lp:project\`, \`lp:distro/+source/source\`,
   \`lp:~owner/project\`, \`lp:~owner/distro/+source/source\`, and complete
   \`launchpad:~owner/[project/]+git/repo\` or
   \`launchpad:~owner/distro/+source/source/+git/repo\` paths. Case-insensitive
@@ -90,13 +91,14 @@ unverified paths.
 - Omit \`format\`: text serves model reading and follow-ups. Use JSON only when
   code consumes the raw response or a required field is missing from text;
   calling through MCP or code is not a reason.
-- Reuse returned targets, paths, locators, references, and ranges unchanged;
-  never invent them.
+- Reuse returned target/path pairs, locators, references, and ranges unchanged;
+  never invent them or combine a path from one target with another target.
 - Follow rendered continuation and recovery actions instead of repeating or
   polling calls. Counts cover one page.
 - Omit \`wait_timeout_ms\` for the default; \`0\` returns without waiting. While
   indexing, use the displayed estimate to wait longer or pick a listed
-  already-indexed version or ref.
+  already-indexed version or ref. Keep the original target and path filters
+  when retrying the same scope.
 - Cite tool-owned provenance, including example source repositories, and
   report coverage, truncation, and other evidence limits.
 

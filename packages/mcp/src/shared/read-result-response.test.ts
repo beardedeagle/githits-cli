@@ -3,6 +3,87 @@ import type { ReadResult } from "@githits/core-internal";
 import { formatReadResult } from "./read-result-response.js";
 
 describe("unified read presentation", () => {
+  it("keeps package-relative symbol candidates paired with their requested target", () => {
+    const response: ReadResult = {
+      source: "symbol_resolution",
+      result: {
+        status: "AMBIGUOUS",
+        candidates: [
+          {
+            name: "select",
+            qualifiedPath: "Query.select",
+            kind: "method",
+            arity: 0,
+            filePath: "src/query.ts",
+            startLine: 12,
+            endLine: 20,
+          },
+        ],
+        suggestions: [],
+        hasMore: false,
+        repoUrl: "https://github.com/owner/monorepo",
+        gitRef: "abc",
+        message: null,
+        codeIndexState: "CURRENT",
+      },
+    };
+    const request = { target: "npm:query-package@1.0.0#select" };
+    for (const format of ["mcp-text", "cli-text"] as const) {
+      const text = formatReadResult(response, request, format);
+      expect(text).toContain("Paths are relative to npm:query-package@1.0.0.");
+      expect(text).toContain("Candidate: Query.select | src/query.ts:12-20");
+      expect(text).not.toContain(
+        "Paths are relative to npm:query-package@1.0.0#",
+      );
+    }
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "shell-quotes symbol recovery operands and terminates options",
+    async () => {
+      const selector = "-$(printf PATH_AUDIT_EXPANDED)";
+      const target = "github:owner/repo@branch-$(printf TARGET_EXPANDED)";
+      const response: ReadResult = {
+        source: "symbol_resolution",
+        result: {
+          status: "NOT_FOUND",
+          candidates: [],
+          suggestions: [],
+          hasMore: false,
+          repoUrl: "https://github.com/owner/repo",
+          gitRef: "abc",
+          message: null,
+          codeIndexState: "CURRENT",
+        },
+      };
+      const result = JSON.parse(
+        formatReadResult(response, { target, selector }, "cli-json"),
+      );
+      const command = result.action
+        .match(/githits search .* or inspect/)[0]
+        .replace(/ or inspect$/, "");
+      const child = Bun.spawn(
+        ["/bin/sh", "-c", `githits() { printf '%s\\n' "$@"; }; ${command}`],
+        {
+          env: {},
+          stdout: "pipe",
+          stderr: "pipe",
+        },
+      );
+      const stdout = await new Response(child.stdout).text();
+      expect(await child.exited).toBe(0);
+      expect(stdout.trimEnd().split("\n")).toEqual([
+        "search",
+        "--in",
+        target,
+        "--source",
+        "symbol",
+        "--",
+        selector,
+      ]);
+    },
+  );
+
   it("keeps known dates and the served identity in CLI/MCP read JSON", () => {
     const targetResolution = {
       requested: { kind: "repo_default_branch" },
@@ -99,7 +180,7 @@ describe("unified read presentation", () => {
     expect(mcp.action).toContain('"target":"npm:express@5.2.1"');
     expect(mcp.action).not.toContain("#missing");
     expect(formatReadResult(response, request, "cli-text")).toContain(
-      '--in "npm:express@5.2.1"',
+      "--in 'npm:express@5.2.1'",
     );
   });
 

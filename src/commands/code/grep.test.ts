@@ -978,7 +978,7 @@ describe("pkgGrepAction", () => {
       expect(payload.code).toBe("FILE_NOT_FOUND");
       expect(payload.details?.filePath).toBe("docs/missing.md");
       expect(payload.details?.action).toContain(
-        '`githits list <target> "docs/"`',
+        "`githits list <target> 'docs/'`",
       );
       expect(payload.details?.action).toContain("`--path <path>`");
       expect(payload.details?.action).toContain("`githits code grep`");
@@ -1026,7 +1026,7 @@ describe("pkgGrepAction", () => {
         details?: { action?: string };
       };
       expect(payload.details?.action).toContain(
-        '`githits list <target> "benchmarks/"`',
+        "`githits list <target> 'benchmarks/'`",
       );
       expect(payload.details?.action).not.toContain("benchmarks/run/");
       expect(payload.details?.action).not.toContain("code_files");
