@@ -316,6 +316,9 @@ describe("unified MCP grep", () => {
   it.each([
     ["repository_indexing", "INDEXING", true, "job"],
     ["documentation_publishing", "INDEXING", true, "job"],
+    ["documentation_discovery", "INDEXING", true, undefined],
+    ["site_v6_required", "INDEXING", true, undefined],
+    ["starting_url_pending", "INDEXING", true, undefined],
     ["repository_not_found", "NOT_FOUND", false, undefined],
     ["repository_ref_not_found", "REF_NOT_FOUND", false, undefined],
     ["package_version_not_found", "VERSION_NOT_FOUND", false, undefined],

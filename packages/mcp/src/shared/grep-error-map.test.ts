@@ -50,6 +50,9 @@ describe("unified grep errors", () => {
   it.each([
     ["repository_indexing", "INDEXING"],
     ["documentation_publishing", "INDEXING"],
+    ["documentation_discovery", "INDEXING"],
+    ["site_v6_required", "INDEXING"],
+    ["starting_url_pending", "INDEXING"],
     ["repository_not_found", "NOT_FOUND"],
     ["package_not_found", "NOT_FOUND"],
     ["package_source_not_found", "NOT_FOUND"],
@@ -80,10 +83,7 @@ describe("unified grep errors", () => {
       "documentation_site_no_docs",
       "documentation_site_identity_blocked",
       "documentation_site_failed",
-      "site_v6_required",
-      "documentation_discovery",
       "documentation_unavailable",
-      "starting_url_pending",
       "starting_url_missed_at_cap",
       "starting_url_absent_from_current_corpus",
     ].map((reason) => [reason, "UNRESOLVABLE"]),
@@ -146,6 +146,9 @@ describe("unified grep errors", () => {
       "UNRESOLVABLE",
     ],
     [{ reason: "documentation_publishing", retryable: false }, "UNRESOLVABLE"],
+    [{ reason: "documentation_discovery", retryable: false }, "UNRESOLVABLE"],
+    [{ reason: "site_v6_required", retryable: false }, "UNRESOLVABLE"],
+    [{ reason: "starting_url_pending", retryable: false }, "UNRESOLVABLE"],
   ] as const)("uses progress and retryability for %j", (issue, code) => {
     const mapped = mapGrepError(
       new GrepGraphQLError("Diagnostic", {

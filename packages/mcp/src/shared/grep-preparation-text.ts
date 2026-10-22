@@ -1,4 +1,4 @@
-/** Translate verified preparation reasons without mislabeling resolution failures. */
+/** Translate known reasons; callers choose how to present unknown diagnostics. */
 export function grepPreparationReason(reason: string): string {
   switch (reason) {
     case "repository_indexing":
@@ -74,6 +74,6 @@ export function grepPreparationReason(reason: string): string {
     case "starting_url_absent_from_current_corpus":
       return "requested documentation URL is absent from the current corpus";
     default:
-      return "target is unavailable";
+      return reason;
   }
 }

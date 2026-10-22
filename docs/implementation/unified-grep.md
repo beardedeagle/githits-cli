@@ -250,15 +250,15 @@ For `GREP_TARGET_PREPARATION_REQUIRED`, CLI and MCP classify the per-target
 `lib/pkg_seer/public_error/grep/preparation_copy.ex`, `lib/pkg_seer/grep/preparation.ex`,
 `lib/pkg_seer/grep.ex`, and the documentation inventory. Documentation omissions
 normally arrive in successful grep results; their known reasons are also handled
-if a preparation error carries them. The known `INDEXING` whitelist deliberately
-contains only repository indexing and documentation publishing: although the
-backend also marks `documentation_discovery`, `site_v6_required`, and
-`starting_url_pending` as pending in successful omission records, those success
-states do not widen this preparation-error contract.
+if a preparation error carries them. Known progress reasons match PkgSeer's
+`usage_tracking/grep_classifier.ex` pending-reason set: repository indexing,
+documentation publishing/discovery, publication-format preparation, and pending
+starting URLs. They map to `INDEXING` when waiting can complete preparation,
+unless the backend explicitly marks the issue nonretryable.
 
 | Reason | Mapped code |
 | --- | --- |
-| `repository_indexing`, `documentation_publishing` | `INDEXING` unless the issue explicitly has `retryable: false` |
+| `repository_indexing`, `documentation_publishing`, `documentation_discovery`, `site_v6_required`, `starting_url_pending` | `INDEXING` unless the issue explicitly has `retryable: false` |
 | `repository_not_found`, `package_not_found`, `package_source_not_found` | `NOT_FOUND` |
 | `repository_ref_not_found`, `ref_not_found` | `REF_NOT_FOUND` |
 | `package_version_not_found`, `package_version_unresolved`, `package_source_ref_not_found` | `VERSION_NOT_FOUND` |
@@ -266,9 +266,9 @@ states do not widen this preparation-error contract.
 | `repository_resolution_error`, `repository_unavailable` | `BACKEND_ERROR` |
 | `repository_legally_blocked` | `UNRESOLVABLE` |
 | `package_source_unsupported`, `package_security_removed`, `package_scope_unavailable`, `package_release_unusable` | `UNRESOLVABLE` |
-| `no_grep_scopes`, `no_site_pages`, `site_not_indexed`, `site_no_docs`, `site_redirected`, `site_failed`, `site_v6_required` | `UNRESOLVABLE` |
-| `documentation_site_not_admitted`, `documentation_source_resolution_required`, `documentation_site_no_docs`, `documentation_site_identity_blocked`, `documentation_site_failed`, `documentation_unavailable`, `documentation_discovery` | `UNRESOLVABLE` |
-| `starting_url_pending`, `starting_url_missed_at_cap`, `starting_url_absent_from_current_corpus` | `UNRESOLVABLE` |
+| `no_grep_scopes`, `no_site_pages`, `site_not_indexed`, `site_no_docs`, `site_redirected`, `site_failed` | `UNRESOLVABLE` |
+| `documentation_site_not_admitted`, `documentation_source_resolution_required`, `documentation_site_no_docs`, `documentation_site_identity_blocked`, `documentation_site_failed`, `documentation_unavailable` | `UNRESOLVABLE` |
+| `starting_url_missed_at_cap`, `starting_url_absent_from_current_corpus` | `UNRESOLVABLE` |
 | Unknown future reason | `INDEXING` only with per-issue `retryable: true` and a nonblank string `progress_ref`; otherwise `UNRESOLVABLE` |
 
 For mixed targets, choose the **first non-INDEXING blocker in backend issue
@@ -286,7 +286,9 @@ JSON retains `details.graphqlCode` and the existing bounded public
 `details.targetIssues` projection, including raw reason strings. The top-level
 backend diagnostic already describes the first issue, so hints omit its
 reason-only row while preserving path facts. Additional blockers use their
-backend message or translated reason; unknown reason prose is neutral. Wait
+backend message or translated reason; unknown error-hint prose is neutral.
+Successful omission text keeps unrecognized backend reasons for diagnostics; the
+neutral fallback is local to error hints. Wait
 guidance appears only for `INDEXING` with aggregate `retryable: true`.
 
 Focused tests cover query variables/selections, union validation, ordered

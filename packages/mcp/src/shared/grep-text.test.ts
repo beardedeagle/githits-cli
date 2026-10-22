@@ -730,9 +730,9 @@ describe("grep text formatting", () => {
     const text = formatGrepText(result, { width: 200 });
     expect(text).toContain("Preparing:\n  - github:owner/cold (indexing)");
     expect(text).toContain(
-      "Not searched:\n  - site:missing.example: target is unavailable",
+      "Not searched:\n  - site:missing.example: site_not_found",
     );
-    expect(text).not.toContain("site_not_found");
+
     expect(text).toContain(
       "Search hosted documentation instead: site:docs.example",
     );

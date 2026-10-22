@@ -111,9 +111,13 @@ export function mapGrepError(error: unknown): MappedError {
             : typeof issue.input_index === "number"
               ? `Input ${issue.input_index}`
               : undefined;
-        const reason =
+        const translatedReason =
           typeof issue.reason === "string"
             ? grepPreparationReason(issue.reason)
+            : undefined;
+        const reason =
+          translatedReason && translatedReason !== issue.reason
+            ? translatedReason
             : "target is unavailable";
         // Package-source diagnostics can append raw reason-only boilerplate.
         const message =
@@ -181,6 +185,9 @@ function preparationIssueCode(issue: Record<string, unknown>): MappedErrorCode {
   switch (issue.reason) {
     case "repository_indexing":
     case "documentation_publishing":
+    case "documentation_discovery":
+    case "site_v6_required":
+    case "starting_url_pending":
       return issue.retryable === false ? "UNRESOLVABLE" : "INDEXING";
     case "repository_not_found":
     case "package_not_found":
@@ -210,15 +217,12 @@ function preparationIssueCode(issue: Record<string, unknown>): MappedErrorCode {
     case "site_no_docs":
     case "site_redirected":
     case "site_failed":
-    case "site_v6_required":
     case "documentation_site_not_admitted":
     case "documentation_source_resolution_required":
     case "documentation_site_no_docs":
     case "documentation_site_identity_blocked":
     case "documentation_site_failed":
-    case "documentation_discovery":
     case "documentation_unavailable":
-    case "starting_url_pending":
     case "starting_url_missed_at_cap":
     case "starting_url_absent_from_current_corpus":
       return "UNRESOLVABLE";

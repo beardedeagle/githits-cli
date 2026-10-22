@@ -1075,7 +1075,8 @@ describe("LockedAuthStorage", () => {
       new AuthStorageImpl(fs, configDir),
       fsWithHome,
       {
-        lockTimeoutMs: 100,
+        // This tests reclamation, not a tight filesystem deadline under load.
+        lockTimeoutMs: 1_000,
         getProcessStartedAt: testProcessStartedAt,
       },
     );
