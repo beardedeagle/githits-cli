@@ -681,9 +681,14 @@ indexing-retry contract. The state can arrive through either an error response
 or a success sentinel (`codeIndexState: "INDEXING"`), and that service layer
 collapses both to the same typed `CodeNavigationIndexingError` before the
 envelope builder runs. Unified MCP/CLI `grep` uses `GrepService` and its own
-typed error mapper; `GREP_TARGET_PREPARATION_REQUIRED` maps to `INDEXING`, and
-first-page preparation wait defaults to 30,000 ms; explicit zero and cursor
-continuations do not wait.
+typed error mapper. First-page preparation wait defaults to 30,000 ms; explicit
+zero and cursor continuations do not wait.
+
+Unified grep preparation errors use per-target reasons: only progress-only
+failures qualify for `INDEXING`; missing, ambiguous, and unrecoverable targets use
+the corresponding mapped codes. See [grep error classification](unified-grep.md#preparation-error-classification)
+for the reason table, mixed-target rule, and unknown-reason fallback.
+
 `list` has its own typed error family and preserves selected source/site
 lifecycle fields in JSON. Discovery `search` / `search_status` may additionally
 expose `codeIndexState: "PROVISIONAL"` with queryable hits and a `searchRef`.

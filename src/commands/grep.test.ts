@@ -330,7 +330,7 @@ describe("unified grep CLI", () => {
                   target_issues: [
                     {
                       input_index: 0,
-                      reason: "package_source_unavailable",
+                      reason: "repository_indexing",
                       retryable: true,
                     },
                   ],
@@ -343,7 +343,7 @@ describe("unified grep CLI", () => {
       expect(
         JSON.parse(String(error.mock.calls.at(-1)?.[0])).details.targetIssues[0]
           .reason,
-      ).toBe("package_source_unavailable");
+      ).toBe("repository_indexing");
       expect(
         JSON.parse(String(error.mock.calls.at(-1)?.[0])).details.hint,
       ).toContain("--wait <ms>");
@@ -374,8 +374,9 @@ describe("unified grep CLI", () => {
       ).rejects.toThrow("exit");
       const ambiguous = JSON.parse(String(error.mock.calls.at(-1)?.[0]));
       expect(ambiguous.retryable).toBe(false);
-      expect(ambiguous.details.hint).toContain("site_ambiguous");
-      expect(ambiguous.details.hint).not.toContain("--wait");
+      expect(ambiguous.code).toBe("INVALID_ARGUMENT");
+      expect(ambiguous.details.hint).toBeUndefined();
+      expect(ambiguous.details.hint ?? "").not.toContain("--wait");
       expect(stop).toHaveBeenCalledTimes(2);
       expect(log).not.toHaveBeenCalled();
     } finally {
@@ -384,4 +385,221 @@ describe("unified grep CLI", () => {
       exit.mockRestore();
     }
   });
+  it.each([
+    ["repository_indexing", "INDEXING", true, "job"],
+    ["documentation_publishing", "INDEXING", true, "job"],
+    ["documentation_discovery", "INDEXING", true, undefined],
+    ["site_v6_required", "INDEXING", true, undefined],
+    ["starting_url_pending", "INDEXING", true, undefined],
+    ["repository_not_found", "NOT_FOUND", false, undefined],
+    ["repository_ref_not_found", "REF_NOT_FOUND", false, undefined],
+    ["package_version_not_found", "VERSION_NOT_FOUND", false, undefined],
+    ["repository_ref_ambiguous", "INVALID_ARGUMENT", false, undefined],
+    ["repository_legally_blocked", "UNRESOLVABLE", false, undefined],
+    ["repository_unavailable", "BACKEND_ERROR", true, "job"],
+    ["future_reason", "UNRESOLVABLE", true, undefined],
+    ["future_reason", "INDEXING", true, "job"],
+  ] as const)(
+    "emits %s as %s in CLI JSON",
+    async (reason, code, retryable, progress_ref) => {
+      const issues = [
+        {
+          input_index: 0,
+          target: "npm:x",
+          reason,
+          retryable,
+          ...(progress_ref ? { progress_ref } : {}),
+        },
+      ];
+      const error = spyOn(console, "error").mockImplementation(() => {});
+      const exit = spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("exit");
+      });
+      try {
+        await expect(
+          grepAction(
+            "router",
+            ["npm:x"],
+            { json: true },
+            deps({
+              grepService: createMockGrepService({
+                grep: async () => {
+                  throw new GrepGraphQLError("Backend diagnostic.", {
+                    code: "GREP_TARGET_PREPARATION_REQUIRED",
+                    retryable,
+                    target_issues: issues,
+                  });
+                },
+              }),
+            }),
+          ),
+        ).rejects.toThrow("exit");
+        const result = JSON.parse(String(error.mock.calls[0]?.[0]));
+        expect(result).toMatchObject({
+          error: "Backend diagnostic.",
+          code,
+          retryable,
+          details: {
+            graphqlCode: "GREP_TARGET_PREPARATION_REQUIRED",
+            targetIssues: issues,
+          },
+        });
+        expect((result.details.hint ?? "").includes("--wait")).toBe(
+          code === "INDEXING" && retryable,
+        );
+      } finally {
+        error.mockRestore();
+        exit.mockRestore();
+      }
+    },
+  );
+
+  it("emits the terminal blocker for mixed progress and missing targets in CLI JSON", async () => {
+    const issues = [
+      { input_index: 0, reason: "repository_indexing", retryable: true },
+      { input_index: 1, reason: "repository_not_found", retryable: false },
+    ];
+    const error = spyOn(console, "error").mockImplementation(() => {});
+    const exit = spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("exit");
+    });
+    try {
+      await expect(
+        grepAction(
+          "router",
+          ["npm:a", "npm:b"],
+          { json: true },
+          deps({
+            grepService: createMockGrepService({
+              grep: async () => {
+                throw new GrepGraphQLError("Mixed blockers", {
+                  code: "GREP_TARGET_PREPARATION_REQUIRED",
+                  retryable: false,
+                  target_issues: issues,
+                });
+              },
+            }),
+          }),
+        ),
+      ).rejects.toThrow("exit");
+      const result = JSON.parse(String(error.mock.calls[0]?.[0]));
+      expect(result).toMatchObject({
+        code: "NOT_FOUND",
+        retryable: false,
+        details: { targetIssues: issues },
+      });
+      expect(result.details.hint).toContain("repository was not found");
+      expect(result.details.hint).not.toMatch(/repository_not_found|--wait/);
+    } finally {
+      error.mockRestore();
+      exit.mockRestore();
+    }
+  });
+
+  it.each(["package_version_not_found", "repository_ref_not_found"] as const)(
+    "retains additional blockers and path facts for %s in text",
+    async (reason) => {
+      const issues = [
+        {
+          input_index: 0,
+          target: "npm:a",
+          reason,
+          retryable: false,
+          file_path: "lib/a.js",
+        },
+        {
+          input_index: 1,
+          target: "npm:b",
+          reason: "repository_not_found",
+          retryable: false,
+        },
+      ];
+      const error = spyOn(console, "error").mockImplementation(() => {});
+      const exit = spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("exit");
+      });
+      try {
+        await expect(
+          grepAction(
+            "router",
+            ["npm:a", "npm:b"],
+            {},
+            deps({
+              grepService: createMockGrepService({
+                grep: async () => {
+                  throw new GrepGraphQLError("First target diagnostic.", {
+                    code: "GREP_TARGET_PREPARATION_REQUIRED",
+                    retryable: false,
+                    target_issues: issues,
+                  });
+                },
+              }),
+            }),
+          ),
+        ).rejects.toThrow("exit");
+        const text = String(error.mock.calls[0]?.[0]).replace(/\s+/g, " ");
+        expect(text).toContain("First target diagnostic.");
+        expect(text).toContain("npm:a: path lib/a.js");
+        expect(text).toContain("npm:b: repository was not found");
+        expect(text).not.toMatch(/repository_not_found|--wait/);
+      } finally {
+        error.mockRestore();
+        exit.mockRestore();
+      }
+    },
+  );
+  it.each([
+    ["repository_indexing", "repository is being indexed"],
+    ["documentation_publishing", "documentation is being prepared"],
+    ["documentation_discovery", "documentation sources are being discovered"],
+    [
+      "site_v6_required",
+      "documentation site requires a publication format update",
+    ],
+    ["starting_url_pending", "requested documentation URL is being prepared"],
+  ] as const)(
+    "retains the pending target and %s reason in text",
+    async (reason, copy) => {
+      const issues = [
+        {
+          input_index: 0,
+          target: "npm:x",
+          reason,
+          retryable: true,
+          message: "Preparation is pending.",
+        },
+      ];
+      const error = spyOn(console, "error").mockImplementation(() => {});
+      const exit = spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("exit");
+      });
+      try {
+        await expect(
+          grepAction(
+            "router",
+            ["npm:x"],
+            {},
+            deps({
+              grepService: createMockGrepService({
+                grep: async () => {
+                  throw new GrepGraphQLError("Preparation is pending.", {
+                    code: "GREP_TARGET_PREPARATION_REQUIRED",
+                    retryable: true,
+                    target_issues: issues,
+                  });
+                },
+              }),
+            }),
+          ),
+        ).rejects.toThrow("exit");
+        const text = String(error.mock.calls[0]?.[0]).replace(/\s+/g, " ");
+        expect(text).toContain(`npm:x: ${copy}`);
+        expect(text).toContain("--wait");
+        expect(text).not.toContain(reason);
+      } finally {
+        error.mockRestore();
+        exit.mockRestore();
+      }
+    },
+  );
 });
