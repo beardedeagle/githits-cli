@@ -110,7 +110,10 @@ describe("unified grep errors", () => {
         targetIssues: [issue],
       },
     });
-    expect(mapped.details?.hint).toBeUndefined();
+    if (code === "INDEXING") {
+      expect(mapped.details?.hint).toContain("npm:x: ");
+      expect(mapped.details?.hint).not.toContain(reason);
+    } else expect(mapped.details?.hint).toBeUndefined();
     const additional = mapGrepError(
       new GrepGraphQLError("First blocker.", {
         code: "GREP_TARGET_PREPARATION_REQUIRED",
@@ -265,6 +268,33 @@ describe("unified grep errors", () => {
     );
     expect(mapped.details?.hint).toBe("npm:b: repository was not found");
     expect(mapped.details?.targetIssues?.[1]).toEqual(issue);
+  });
+
+  it("retains unknown progress identity and path when indexing replaces the backend headline", () => {
+    const issue = {
+      target: "npm:future",
+      reason: "future_reason",
+      retryable: true,
+      progress_ref: "job",
+      file_path: "lib/x.ts",
+      message: "New preparation is queued.",
+    };
+    const mapped = mapGrepError(
+      new GrepGraphQLError(issue.message, {
+        code: "GREP_TARGET_PREPARATION_REQUIRED",
+        retryable: true,
+        target_issues: [issue],
+      }),
+    );
+    expect(mapped).toMatchObject({
+      code: "INDEXING",
+      retryable: true,
+      message: issue.message,
+      details: {
+        targetIssues: [issue],
+        hint: "npm:future: target is being prepared; path lib/x.ts",
+      },
+    });
   });
 
   it("keeps cursor invalid, protocol, transport, deadline and HTTP failures distinct", () => {

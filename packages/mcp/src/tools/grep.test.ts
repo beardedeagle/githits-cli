@@ -440,4 +440,45 @@ describe("unified MCP grep", () => {
       expect(text).not.toMatch(/repository_not_found|wait_timeout_ms/);
     },
   );
+  it.each([
+    ["repository_indexing", "repository is being indexed"],
+    ["documentation_publishing", "documentation is being prepared"],
+    ["documentation_discovery", "documentation sources are being discovered"],
+    [
+      "site_v6_required",
+      "documentation site requires a publication format update",
+    ],
+    ["starting_url_pending", "requested documentation URL is being prepared"],
+  ] as const)(
+    "retains the pending target and %s reason in text",
+    async (reason, copy) => {
+      const issues = [
+        {
+          input_index: 0,
+          target: "npm:x",
+          reason,
+          retryable: true,
+          message: "Preparation is pending.",
+        },
+      ];
+      const tool = createGrepTool(
+        service(async () => {
+          throw new GrepGraphQLError("Preparation is pending.", {
+            code: "GREP_TARGET_PREPARATION_REQUIRED",
+            retryable: true,
+            target_issues: issues,
+          });
+        }),
+      );
+      const result = await tool.handler({
+        targets: [{ target: "npm:x" }],
+        pattern: "router",
+      });
+      const text = result.content[0]!.text.replace(/\s+/g, " ");
+      expect(result.isError).toBe(true);
+      expect(text).toContain(`npm:x: ${copy}`);
+      expect(text).toContain("wait_timeout_ms");
+      expect(text).not.toContain(reason);
+    },
+  );
 });

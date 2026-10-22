@@ -283,10 +283,13 @@ retryability. Dedicated `REF_NOT_FOUND` / `VERSION_NOT_FOUND` recovery envelopes
 keep their existing mapping.
 
 JSON retains `details.graphqlCode` and the existing bounded public
-`details.targetIssues` projection, including raw reason strings. The top-level
-backend diagnostic already describes the first issue, so hints omit its
-reason-only row while preserving path facts. Additional blockers use their
-backend message or translated reason; unknown error-hint prose is neutral.
+`details.targetIssues` projection, including raw reason strings. For
+non-`INDEXING` errors, the backend diagnostic already describes the first issue,
+so hints omit its reason-only row while preserving path facts. `INDEXING` text
+uses a shared headline instead; its hint retains the first target and translated
+reason. Additional blockers use their backend message or translated reason;
+unknown error-hint prose describes preparation for `INDEXING` and is neutral
+otherwise.
 Successful omission text keeps unrecognized backend reasons for diagnostics; the
 neutral fallback is local to error hints. Wait
 guidance appears only for `INDEXING` with aggregate `retryable: true`.

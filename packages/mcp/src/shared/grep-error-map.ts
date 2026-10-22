@@ -118,7 +118,9 @@ export function mapGrepError(error: unknown): MappedError {
         const reason =
           translatedReason && translatedReason !== issue.reason
             ? translatedReason
-            : "target is unavailable";
+            : code === "INDEXING"
+              ? "target is being prepared"
+              : "target is unavailable";
         // Package-source diagnostics can append raw reason-only boilerplate.
         const message =
           typeof issue.message === "string"
@@ -127,16 +129,19 @@ export function mapGrepError(error: unknown): MappedError {
               ? reason
               : issue.message
             : undefined;
-        // PreparationCopy.required already describes the first blocker.
+        // Terminal headlines describe the first blocker; INDEXING replaces that
+        // headline, so its hint must retain the target identity and reason.
         const diagnostic =
-          graphqlCode === "GREP_TARGET_PREPARATION_REQUIRED" && index === 0
-            ? undefined
-            : message !== undefined
-              ? typeof issue.message === "string" &&
-                error.message.includes(issue.message)
-                ? undefined
-                : message
-              : reason;
+          code === "INDEXING"
+            ? reason
+            : graphqlCode === "GREP_TARGET_PREPARATION_REQUIRED" && index === 0
+              ? undefined
+              : message !== undefined
+                ? typeof issue.message === "string" &&
+                  error.message.includes(issue.message)
+                  ? undefined
+                  : message
+                : reason;
         const path =
           typeof issue.file_path === "string"
             ? `path ${issue.file_path}`

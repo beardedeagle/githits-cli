@@ -1,6 +1,6 @@
 # Grep preparation classification
 
-Status: implementation complete; final verification/review in progress. One PR.
+Status: implementation complete; final CI and human review pending. One PR.
 Outcome: CLI/MCP classify preparation by issue reasons, preserve backend facts,
 and render readable hints without changing successful unknown-reason diagnostics.
 Unknowns/product decisions: none. User clarified that every comparable reason
@@ -37,7 +37,8 @@ future reason vocabulary remains open (all verified). Unknowns: none.
   INVALID_ARGUMENT; transient repository failures -> BACKEND_ERROR; remaining
   known blockers -> UNRESOLVABLE. Full table lives in unified-grep.md.
 - Preserve messages, backend retryability and existing structured issue projection.
-  Omit first duplicate hint diagnosis; retain paths and readable extra blockers.
+  Omit the first duplicate hint diagnosis for non-INDEXING errors; retain target
+  identity for INDEXING, paths, and readable extra blockers.
   Version/ref text retains hints. Unknown success diagnostics remain raw as before.
 
 Acceptance: both JSON paths and text paths covered; known progress/terminal and
@@ -47,7 +48,7 @@ and CI. No merge/tag/release/publish. No optimization/performance claim.
 
 ## Verification and review closure
 
-229 expanded focused tests now pass; prior 70 recovery tests passed; typecheck/build and
+240 expanded focused tests now pass; prior 70 recovery tests passed; typecheck/build and
 Biome passed. Both dev smoke scripts pass with empty file-auth temporary homes
 (authenticated cohorts skip AUTH_REQUIRED); default isolated keychain unavailable.
 Three authenticated built Node dev replays passed: missing repo NOT_FOUND, missing
@@ -81,3 +82,35 @@ No deferred items or refactoring opportunities requiring more work.
 Keep this plan available for revised review. Durable mapping/fallback rules remain
 in unified-grep.md, with tools.md link. Update actual verification/PR evidence;
 after clean review remove this restored temporary plan as the final commit.
+
+Latest validation update: revision cb10cbf CI is fully green: Ubuntu/Windows unit
+suites, Build & Checks, MCP package validation, Node20/22/24/26 and Bun compat.
+CI run https://github.com/githits-com/githits-cli/actions/runs/39760994563 ;
+MCP validation https://github.com/githits-com/githits-cli/actions/runs/39760995031 .
+Full local rerun: 6652 pass, unrelated parser global5000ms timeout and animator
+30ms/tick-count assertion fail; host vm.loadavg measured 207.33/182.94/142.25.
+Auth reclamation passes with final test budget, also isolated rerun under load.
+No production or unrelated timing-test changes added. Full CI passes both OS.
+
+Isolated rechecks of both remaining local timing failures pass: `bun test
+src/cli/errors.test.ts -t 'preserves successful help/version'` =4 pass/0 fail;
+`bun test packages/mcp/src/progress/progress-animator.test.ts -t 'animates the initial
+message locally before any live update'` =1 pass/0 fail. No more repo edits needed.
+
+Final external round3 finding accepted: INDEXING renderer replaces the backend
+headline, so suppressing the first hint lost pending target identity/reason in
+text. Hint builder owns target evidence; retain first row for INDEXING only, keep
+terminal deduplication, and say being prepared for unknown progress reasons.
+Bounded scan: mapper deduplication, shared INDEXING renderer, CLI/MCP JSON/text
+boundaries, five known pending cases, unknown progress and path retention. Added
+all-five text regressions on both surfaces; narrow permanent-doc dedup wording.
+Three external rounds reached; no fourth. Internal preflight and CI verify the
+remaining accepted fix. Report that final fix was not re-reviewed externally.
+
+Final finding closure: all five pending reasons and an unknown progress reason
+retain target identity even when issue.message equals the replaced headline.
+240 focused tests / 1470 assertions pass; typecheck/build pass. Internal review
+is clean after narrowing the plan wording above. The final external finding is
+fixed with no remaining code findings; a fourth external round is prohibited.
+Keep this temporary plan for final human review, then delete it within this PR
+once that review is clean. This preserves the explicit clean-review cleanup gate.

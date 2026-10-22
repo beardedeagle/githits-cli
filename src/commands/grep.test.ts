@@ -548,4 +548,58 @@ describe("unified grep CLI", () => {
       }
     },
   );
+  it.each([
+    ["repository_indexing", "repository is being indexed"],
+    ["documentation_publishing", "documentation is being prepared"],
+    ["documentation_discovery", "documentation sources are being discovered"],
+    [
+      "site_v6_required",
+      "documentation site requires a publication format update",
+    ],
+    ["starting_url_pending", "requested documentation URL is being prepared"],
+  ] as const)(
+    "retains the pending target and %s reason in text",
+    async (reason, copy) => {
+      const issues = [
+        {
+          input_index: 0,
+          target: "npm:x",
+          reason,
+          retryable: true,
+          message: "Preparation is pending.",
+        },
+      ];
+      const error = spyOn(console, "error").mockImplementation(() => {});
+      const exit = spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("exit");
+      });
+      try {
+        await expect(
+          grepAction(
+            "router",
+            ["npm:x"],
+            {},
+            deps({
+              grepService: createMockGrepService({
+                grep: async () => {
+                  throw new GrepGraphQLError("Preparation is pending.", {
+                    code: "GREP_TARGET_PREPARATION_REQUIRED",
+                    retryable: true,
+                    target_issues: issues,
+                  });
+                },
+              }),
+            }),
+          ),
+        ).rejects.toThrow("exit");
+        const text = String(error.mock.calls[0]?.[0]).replace(/\s+/g, " ");
+        expect(text).toContain(`npm:x: ${copy}`);
+        expect(text).toContain("--wait");
+        expect(text).not.toContain(reason);
+      } finally {
+        error.mockRestore();
+        exit.mockRestore();
+      }
+    },
+  );
 });
