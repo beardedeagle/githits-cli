@@ -57,6 +57,7 @@ import {
   GITHITS_SKILL_CATALOG,
   GITHITS_SKILL_SOURCE_PATHS,
   GUIDANCE_SKILL_TARGETS,
+  getSkillFilePaths,
   HISTORICAL_GUIDANCE_SKILL_TARGETS,
   SHARED_AGENTS_SKILL_ROOT,
 } from "./guidance-assets.js";
@@ -1054,14 +1055,21 @@ async function hasGuidanceToUninstall(
     scope,
   )) {
     try {
+      if (step.method === "skill") {
+        for (const relativePath of getSkillFilePaths(step.skillName)) {
+          const path = fileSystemService.joinPath(
+            fileSystemService.getDirname(step.targetPath),
+            ...relativePath.split("/"),
+          );
+          if (await fileSystemService.exists(path)) return true;
+        }
+        continue;
+      }
       if (!(await fileSystemService.exists(step.targetPath))) continue;
     } catch {
       return true;
     }
-    if (
-      step.method === "skill" ||
-      (await hasManagedBlockToUninstall(step, fileSystemService))
-    ) {
+    if (await hasManagedBlockToUninstall(step, fileSystemService)) {
       return true;
     }
   }

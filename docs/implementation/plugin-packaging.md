@@ -76,7 +76,12 @@ Generated plugin assets package the canonical root skill bytes without local
 installation markers. Direct `githits init` places those payloads at each
 selected host's verified active root and adds a version/checksum marker to the
 installed `githits-mcp/SKILL.md` only. The authored skill and packaged plugin
-assets remain unmarked. Shared hosts use `.agents/skills`, while Claude Code,
+assets remain unmarked. The direct-install catalog also lists each skill's
+reference files. Setup copies those files from the same packaged source directory
+as `SKILL.md`, and status checks require matching reference content. Rerunning
+setup repairs missing or stale references even when `SKILL.md` is current.
+Uninstall removes catalog-owned files and empty skill directories while
+preserving unrelated files. Shared hosts use `.agents/skills`, while Claude Code,
 Kiro, Factory Droid, Antigravity user scope, and Hermes user scope use their
 native roots. Cline and Junie use the shared root; their historical native
 `githits-mcp/SKILL.md` files are migration-only targets. Local CLI MCP startup

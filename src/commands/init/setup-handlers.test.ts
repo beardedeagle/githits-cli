@@ -1643,6 +1643,9 @@ describe("managed guidance blocks", () => {
       atomicWriteFile: mock(async (_path: string, next: string) => {
         content = next;
       }),
+      deleteFile: mock(async () => {
+        content = "";
+      }),
     });
 
     const installed = await executeManagedBlockSetup(setup, fs);
@@ -1749,6 +1752,8 @@ describe("skill setup", () => {
     const fs = createMockFileSystemService({
       readFile: mock(async (path: string) => {
         if (path === other.sourcePath) return source;
+        if (path === "/pkg/skills/githits-mcp/references/code-and-docs.md")
+          return "Code reference\n";
         throw Object.assign(new Error("missing"), { code: "ENOENT" });
       }),
     });

@@ -68,6 +68,10 @@ Rerun guided `githits init` with the intended agents selected to replace an
 older managed block. Local MCP startup refreshes eligible installed skill
 content, but does not update agent instruction files.
 
+Uninstall removes the managed block and preserves the remaining instruction
+content. If only whitespace or the GitHits-supplied file header remains, it
+deletes the instruction file instead of leaving an empty file.
+
 Remote MCP docs and setup help recommend the `githits-mcp` skill. The skill
 carries the stable quick-start guide, so a skill-loaded agent skips the
 `quick_start` call. Plain MCP clients use `quick_start` as the fallback

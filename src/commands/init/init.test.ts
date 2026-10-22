@@ -9,7 +9,7 @@ import {
 } from "bun:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, posix, win32 } from "node:path";
 import { ExitPromptError } from "@inquirer/core";
 import { Command } from "commander";
 import { version } from "../../../package.json";
@@ -37,6 +37,7 @@ import {
   GITHITS_GUIDANCE_BLOCK,
   GITHITS_GUIDANCE_MARKER,
   GITHITS_SKILL_CATALOG,
+  readSkillSourceFiles,
 } from "./guidance-assets.js";
 import {
   createInitLoginDependencies,
@@ -136,14 +137,23 @@ function createUnauthLoginDeps(): () => Promise<
 
 function readCanonicalSkillFiles(skillRoot: string): Record<string, string> {
   return Object.fromEntries(
-    GITHITS_SKILL_CATALOG.map((skill) => [
-      `${skillRoot}/${skill.name}/SKILL.md`,
-      skill.name === "githits-mcp"
-        ? renderManagedSkillContent(
-            readFileSync(join(process.cwd(), ...skill.relativePath), "utf8"),
-            version,
-          )
-        : readFileSync(join(process.cwd(), ...skill.relativePath), "utf8"),
+    GITHITS_SKILL_CATALOG.flatMap((skill) => [
+      [
+        `${skillRoot}/${skill.name}/SKILL.md`,
+        skill.name === "githits-mcp"
+          ? renderManagedSkillContent(
+              readFileSync(join(process.cwd(), ...skill.relativePath), "utf8"),
+              version,
+            )
+          : readFileSync(join(process.cwd(), ...skill.relativePath), "utf8"),
+      ],
+      ...skill.references.map((reference) => [
+        `${skillRoot}/${skill.name}/${reference}`,
+        readFileSync(
+          join(process.cwd(), ...skill.relativePath.slice(0, -1), reference),
+          "utf8",
+        ),
+      ]),
     ]),
   );
 }
@@ -171,20 +181,26 @@ function createFsWithDetection(
   configFiles: Record<string, string> = {},
 ) {
   const skillSourceContents = new Map(
-    GITHITS_SKILL_CATALOG.map((skill) => {
-      const sourcePath = join(process.cwd(), ...skill.relativePath).replaceAll(
-        "\\",
-        "/",
+    GITHITS_SKILL_CATALOG.flatMap((skill) => {
+      return ["SKILL.md", ...skill.references].map(
+        (relativePath): [string, string] => {
+          const sourcePath = join(
+            process.cwd(),
+            ...skill.relativePath.slice(0, -1),
+            relativePath,
+          ).replaceAll("\\", "/");
+          return [sourcePath, readFileSync(sourcePath, "utf8")];
+        },
       );
-      return [sourcePath, readFileSync(sourcePath, "utf8")];
     }),
   );
   return createMockFileSystemService({
     getHomeDir: mock(() => "/home/test"),
     joinPath: mock((...segments: string[]) => segments.join("/")),
     isDirectory: mock(async (path: string) => detectedDirs.includes(path)),
-    getDirname: mock(
-      (path: string) => path.split("/").slice(0, -1).join("/") || "/",
+    // Targets use POSIX fixtures; packaged sources use the runner's native paths.
+    getDirname: mock((path: string) =>
+      posix.dirname(path.replaceAll("\\", "/")),
     ),
     ensureDir: mock(() => Promise.resolve()),
     readFile: mock(async (path: string) => {
@@ -333,6 +349,37 @@ function createMockExecService(impl: Partial<ExecService> = {}): ExecService {
   );
   return service;
 }
+
+describe("init filesystem fixture", () => {
+  it("reads Windows packaged references alongside POSIX mock targets", async () => {
+    const directory = win32.join("C:\\", "package", "skills", "githits-code");
+    const sourcePath = win32.join(directory, "SKILL.md");
+    const referencePath = win32.join(
+      directory,
+      "references",
+      "code-and-docs.md",
+    );
+    const fs = createFsWithDetection([], {
+      [sourcePath]: "Skill\n",
+      [referencePath.replaceAll("\\", "/")]: "Reference\n",
+    });
+
+    await expect(
+      readSkillSourceFiles(
+        {
+          method: "skill",
+          skillName: "githits-code",
+          sourcePath,
+          targetPath: "/home/test/.agents/skills/githits-code/SKILL.md",
+        },
+        fs,
+      ),
+    ).resolves.toEqual([
+      { relativePath: "SKILL.md", content: "Skill\n" },
+      { relativePath: "references/code-and-docs.md", content: "Reference\n" },
+    ]);
+  });
+});
 
 describe("initAction", () => {
   it("prints agent-safe guidance without side effects in non-interactive mode", async () => {
@@ -7792,7 +7839,7 @@ describe("initUninstallAction", () => {
     );
 
     expect(JSON.parse(configFiles[cursorConfigPath]!).mcpServers).toEqual({});
-    expect(deleteCalls).toEqual(Object.keys(guidanceFiles));
+    expect([...deleteCalls].sort()).toEqual(Object.keys(guidanceFiles).sort());
     for (const path of Object.keys(guidanceFiles)) {
       expect(configFiles[path]).toBeUndefined();
     }
@@ -7830,7 +7877,7 @@ describe("initUninstallAction", () => {
     );
 
     expect(JSON.parse(configFiles[kiroConfigPath]!).mcpServers).toEqual({});
-    expect(deleteCalls).toEqual(Object.keys(guidanceFiles));
+    expect([...deleteCalls].sort()).toEqual(Object.keys(guidanceFiles).sort());
     for (const path of Object.keys(guidanceFiles)) {
       expect(configFiles[path]).toBeUndefined();
     }
@@ -9108,6 +9155,31 @@ describe("initUninstallAction", () => {
     expect(logCalls.some((msg) => msg.includes("Uninstall cancelled"))).toBe(
       true,
     );
+  });
+
+  it("removes project skill references even when SKILL.md is absent", async () => {
+    const reference =
+      "/repo/.agents/skills/githits-code/references/code-and-docs.md";
+    const configFiles: Record<string, string> = {
+      [reference]: "Code reference\n",
+    };
+    const fs = createFsWithDetection(["/repo"], configFiles);
+    fs.getCwd = mock(() => "/repo");
+    fs.deleteFile = mock(async (path: string) => {
+      delete configFiles[path];
+    });
+
+    await initUninstallAction(
+      { project: true, yes: true },
+      {
+        fileSystemService: fs,
+        promptService: createMockPromptService(),
+        execService: createMockExecService(),
+      },
+    );
+
+    expect(configFiles[reference]).toBeUndefined();
+    expect(fs.deleteFile).toHaveBeenCalledWith(reference);
   });
 
   it("removes GitHits guidance when uninstalling without MCP configs", async () => {
