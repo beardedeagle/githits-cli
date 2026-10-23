@@ -5,7 +5,7 @@
 <h1 align="center">GitHits CLI</h1>
 
 <p align="center">
-  The code context layer for AI coding agents.
+  The infrastructure layer connecting agents to the open-source ecosystem.
 </p>
 
 <p align="center">

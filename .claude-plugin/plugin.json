@@ -1,7 +1,7 @@
 {
   "name": "githits",
   "version": "0.35.0",
-  "description": "The code context layer for AI coding agents",
+  "description": "The infrastructure layer connecting agents to the open-source ecosystem",
   "author": {
     "name": "GitHits",
     "email": "support@githits.com",
