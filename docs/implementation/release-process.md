@@ -154,9 +154,13 @@ matching changelog section must fail before release.
 
 ## npm Publication Completion and Recovery
 
-CI and package-release workflows default to `permissions: {}`. CI jobs
-explicitly grant `contents: read`; publishing jobs grant `contents: write`
-for tags and releases and `id-token: write` for trusted publishing.
+CI and package-release workflows default to `permissions: {}`. Agent evals
+grant `contents: read` at workflow scope. CI jobs explicitly grant
+`contents: read`. Publishing jobs grant `contents: write` for tags and
+releases and `id-token: write` for npm trusted publishing and Azure login.
+Third-party actions are pinned to full commit SHAs with version comments, and
+these workflows install Bun 1.4.4. Dependabot's `github-actions` updates
+refresh the SHA pins.
 
 The MCP release workflow also supports manual dispatch: `dry_run` defaults to
 `true` for validation only. Set it to `false` on `main` for publication or
