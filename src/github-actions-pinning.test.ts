@@ -7,6 +7,7 @@ const pinnedBunVersion = '"1.4.4"';
 const matrixBunVersion = "$" + "{{ matrix.bun-version }}";
 const pinnedAction = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[0-9a-f]{40}$/;
 const versionComment = /^v\d+\.\d+\.\d+$/;
+const workflowsWithoutBun = new Set(["gitleaks.yml", "main.yml", "pr.yml"]);
 const privilegedJobs = new Map<string, string>([
   ["release.yml", "release"],
   ["mcp-release.yml", "publish"],
@@ -44,6 +45,7 @@ describe("GitHub Actions supply-chain pins", () => {
     expect(workflowNames).toEqual([
       "agent-evals.yml",
       "ci.yml",
+      "gitleaks.yml",
       "main.yml",
       "mcp-release.yml",
       "pr.yml",
@@ -81,7 +83,7 @@ describe("GitHub Actions supply-chain pins", () => {
       for (const bunVersion of bunVersions) {
         expect([pinnedBunVersion, matrixBunVersion]).toContain(bunVersion);
       }
-      if (workflowName !== "main.yml" && workflowName !== "pr.yml") {
+      if (!workflowsWithoutBun.has(workflowName)) {
         expect(bunVersions).toContain(pinnedBunVersion);
       }
 
@@ -116,5 +118,25 @@ describe("GitHub Actions supply-chain pins", () => {
         expect(Object.keys(workflow.on ?? {}).sort()).toEqual(["workflow_run"]);
       }
     }
+  });
+
+  it("runs the pinned gitleaks OSS binary instead of gitleaks-action", async () => {
+    const source = await readFile(
+      join(import.meta.dir, "..", ".github", "workflows", "gitleaks.yml"),
+      "utf8",
+    );
+
+    expect(source).toContain('version="8.30.1"');
+    expect(source).toContain(
+      "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+    );
+    expect(source).toContain(
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+    );
+    expect(source).toContain(
+      "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2",
+    );
+    expect(source).not.toContain("uses: gitleaks/gitleaks-action");
+    expect(source).not.toContain("GITLEAKS_LICENSE");
   });
 });

@@ -67,6 +67,7 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome lint .",
+    "check:gitleaks": "sh scripts/check-gitleaks.sh",
     "prepare": "husky",
     "prepack": "bun run plugins:check",
     "prepublishOnly": "bun run build"

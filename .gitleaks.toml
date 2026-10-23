@@ -1,0 +1,8 @@
+title = "githits-cli"
+
+# Extend the gitleaks default rules bundled with the OSS binary.
+# Add an allowlist only after a finding cannot be fixed, marked with an
+# inline `gitleaks:allow` comment, or ignored by fingerprint. Do not add
+# broad path allowlists.
+[extend]
+useDefault = true

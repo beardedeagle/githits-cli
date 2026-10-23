@@ -1,0 +1,156 @@
+# Secret scanning with the gitleaks OSS CLI.
+# Do not switch this to gitleaks/gitleaks-action: that action requires a
+# commercial license for organization repositories.
+name: Gitleaks
+
+on:
+  workflow_call:
+  schedule:
+    # Weekly full-history scan. Pull requests and main pushes call this
+    # workflow and scan only the commits that event introduced.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: gitleaks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install gitleaks
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="8.30.1"
+          expected_sha256="551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+          archive="${RUNNER_TEMP}/gitleaks_${version}_linux_x64.tar.gz"
+          install_dir="${RUNNER_TEMP}/gitleaks-bin"
+          curl --fail --location --silent --show-error \
+            --proto '=https' --tlsv1.2 \
+            --output "${archive}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz"
+          echo "${expected_sha256}  ${archive}" | sha256sum --check --status
+          mkdir -p "${install_dir}"
+          tar --extract --gzip --file "${archive}" --directory "${install_dir}" gitleaks
+          echo "${install_dir}" >> "${GITHUB_PATH}"
+          "${install_dir}/gitleaks" version
+
+      - name: Scan for secrets
+        id: scan
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BEFORE_SHA: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          report="${RUNNER_TEMP}/gitleaks-report.json"
+          mode="introduced"
+          if [[ "${EVENT_NAME}" == "schedule" || "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            mode="full"
+          fi
+
+          if [[ "${mode}" == "full" ]]; then
+            log_opts="--full-history --all --diff-filter=tuxdb"
+            scope="full history"
+          elif [[ "${EVENT_NAME}" == "pull_request" ]]; then
+            if [[ -z "${BASE_SHA}" || -z "${HEAD_SHA}" ]]; then
+              echo "Pull request scan is missing a base or head SHA." >&2
+              exit 1
+            fi
+            git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null || git fetch --no-tags origin "${BASE_SHA}"
+            git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null || git fetch --no-tags origin "pull/${PR_NUMBER}/head"
+            log_opts="--full-history --diff-filter=tuxdb ${BASE_SHA}..${HEAD_SHA}"
+            scope="introduced commits ${BASE_SHA}..${HEAD_SHA}"
+          elif [[ -z "${BEFORE_SHA}" || "${BEFORE_SHA}" =~ ^0+$ ]]; then
+            log_opts="--full-history --diff-filter=tuxdb -n 1 ${PUSH_SHA}"
+            scope="introduced commit ${PUSH_SHA}"
+          else
+            git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null || git fetch --no-tags origin "${BEFORE_SHA}"
+            log_opts="--full-history --diff-filter=tuxdb ${BEFORE_SHA}..${PUSH_SHA}"
+            scope="introduced commits ${BEFORE_SHA}..${PUSH_SHA}"
+          fi
+
+          echo "GITLEAKS_MODE=${mode}" >> "${GITHUB_ENV}"
+          echo "GITLEAKS_SCOPE=${scope}" >> "${GITHUB_ENV}"
+
+          set +e
+          gitleaks git \
+            --no-banner \
+            --no-color \
+            --redact \
+            --report-format json \
+            --report-path "${report}" \
+            --log-opts="${log_opts}" \
+            .
+          status=$?
+          set -e
+
+          if [[ -f "${report}" ]]; then
+            if ! jq -e 'all(.[]; .Secret == "REDACTED")' "${report}" >/dev/null; then
+              echo "Refusing to keep a gitleaks report that is not fully redacted." >&2
+              rm -f "${report}"
+              exit 1
+            fi
+          elif [[ "${status}" -eq 0 ]]; then
+            echo "[]" > "${report}"
+          fi
+
+          exit "${status}"
+
+      - name: Write step summary
+        if: always()
+        shell: bash
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+        run: |
+          set -euo pipefail
+          report="${RUNNER_TEMP}/gitleaks-report.json"
+          count="unknown"
+          if [[ -f "${report}" ]] && jq empty "${report}" 2>/dev/null; then
+            count="$(jq 'length' "${report}")"
+          elif [[ "${SCAN_OUTCOME}" == "success" ]]; then
+            count="0"
+          fi
+          {
+            echo "## Gitleaks secret scan"
+            echo
+            echo "- Status: **${SCAN_OUTCOME}**"
+            echo "- Mode: \`${GITLEAKS_MODE:-unknown}\`"
+            echo "- Scope: ${GITLEAKS_SCOPE:-unknown}"
+            echo "- Redacted finding count: \`${count}\`"
+            echo
+            if [[ "${count}" =~ ^[0-9]+$ && "${count}" -gt 0 ]]; then
+              echo "Findings (values redacted):"
+              echo
+              jq -r '.[] | "- \(.RuleID) \(.File):\(.StartLine) (\(.Commit[0:12]))"' "${report}"
+              echo
+            fi
+            echo "Matched values are redacted and are not included in this summary."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload redacted report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gitleaks-report
+          path: ${{ runner.temp }}/gitleaks-report.json
+          if-no-files-found: ignore

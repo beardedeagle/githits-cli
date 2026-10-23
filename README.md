@@ -493,6 +493,18 @@ bun run smoke:mcp:built
 The harness remains on Bun, while product subprocesses execute `dist/cli.js`
 with `node` from `PATH`. CI provisions that runtime from `.node-version`.
 
+Secret scanning uses the gitleaks OSS CLI at version 8.30.1. The pre-commit
+hook runs `bun run check:gitleaks` on staged changes. Scan the full history
+locally with:
+
+```sh
+gitleaks git --redact --no-banner --no-color .
+```
+
+Install the 8.30.1 binary from the gitleaks releases and put it on `PATH`.
+See [secret scanning](docs/implementation/security-scanning.md) for the CI
+schedule, suppression order, and npm package boundary.
+
 When changing MCP instructions, tool descriptions, or agent-facing behavior,
 use the targeted agent evals described in `eval/agentic/README.md`:
 
