@@ -16,13 +16,13 @@ jobs:
         environment: production
         permissions:
             contents: write
-            id-token: write # Required for OIDC trusted publishing
+            id-token: write # npm trusted publishing and Azure OIDC
         env:
             MCP_PUBLISHER_VERSION: v1.7.9
             MCP_PUBLISHER_LINUX_AMD64_SHA256: ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac
         steps:
             - name: Checkout
-              uses: actions/checkout@v7
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
 
@@ -74,13 +74,13 @@ jobs:
 
             - name: Setup Bun
               if: steps.version.outputs.should_release == 'true'
-              uses: oven-sh/setup-bun@v2
+              uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
               with:
-                  bun-version: latest
+                  bun-version: "1.4.4"
 
             - name: Setup Node.js
               if: steps.version.outputs.should_release == 'true'
-              uses: actions/setup-node@v7
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
                   node-version-file: ".node-version"
                   registry-url: "https://registry.npmjs.org"
@@ -150,7 +150,7 @@ jobs:
 
             - name: Azure login
               if: steps.version.outputs.should_release == 'true'
-              uses: azure/login@v3
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               with:
                   client-id: ${{ secrets.AZURE_CLIENT_ID }}
                   tenant-id: ${{ secrets.AZURE_TENANT_ID }}
