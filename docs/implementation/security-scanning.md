@@ -17,9 +17,10 @@ A weekly schedule, and a manual run of `.github/workflows/gitleaks.yml`, scan
 the full history. The workflow uploads a redacted JSON report and writes a
 step summary that omits matched values.
 
-Do not fingerprint a real secret. A full-history scan stays failing while any
-unresolved historical finding remains. The pre-commit hook and the pull-request
-job only scan newly introduced changes.
+Do not fingerprint a real secret that still needs rotation. A full-history scan
+stays failing while any unresolved historical finding remains. An owner-accepted
+test-only key is a separate `.gitleaksignore` group that names who accepted it.
+The pre-commit hook and the pull-request job only scan newly introduced changes.
 
 ## Local scan
 

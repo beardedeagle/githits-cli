@@ -20,3 +20,8 @@ c0519b4236353c0440655a6fc1aaeb8d3c1fab9d:packages/mcp/src/shared/unified-search-
 c0519b4236353c0440655a6fc1aaeb8d3c1fab9d:src/commands/search.test.ts:generic-api-key:63
 a9243e19a2f5de2c26f16ca6b98bb07b4fc87a76:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:574
 a9243e19a2f5de2c26f16ca6b98bb07b4fc87a76:src/commands/search.test.ts:generic-api-key:416
+
+# private-key: test-only self-signed localhost key for the example.test
+# smoke-test certificate in scripts/proxy-node-smoke.mjs. The keypair was
+# never reused. Accepted by Juha Litola on 2026-10-23. No rotation needed.
+2d40d436359eada54a771d04ef9c283f43751eb8:scripts/proxy-node-smoke.mjs:private-key:107
