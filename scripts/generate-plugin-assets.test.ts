@@ -32,7 +32,8 @@ const registryKeywords = [
 const packageJson: PluginPackageJson = {
   name: "githits",
   version: "1.2.3",
-  description: "The code context layer for AI coding agents",
+  description:
+    "The infrastructure layer connecting agents to the open-source ecosystem",
   author: "GitHits",
   homepage: "https://githits.com",
   repository: {
@@ -93,7 +94,8 @@ describe("plugin asset generation", () => {
       $schema: AGENT_PLUGINS_SCHEMA_URL,
       name: "githits",
       version: "1.2.3",
-      description: "The code context layer for AI coding agents",
+      description:
+        "The infrastructure layer connecting agents to the open-source ecosystem",
       author: { name: "GitHits" },
       homepage: "https://githits.com",
       repository: "https://github.com/githits-com/githits-cli",
