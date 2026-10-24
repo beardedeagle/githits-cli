@@ -100,7 +100,7 @@ closure; do not edit that worktree. No new refactoring is currently needed.
 - Baseline focused suites: 169 pass. New core regression tests failed four cases
   before implementation, proving absent selection/retention/validation.
 - `bun test`: 6,679 pass, 0 fail across 258 files (27.05 s).
-- Focused eight grep suites: 182 pass, 0 fail, 1,352 expectations after the platform fix.
+- Focused eight grep suites: 182 pass, 0 fail, 1,354 expectations after platform/control quoting fixes.
 - `bun run typecheck`, `bun run format:check`, root build and MCP build pass.
   `bun run lint` passes with 19 preexisting warnings confined to unchanged
   `packages/mcp/src/shared/repository-target.ts`.
@@ -149,3 +149,14 @@ keeping durable contract, rollout and qualification facts in unified-grep.md.
 Production backend deployment and subsequent CLI/MCP releases remain external
 prerequisites, not authorized operations. No other implementation is deferred,
 and no new refactoring opportunity or infrastructure is needed for this change.
+
+Final self-check found that JSON.stringify leaves C1 controls literal even
+though selector normalization permits them. Added C1 to the pair round-trip
+regression (failed in MCP mode before the fix), and reused the formatter's
+existing escapeControls for JSON pair rows; no new boundary or helper. CLI
+already uses shellQuoteExact for those controls. Checked all new advisory rows:
+prose uses existing escaping, CLI rows use shell quoting, MCP rows now escape
+C0/C1 while JSON.parse retains the exact value. Initial PR CI at e7b880d passed
+Linux/Windows tests, Build & Checks, MCP package validation and Bun/Node 20–26
+compatibility. Follow-up quoting fix: final internal review clean, focused suites pass,
+public package validation (including fresh root/MCP builds) passes.

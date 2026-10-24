@@ -210,7 +210,7 @@ export function formatGrepText(
         // Pair rows are data, not a guessed grep invocation: the warning has no selector kind.
         lines.push(
           options.syntax === "mcp"
-            ? `      ${JSON.stringify({ target: suggestion.target, path: suggestion.path })}`
+            ? `      ${escapeControls(JSON.stringify({ target: suggestion.target, path: suggestion.path }))}`
             : `      target=${shellQuoteExact(suggestion.target)} path=${shellQuoteExact(suggestion.path)}`,
         );
       }

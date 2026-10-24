@@ -86,7 +86,8 @@ describe("grep path advisories", () => {
     it(`quotes exact ${syntax} pairs with spaces, quotes, metacharacters and controls without wrapping`, async () => {
       const input = page();
       const target = `github:o/weird repo'";$()\\name@${"b".repeat(40)}`;
-      const path = "src/a 'quoted' \"file\";$HOME`echo nope`\\é\n\u001b[31m.ts";
+      const path =
+        "src/a 'quoted' \"file\";$HOME`echo nope`\\é\n\u001b[31m\u009b[31m.ts";
       input.pathWarnings = [
         {
           ...warning,
@@ -101,6 +102,7 @@ describe("grep path advisories", () => {
       });
       expect(text).toContain("Public\\u001b[31m message");
       expect(text).not.toContain("\u001b");
+      expect(text).not.toContain("\u009b");
       const row = text.split("\n").find((line) => line.startsWith("      "))!;
       expect(row.length).toBeGreaterThan(35);
       if (syntax === "mcp") {
