@@ -56,6 +56,7 @@ const hit: GrepHit = {
 function result(overrides: Partial<GrepResult> = {}): GrepResult {
   return {
     indexingEstimates: [],
+    pathWarnings: [],
     hits: [hit],
     targets: [target],
     unavailableTargets: [],

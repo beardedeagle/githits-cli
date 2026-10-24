@@ -198,6 +198,24 @@ export function formatGrepText(
         ? `${result.hits.length ? "Some requested content could not be searched; the" : "The"} service did not explain why or whether retrying would help.`
         : "The search did not finish, and no continuation cursor was returned. The service did not explain why the full search stopped or whether retrying would help.",
     );
+  if (result.pathWarnings.length) {
+    lines.push("", "Path advisories:");
+    for (const warning of result.pathWarnings) {
+      prose(`  - ${warning.message}`);
+      if (warning.suggestions.length)
+        prose(
+          "    Unverified alternatives (keep selector kind and other controls):",
+        );
+      for (const suggestion of warning.suggestions) {
+        // Pair rows are data, not a guessed grep invocation: the warning has no selector kind.
+        lines.push(
+          options.syntax === "mcp"
+            ? `      ${JSON.stringify({ target: suggestion.target, path: suggestion.path })}`
+            : `      target=${shellQuoteExact(suggestion.target)} path=${shellQuoteExact(suggestion.path)}`,
+        );
+      }
+    }
+  }
   for (const [index, group] of groups.entries()) {
     const first = group.first;
     const target = first.read.target;

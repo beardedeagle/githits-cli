@@ -282,6 +282,10 @@ function assertGrepResult(
   context: string,
 ): Record<string, unknown> {
   assertRecord(value, context);
+  assert(
+    Array.isArray(value.pathWarnings),
+    `${context}: pathWarnings must be an array`,
+  );
   assert(Array.isArray(value.hits), `${context}: hits must be an array`);
   assert(Array.isArray(value.targets), `${context}: targets must be an array`);
   assert(

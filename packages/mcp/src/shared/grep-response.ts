@@ -1,6 +1,6 @@
 import { type GrepResult, parseGrepResult } from "@githits/core-internal";
 
-/** Preserve the selected wire payload without aliasing caller-owned arrays. */
+/** Preserve selected wire fields, including path advisories, without aliasing provider data. */
 export function projectGrepResult(result: GrepResult): GrepResult {
   // The wire contract requires the array; injected providers may predate it.
   const projected = parseGrepResult({

@@ -388,3 +388,100 @@ different package, repository or site target; unknown reasons are not given an
 invented remedy. Native public messages and error codes have their own reason
 line. Terminal preparation reasons receive no preparation retry. Auth, requests
 and JSON are unchanged. The shared helper owns only footer layout; grep owns these semantics.
+
+## Package-path advisories
+
+The backend owns path diagnosis using the selected snapshot's canonical package
+repository subpath and native path observations. Clients do not infer package
+roots from names, probe alternatives, rewrite selectors or retry automatically.
+`GrepResult.pathWarnings` is a required array, selected and validated in both
+compact and detailed modes. Each warning preserves `requestedInputIndices`,
+`target`, `path`, `repositorySubpath`, `message`, and `suggestions { target path }`.
+An empty list means no supported diagnosis was returned; zero matches alone are
+not path evidence. Missing or malformed fields are protocol errors.
+
+The shared projection reparses and deep-copies this metadata along with all
+hits, native target statuses/public messages, omissions, preparation estimates,
+traversal and cursors. The service returns short-wait pages through the same
+parser. Pending-only results without authoritative evidence have an empty list;
+mixed partial results retain proven warnings beside pending targets. The client
+does not synthesize or suppress warnings based on hit counts or pending state.
+CLI `--json` and MCP `format: "json"` preserve every warning field and backend
+input attribution. Public `@githits/mcp/client` exports `GrepPathWarning` and
+`GrepPathSuggestion`; injected `GrepService` providers must supply the array.
+
+`formatGrepText` displays each backend message once under `Path advisories`,
+after preparation/coverage and before matches. Terminal controls in prose are
+escaped and prose wraps to the caller's width. Suggested pairs are explicitly
+unverified: they do not claim the path exists or will produce hits. Copyable
+pair rows stay unwrapped. CLI uses shell-quoted `target=... path=...` values;
+MCP uses a JSON object with `target` and `path`. These are advisory values,
+not complete commands or MCP grep arguments: callers retain the original
+selector kind (`--path` / `--path-prefix`, or `path_selectors[].kind`) and other
+controls when choosing an alternative. The warning has no selector-kind field,
+so the renderer cannot safely invent one. Full commit SHAs remain intact.
+No additional diagnostic target/path sentence repeats the message's own pairs.
+Native failures, public messages and real results remain visible independently.
+
+### Deployment and release prerequisite
+
+Backend PR [#3550](https://github.com/githits-com/pkgseer-backend/pull/3550)
+merged at `b26172c5fc97287256e55d22bc64aa384297184c`. On 2026-10-24,
+read-only GraphQL validation of a skipped `grep` selection accepted every
+warning field at `https://oss-dev.githits.dev/api/graphql`. Production at
+`https://oss.githits.dev/api/graphql` rejected `GrepResult.pathWarnings`.
+Introspection is disabled at both endpoints; the validation query uses
+`@skip(if: true)` to check selections without executing grep.
+
+Before releasing a client that selects this field, verify the configured
+backend accepts the full selection below. Production needs the backend change
+deployed first; merging its PR is not proof of deployment. No schema fallback
+or downgraded query is provided: an older endpoint rejects the entire grep
+query. Native advisory generation additionally requires the backend's released
+aigrep 0.27.3/API56 path-evidence integration. Schema support alone does not
+prove native advisory behavior; qualify an applicable request on that endpoint.
+
+```graphql
+query {
+  grep(targets: [{target: "npm:express"}], pattern: "router") @skip(if: true) {
+    pathWarnings {
+      requestedInputIndices target path repositorySubpath message
+      suggestions { target path }
+    }
+  }
+}
+```
+
+Ship both the root `githits` CLI and public `@githits/mcp` package for their
+respective consumers. Hosted MCP clients receive this behavior only after
+`remote-mcp` upgrades that published package and deploys it through its own
+approved workflow. This client PR authorizes no merge, release, publication or
+deployment. The backend backlog's client-adoption entry remains for its owner
+to close after this client work ships; it is not edited across worktrees.
+
+### Client qualification (2026-10-24)
+
+- Built Node CLI and local stdio MCP against dev: prefix and exact selectors
+  both retained one advisory, both suggested pairs and the full repository SHA
+  in text and JSON. Prefix returned zero hits with `COMPLETE`; exact returned
+  zero hits with `NON_RESUMABLE_PARTIAL` and its original
+  `GREP_PATH_NOT_INDEXED` failure. CLI/MCP warnings, hits, target statuses,
+  traversal and cursors matched. Secret-free local evidence is retained in
+  `/tmp/package-path-live-results/`; these transient files are not release proof
+  for any other endpoint.
+- The targeted `eval/agentic/probes/package-path-advisories.md` local MCP/dev
+  run used Codex (`gpt-6-luna`, high). Its trace contained one `quick_start` and
+  one `grep` with the requested prefix; no alternative query was executed.
+  The final answer reported the advisory and proposed alternatives, with
+  `status: inconclusive` and `confidence: high`. The harness completed in
+  14.8 seconds, with no recorded isolation violations. This is observed agent
+  behavior, not a graded usefulness/quality result.
+- Deterministic parser/projection/formatter and CLI/MCP parity tests cover
+  multiple warnings and input indices, zero hits, existing failures/cursors,
+  mixed hits/pending and pending-only short-wait pages, quoting and controls.
+- Full authenticated live smoke currently stops at an unrelated Go recovery
+  probe before grep: `go:github.com/docker/docker@v20.10.0` now resolves to
+  `v20.10.0+incompatible`, contradicting the probe's expected missing version.
+  The broad live suites are not claimed green. Their auth/registration modes
+  and the affected grep qualification above are independent checks. No failure
+  assertion was weakened to hide this backend/fixture discrepancy.
