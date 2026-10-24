@@ -1,0 +1,27 @@
+# False positives from a full-history gitleaks 8.30.1 scan.
+# Each line is a finding fingerprint. These are not secret values.
+
+# generic-api-key: prose in a plan note. The match is the public dev
+# selector that follows the words "auth skips:", not a credential.
+f89909f2e00a4cc14a53c77427651a2d39e31cbe:docs/plans/read-target-actions.md:generic-api-key:91
+
+# generic-api-key: the same 16-hex documentation site id in test fixtures.
+# The field is siteKey, alongside ordinary hostnames in the same tests.
+2bc23e6f6d7163d5c7cedc64b564dde086318ba3:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:708
+abd01e4accbde5de5320e7e61776249519bab19e:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:703
+9179f4085aefc44272f18cb643ae017945fe3ba6:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:677
+c3b47a1ec3bcc9fa4efab370807c5ccbf4e0fbb8:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:780
+c3b47a1ec3bcc9fa4efab370807c5ccbf4e0fbb8:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:1023
+b8c77fdb8a45e763524f1312f423073d489c9f1e:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:946
+b8c77fdb8a45e763524f1312f423073d489c9f1e:packages/mcp/src/shared/unified-search-status-text.test.ts:generic-api-key:98
+c0519b4236353c0440655a6fc1aaeb8d3c1fab9d:packages/mcp/src/services/test-helpers.ts:generic-api-key:130
+c0519b4236353c0440655a6fc1aaeb8d3c1fab9d:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:619
+c0519b4236353c0440655a6fc1aaeb8d3c1fab9d:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:666
+c0519b4236353c0440655a6fc1aaeb8d3c1fab9d:src/commands/search.test.ts:generic-api-key:63
+a9243e19a2f5de2c26f16ca6b98bb07b4fc87a76:packages/mcp/src/shared/unified-search-text.test.ts:generic-api-key:574
+a9243e19a2f5de2c26f16ca6b98bb07b4fc87a76:src/commands/search.test.ts:generic-api-key:416
+
+# private-key: test-only self-signed localhost key for the example.test
+# smoke-test certificate in scripts/proxy-node-smoke.mjs. The keypair was
+# never reused. Accepted by Juha Litola on 2026-10-23. No rotation needed.
+2d40d436359eada54a771d04ef9c283f43751eb8:scripts/proxy-node-smoke.mjs:private-key:107

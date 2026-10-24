@@ -11,3 +11,9 @@ jobs:
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
+
+  gitleaks:
+    name: Gitleaks
+    uses: ./.github/workflows/gitleaks.yml
+    permissions:
+      contents: read
