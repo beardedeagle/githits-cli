@@ -9,37 +9,51 @@ const warning: GrepPathWarning = {
   target: "npm:x",
   path: "packages/x/src",
   repositorySubpath: "packages/x",
-  message:
-    'Package paths are relative to the package root. Did you mean target "npm:x" with path "src"?',
+  message: "Verbose backend explanation that must stay internal.",
   suggestions: [
-    { target: "npm:x", path: "src" },
     { target: `github:o/r@${"a".repeat(40)}`, path: "packages/x/src" },
+    { target: "npm:x", path: "src" },
   ],
 };
+const summary =
+  'Path is prefixed with package path "packages/x". Did you mean "src"?';
 
 function page() {
   return {
     ...parseGrepResult(mixed),
     pathWarnings: structuredClone([
       warning,
-      { ...warning, path: "packages/x/test", requestedInputIndices: [1] },
+      {
+        ...warning,
+        requestedInputIndices: [1],
+        suggestions: [{ target: warning.target, path: "test" }],
+      },
     ]),
   };
 }
 
-describe("grep path advisories", () => {
-  it("preserves every field and ordered input index without aliasing provider data", () => {
+describe("compact grep path warnings", () => {
+  it("projects warning strings without verbose backend metadata or aliasing provider data", () => {
     const input = page();
     const before = structuredClone(input);
     const projected = projectGrepResult(input);
-    expect(projected).toEqual(before);
-    projected.pathWarnings[0]!.requestedInputIndices.push(5);
-    projected.pathWarnings[0]!.suggestions[0]!.path = "changed";
-    projected.pathWarnings[1]!.message = "changed";
+    expect(projected).toEqual({
+      ...before,
+      pathWarnings: [
+        summary,
+        'Path is prefixed with package path "packages/x". Did you mean "test"?',
+      ],
+    });
+    projected.pathWarnings.push("changed");
+    projected.hits.pop();
     expect(input).toEqual(before);
+    const json = JSON.stringify(projectGrepResult(input));
+    expect(json).not.toContain(warning.message);
+    expect(json).not.toContain('"suggestions"');
+    expect(json).not.toContain(warning.suggestions[0]!.target);
   });
 
-  it("keeps advisories, real matches, coverage failures, public messages and cursors together", () => {
+  it("keeps native failures, matches and cursors beside compact warning lines", () => {
     const input = page();
     Object.assign(input.targets[0]!, {
       traversal: "FAILED",
@@ -48,23 +62,45 @@ describe("grep path advisories", () => {
       retryable: false,
     });
     input.traversal = "NON_RESUMABLE_PARTIAL";
-    const before = structuredClone(input);
     const text = formatGrepText(input);
     expect(text).toContain("Found 100 matches");
     expect(text).toContain("GREP_PATH_NOT_INDEXED");
     expect(text).toContain("The requested exact path is not indexed.");
-    expect(text).toContain("Path advisories:");
-    expect(text.split("Package paths are relative")).toHaveLength(3);
-    expect(text).toContain(
-      `target='github:o/r@${"a".repeat(40)}' path='packages/x/src'`,
-    );
+    expect(
+      text.split("\n").filter((line) => line.startsWith("Warning:")),
+    ).toEqual([
+      `Warning: ${summary}`,
+      'Warning: Path is prefixed with package path "packages/x". Did you mean "test"?',
+    ]);
     expect(text).toContain("--cursor");
-    expect(text).toContain("100");
-    expect(input).toEqual(before);
+    expect(text).not.toContain(warning.message);
+    expect(text).not.toContain("Path advisories:");
+    expect(text).not.toContain("Unverified alternatives");
+  });
+
+  it("collapses duplicate warning text in both output formats", () => {
+    const input = page();
+    input.pathWarnings = [warning, structuredClone(warning)];
+    expect(projectGrepResult(input).pathWarnings).toEqual([summary]);
+    expect(
+      formatGrepText(input)
+        .split("\n")
+        .filter((line) => line.startsWith("Warning:")),
+    ).toEqual([`Warning: ${summary}`]);
+  });
+
+  it("does not invent a correction when the backend has no same-target suggestion", () => {
+    const input = page();
+    input.pathWarnings = [
+      { ...warning, suggestions: [warning.suggestions[0]!] },
+    ];
+    const expected = 'Path is prefixed with package path "packages/x".';
+    expect(projectGrepResult(input).pathWarnings).toEqual([expected]);
+    expect(formatGrepText(input)).toContain(`Warning: ${expected}`);
   });
 
   for (const syntax of ["cli", "mcp"] as const) {
-    it(`shows a successful zero-hit advisory in ${syntax} without inventing a failure`, () => {
+    it(`keeps the ${syntax} warning on one line even at narrow widths`, () => {
       const input = page();
       Object.assign(input, {
         hits: [],
@@ -74,56 +110,43 @@ describe("grep path advisories", () => {
       });
       for (const target of input.targets)
         Object.assign(target, { traversal: "COMPLETE", readiness: "CURRENT" });
-      const text = formatGrepText(input, { syntax });
+      const text = formatGrepText(input, { syntax, width: 35 });
       expect(text).toStartWith("No matches found.");
-      expect(text).toContain("Path advisories:");
-      expect(text).toContain("Unverified alternatives");
+      expect(
+        text.split("\n").filter((line) => line.startsWith("Warning:")),
+      ).toEqual([
+        `Warning: ${summary}`,
+        'Warning: Path is prefixed with package path "packages/x". Did you mean "test"?',
+      ]);
       expect(text).not.toContain("search failed");
       expect(text).not.toContain("still being prepared");
-      expect(text).not.toContain("Retry");
     });
 
-    it(`quotes exact ${syntax} pairs with spaces, quotes, metacharacters and controls without wrapping`, async () => {
+    it(`quotes unusual ${syntax} paths and escapes terminal controls`, () => {
       const input = page();
-      const target = `github:o/weird repo'";$()\\name@${"b".repeat(40)}`;
       const path =
         "src/a 'quoted' \"file\";$HOME`echo nope`\\é\n\u001b[31m\u009b[31m.ts";
       input.pathWarnings = [
         {
           ...warning,
-          message: "Public\u001b[31m message",
-          suggestions: [{ target, path }],
+          repositorySubpath: "packages/\u009bx\u007f",
+          suggestions: [{ target: warning.target, path }],
         },
       ];
-      const text = formatGrepText(input, {
-        syntax,
-        width: 35,
-        useColors: false,
-      });
-      expect(text).toContain("Public\\u001b[31m message");
-      expect(text).not.toContain("\u001b");
-      expect(text).not.toContain("\u009b");
-      const row = text.split("\n").find((line) => line.startsWith("      "))!;
-      expect(row.length).toBeGreaterThan(35);
-      if (syntax === "mcp") {
-        expect(JSON.parse(row.trim())).toEqual({ target, path });
-      } else {
-        expect(row).toStartWith(
-          "      target='github:o/weird repo'\"'\"'\";$()\\name@",
-        );
-        expect(row).toContain(" path=$'src/");
-        // Bash is not a Windows prerequisite; quote structure is asserted on every host.
-        if (process.platform === "win32") return;
-        // Execute assignments only: quoted substitutions must remain literal data.
-        const child = Bun.spawn(
-          ["bash", "-c", `${row.trim()}; printf '%s\\0%s' "$target" "$path"`],
-          { stdout: "pipe", stderr: "pipe" },
-        );
-        expect(await new Response(child.stdout).text()).toBe(
-          `${target}\0${path}`,
-        );
-        expect(await child.exited).toBe(0);
-      }
+      const text = formatGrepText(input, { syntax, width: 35 });
+      const row = text.split("\n").find((line) => line.startsWith("Warning:"))!;
+      expect(row).toContain('Did you mean "src/a');
+      expect(row).toContain(
+        '\\"file\\";$HOME`echo nope`\\\\é\\n\\u001b[31m\\u009b[31m.ts"?',
+      );
+      expect(row).not.toContain("\u001b");
+      expect(row).not.toContain("\u009b");
+      const projected = projectGrepResult(input);
+      const warnings = JSON.parse(JSON.stringify(projected)).pathWarnings;
+      expect(warnings).toEqual(projected.pathWarnings);
+      expect(row.slice("Warning: ".length)).toBe(warnings[0]);
+      expect(warnings[0]).not.toContain("\u009b");
+      expect(warnings[0]).not.toContain("\u007f");
     });
   }
 });

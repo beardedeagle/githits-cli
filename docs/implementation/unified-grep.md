@@ -400,28 +400,30 @@ compact and detailed modes. Each warning preserves `requestedInputIndices`,
 An empty list means no supported diagnosis was returned; zero matches alone are
 not path evidence. Missing or malformed fields are protocol errors.
 
-The shared projection reparses and deep-copies this metadata along with all
-hits, native target statuses/public messages, omissions, preparation estimates,
-traversal and cursors. The service returns short-wait pages through the same
-parser. Pending-only results without authoritative evidence have an empty list;
-mixed partial results retain proven warnings beside pending targets. The client
-does not synthesize or suppress warnings based on hit counts or pending state.
-CLI `--json` and MCP `format: "json"` preserve every warning field and backend
-input attribution. Public `@githits/mcp/client` exports `GrepPathWarning` and
-`GrepPathSuggestion`; injected `GrepService` providers must supply the array.
+The shared projection validates and deep-copies the page, retaining hits, native
+statuses/public messages, omissions, preparation estimates, traversal and cursors.
+It replaces advisory objects with `pathWarnings: string[]` for CLI `--json` and
+MCP `format: "json"`. Text uses the same compact sentences, one physical line
+per distinct warning, after coverage/preparation and before matches:
 
-`formatGrepText` displays each backend message once under `Path advisories`,
-after preparation/coverage and before matches. Terminal controls in prose are
-escaped and prose wraps to the caller's width. Suggested pairs are explicitly
-unverified: they do not claim the path exists or will produce hits. Copyable
-pair rows stay unwrapped. CLI uses shell-quoted `target=... path=...` values;
-MCP uses a JSON object with `target` and `path`. These are advisory values,
-not complete commands or MCP grep arguments: callers retain the original
-selector kind (`--path` / `--path-prefix`, or `path_selectors[].kind`) and other
-controls when choosing an alternative. The warning has no selector-kind field,
-so the renderer cannot safely invent one. Full commit SHAs remain intact.
-No additional diagnostic target/path sentence repeats the message's own pairs.
-Native failures, public messages and real results remain visible independently.
+```text
+Warning: Path is prefixed with package path "packages/example". Did you mean "src"?
+```
+
+The package root and correction come directly from backend fields: the correction
+is the suggestion whose target equals the warning's target. There is no local
+prefix-stripping heuristic. When no same-target suggestion exists, the sentence
+stops after the package path. Values are JSON-quoted; text escapes terminal
+controls without wrapping warning lines. Identical sentences are emitted once.
+Neither output format dumps the verbose backend message or alternative pairs.
+A question suggests a possible correction; it does not assert that a path exists.
+
+The core `GrepService` contract retains complete backend metadata, including the
+public `GrepPathWarning`/`GrepPathSuggestion` types exported by
+`@githits/mcp/client`. Injected providers must supply the required array. Short
+waits use the same parser: pending-only pages without evidence have no warning,
+and mixed pages keep proven warnings beside pending targets. No warning changes
+native failures, real results or search behavior.
 
 ### Deployment and release prerequisite
 
@@ -430,12 +432,15 @@ merged at `b26172c5fc97287256e55d22bc64aa384297184c`. On 2026-10-24,
 read-only GraphQL validation of a skipped `grep` selection accepted every
 warning field at `https://oss-dev.githits.dev/api/graphql`. Production at
 `https://oss.githits.dev/api/graphql` rejected `GrepResult.pathWarnings`.
+A recheck at **2026-10-24 10:25 UTC** accepted every field on production. The
+original package/prefix request returned one advisory with zero hits and
+`COMPLETE`; the backend deployment prerequisite is now satisfied.
 Introspection is disabled at both endpoints; the validation query uses
 `@skip(if: true)` to check selections without executing grep.
 
 Before releasing a client that selects this field, verify the configured
-backend accepts the full selection below. Production needs the backend change
-deployed first; merging its PR is not proof of deployment. No schema fallback
+backend accepts the full selection below. Backend schema support must be verified on the configured endpoint; merging
+its PR is not proof of deployment. No schema fallback
 or downgraded query is provided: an older endpoint rejects the entire grep
 query. Native advisory generation additionally requires the backend's released
 aigrep 0.27.3/API56 path-evidence integration. Schema support alone does not
@@ -462,8 +467,8 @@ to close after this client work ships; it is not edited across worktrees.
 ### Client qualification (2026-10-24)
 
 - Built Node CLI and local stdio MCP against dev: prefix and exact selectors
-  both retained one advisory, both suggested pairs and the full repository SHA
-  in text and JSON. Prefix returned zero hits with `COMPLETE`; exact returned
+  both retained one advisory and complete backend data before the compact UX
+  revision. The current frontend emits only compact warning strings. Prefix returned zero hits with `COMPLETE`; exact returned
   zero hits with `NON_RESUMABLE_PARTIAL` and its original
   `GREP_PATH_NOT_INDEXED` failure. CLI/MCP warnings, hits, target statuses,
   traversal and cursors matched. Secret-free local evidence is retained in

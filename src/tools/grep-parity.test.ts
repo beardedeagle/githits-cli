@@ -313,24 +313,41 @@ describe("package-path advisory CLI/MCP parity", () => {
           expect(cli).not.toContain("Path advisories:");
         } else {
           for (const output of [cli, text]) {
-            expect(output).toContain("Path advisories:");
-            expect(output.split("Package paths are relative")).toHaveLength(3);
-            expect(output).toContain("Unverified alternatives");
+            expect(
+              output.split("\n").filter((line) => line.startsWith("Warning:")),
+            ).toEqual([
+              'Warning: Path is prefixed with package path "packages/x". Did you mean "src \'quoted\';$HOME"?',
+            ]);
+            expect(output).not.toContain(warning.message);
+            expect(output).not.toContain("Unverified alternatives");
             if (shape === "mixed-pending") {
               expect(output).toContain("1: router");
               expect(output).toContain("Preparing:");
               expect(output).toContain("npm:pending");
             } else expect(output).toStartWith("No matches found.");
           }
-          expect(text).toContain(JSON.stringify(warning.suggestions[1]));
-          expect(cli).toContain(`target='github:o/r@${"c".repeat(40)}'`);
+          expect(text).not.toContain(JSON.stringify(warning.suggestions[1]));
+          expect(cli).not.toContain(
+            `target='${warning.suggestions[1]!.target}' path=`,
+          );
         }
         expect(grep.mock.calls[0]?.[0]).toEqual(grep.mock.calls[1]?.[0]);
         await runCli(true);
         const json = await tool.handler({ ...args, format: "json" });
         expect(json.isError).toBeUndefined();
-        expect(JSON.parse(String(log.mock.calls[0]?.[0]))).toEqual(before);
-        expect(JSON.parse(String(json.content[0]?.text))).toEqual(before);
+        const expected = {
+          ...before,
+          pathWarnings: [
+            ...new Set(
+              before.pathWarnings.map(
+                () =>
+                  'Path is prefixed with package path "packages/x". Did you mean "src \'quoted\';$HOME"?',
+              ),
+            ),
+          ],
+        };
+        expect(JSON.parse(String(log.mock.calls[0]?.[0]))).toEqual(expected);
+        expect(JSON.parse(String(json.content[0]?.text))).toEqual(expected);
         expect(grep).toHaveBeenCalledTimes(4);
         expect(grep.mock.calls[2]?.[0]).toEqual(grep.mock.calls[3]?.[0]);
         expect(grep.mock.calls[3]?.[0]).toMatchObject({

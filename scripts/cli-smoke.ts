@@ -2294,7 +2294,8 @@ async function runLiveSmoke(env: Record<string, string>): Promise<void> {
   );
   assertRecord(grepPage, "unified grep source JSON");
   assert(
-    Array.isArray(grepPage.pathWarnings),
+    Array.isArray(grepPage.pathWarnings) &&
+      grepPage.pathWarnings.every((warning) => typeof warning === "string"),
     "unified grep must retain pathWarnings",
   );
   assert(

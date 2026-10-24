@@ -283,8 +283,9 @@ function assertGrepResult(
 ): Record<string, unknown> {
   assertRecord(value, context);
   assert(
-    Array.isArray(value.pathWarnings),
-    `${context}: pathWarnings must be an array`,
+    Array.isArray(value.pathWarnings) &&
+      value.pathWarnings.every((warning) => typeof warning === "string"),
+    `${context}: pathWarnings must contain compact warning strings`,
   );
   assert(Array.isArray(value.hits), `${context}: hits must be an array`);
   assert(Array.isArray(value.targets), `${context}: targets must be an array`);
